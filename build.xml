@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<project name="closure-compiler" default="all">
+    <target name="all" depends="compiler, compiler-ext" />
+    <target name="compiler">
+	<echo>ターゲット名1を実行</echo>
+	<ant antfile="build.xml" dir="google-closure-compiler"/>
+    </target>
+    <target name="compiler-ext">
+	<echo>ターゲット名2を実行</echo>
+	<ant antfile="build.xml" dir="src"/>
+    </target>
+</project>

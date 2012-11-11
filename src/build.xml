@@ -2,9 +2,9 @@
 <project name="compiler" default="build">
 
   <property name="src.dir" value="${basedir}/src" />
-  <property name="build.dir" value="${basedir}/build" />
+  <property name="build.dir" value="../build" />
   <property name="classes.dir" value="${basedir}/classes" />
-  <property name="closure-compiler.jar" value="${basedir}/../compiler-latest/compiler.jar" />
+  <property name="closure-compiler.jar" value="${basedir}/../google-closure-compiler/build/compiler.jar" />
   
   <target name="clean">
     <delete dir="${build.dir}" />
