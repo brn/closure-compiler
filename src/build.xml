@@ -14,7 +14,8 @@
     <mkdir dir="${classes.dir}" />
     <javac srcdir="${src.dir}"
            classpath="${closure-compiler.jar}"
-           destdir="${classes.dir}" />
+           destdir="${classes.dir}"
+	   source="1.6"/>
   </target>
 
   <target name="camp-command-line-runner" depends="compile">
