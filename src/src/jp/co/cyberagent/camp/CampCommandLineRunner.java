@@ -1,6 +1,7 @@
 package jp.co.cyberagent.camp;
 
 import jp.co.cyberagnet.camp.processor.CampModuleProcessor;
+import jp.co.cyberagnet.camp.processor.InjectionProcessor;
 import com.google.common.collect.HashMultimap;
 import com.google.javascript.jscomp.CommandLineRunner;
 import com.google.javascript.jscomp.CompilerOptions;
@@ -24,6 +25,7 @@ public class CampCommandLineRunner extends CommandLineRunner {
       options.customPasses = HashMultimap.create();
     }
     options.customPasses.put(CustomPassExecutionTime.BEFORE_CHECKS, new CampModuleProcessor(getCompiler()));
+	options.customPasses.put(CustomPassExecutionTime.BEFORE_OPTIMIZATIONS, new InjectionProcessor(getCompiler()));
 
     return options;
   }

@@ -1,10 +1,8 @@
 /**
  * @namespace camp.vm
  */
-camp.module('camp.vm', function (exports, imports) {
-  this.use('camp.vm.interaction.ActionRegistry');
-  this.use('camp.vm.interaction.Trigger');
-
+camp.module('camp.vm', function (exports) {
+  var Injector = camp.using('camp.injector.Injector');
   /**
    * @constructor
    */
@@ -63,7 +61,7 @@ camp.module('camp.vm', function (exports, imports) {
   }
 
   exports.DataSource.prototype.command = function (name) {
-    this[name] = ko.observable(new imports.Command);
+    this[name] = ko.observable(new Command);
   }
 
   exports.DataSource.prototype.trigger = function (name, opt_args) {
