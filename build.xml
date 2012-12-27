@@ -2,9 +2,9 @@
 <project name="closure-compiler" default="all">
     <target name="all" depends="compiler, compiler-ext" />
     <target name="compiler">
-	<ant antfile="build.xml" dir="google-closure-compiler"/>
+				<ant antfile="build.xml" dir="google-closure-compiler"/>
     </target>
     <target name="compiler-ext">
-	<ant antfile="build.xml" dir="src"/>
+				<ant antfile="build.xml" dir="src"/>
     </target>
 </project>

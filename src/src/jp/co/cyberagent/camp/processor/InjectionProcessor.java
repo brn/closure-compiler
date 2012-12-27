@@ -16,6 +16,8 @@ import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.JSDocInfo;
+import com.google.javascript.rhino.JSDocInfoBuilder;
+import com.google.javascript.rhino.JSTypeExpression;
 
 import java.util.List;
 import java.util.Set;
@@ -41,60 +43,60 @@ public final class InjectionProcessor implements CompilerPass {
 			Node firstChild = n.getFirstChild();
 			if (firstChild.getType() == Token.GETPROP) {
 				String fnName = firstChild.getQualifiedName();
-				if (fnName.equals(INJECTION_CALL)) {
-					if (n.getChildCount() == 2) {
-						createSimpleFactory(n);
-					}
-				} else if (fnName.equals(SINGLETON_INJECTION_CALL)) {
-					if (n.getChildCount() == 2) {
-						createSimpleSingletonFactory(n);
-					}
+				boolean isSingleton = fnName.equals(SINGLETON_INJECTION_CALL);
+				if (fnName.equals(INJECTION_CALL) || isSingleton) {
+					createSimpleFactory(n, isSingleton);
 				}
 			}
 		}
 
 
-		private void createSimpleFactory(Node n) {
+		private void createSimpleFactory(Node n, boolean isSingleton) {
 			Node lhs = n.getFirstChild().getNext().cloneTree();
 			Node prototype = Node.newString(PROTOTYPE);
 			Node factoryProto = new Node(Token.GETPROP, lhs, prototype);
 			Node factoryProp = new Node(Token.GETPROP, factoryProto, Node.newString(FACTORY_NAME));
-			Node factoryBody = createSimpleFactoryBody(lhs.cloneTree());
+			Node factoryBody = createSimpleFactoryBody(lhs.cloneTree(), n.getParent(), isSingleton);
 			Node assign = new Node(Token.ASSIGN, factoryProp, factoryBody);
+			JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
+			builder.recordParameter("injection", new JSTypeExpression(new Node(Token.NAME, Node.newString("T")), ""));
+			builder.recordParameter("injector", new JSTypeExpression(new Node(Token.NAME, Node.newString("camp.injector.Injector")), ""));
+			List<String> templateTypes = Lists.newArrayList();
+			templateTypes.add("T");
+			builder.recordTemplateTypeNames(templateTypes);
+			builder.recordReturnType(new JSTypeExpression(new Node(Token.NAME, Node.newString(lhs.getQualifiedName())), ""));
+			JSDocInfo info = builder.build(assign);
 			assign.copyInformationFromForTree(n);
 			n.getParent().replaceChild(n, assign);
 			compiler.reportCodeChange();
 		}
 
 
-		private Node createSimpleFactoryBody(Node n) {
+		private Node createSimpleFactoryBody(Node n, Node expr, boolean isSingleton) {
 			Node function = new Node(Token.FUNCTION);
-			Node newCall = new Node(Token.NEW, n);
-			Node ret = new Node(Token.RETURN, newCall);
+			Node constructorInvocation;
+			if (isSingleton) {
+				constructorInvocation = createSingletonInstanitionMethod(n, expr.getFirstChild());
+				createSingletonGetter(expr, n.cloneTree());
+			} else {
+				constructorInvocation = createNormalInstaniationMethod(n, expr.getFirstChild());
+			}
+			constructorInvocation.copyInformationFromForTree(expr.getFirstChild());
+			System.out.println(constructorInvocation.toStringTree());
+			Node ret = new Node(Token.RETURN, constructorInvocation);
 			Node block = new Node(Token.BLOCK, ret);
-			Node param = Node.newString(Token.NAME, "injections");
+			Node param1 = Node.newString(Token.NAME, "injections");
+			Node param2 = Node.newString(Token.NAME, "injector");
+			Node paramList = new Node(Token.PARAM_LIST, param1);
+			paramList.addChildToBack(param2);
 			function.addChildToBack(Node.newString(Token.NAME, ""));
-			function.addChildToBack(new Node(Token.PARAM_LIST, param));
+			function.addChildToBack(paramList);
 			function.addChildToBack(block);
 			return function;
 		}
 
 
-		private void createSimpleSingletonFactory(Node n) {
-			Node lhs = n.getFirstChild().getNext().cloneTree();
-			Node prototype = Node.newString(PROTOTYPE);
-			Node factoryProto = new Node(Token.GETPROP, lhs, prototype);
-			Node factoryProp = new Node(Token.GETPROP, factoryProto, Node.newString(FACTORY_NAME));
-			Node factoryBody = createSimpleSingletonFactoryBody(lhs.cloneTree());
-			Node assign = new Node(Token.ASSIGN, factoryProp, factoryBody);
-			assign.copyInformationFromForTree(n);
-			n.getParent().replaceChild(n, assign);
-			createSingletonGetter(assign, lhs.cloneTree());
-			compiler.reportCodeChange();
-		}
-
-		private void createSingletonGetter(Node n, Node target) {
-			Node expr = n.getParent();
+		private void createSingletonGetter(Node expr, Node target) {
 			Node camp = Node.newString(Token.NAME, "camp");
 			Node singleton = Node.newString("singleton");
 			Node getprop = new Node(Token.GETPROP, camp, singleton);
@@ -103,19 +105,51 @@ public final class InjectionProcessor implements CompilerPass {
 			expr.getParent().addChildBefore(targetExpr, expr);
 		}
 
-		private Node createSimpleSingletonFactoryBody(Node n) {
-			Node function = new Node(Token.FUNCTION);
-			Node prototype = Node.newString(PROTOTYPE);
-			Node getInstanceProto = new Node(Token.GETPROP, n, prototype);
-			Node getInstanceProp = new Node(Token.GETPROP, getInstanceProto, Node.newString("getInstance"));
+		private Node createSingletonInstanitionMethod(Node n, Node call) {
+			Node getInstanceProp = new Node(Token.GETPROP, n, Node.newString("getInstance"));
 			Node getInstanceCall = new Node(Token.CALL, getInstanceProp);
-			Node ret = new Node(Token.RETURN, getInstanceCall);
-			Node block = new Node(Token.BLOCK, ret);
-			Node param = Node.newString(Token.NAME, "injections");
-			function.addChildToBack(Node.newString(Token.NAME, ""));
-			function.addChildToBack(new Node(Token.PARAM_LIST, param));
-			function.addChildToBack(block);
-			return function;
+			if (call.getChildCount() > 2) {
+				createParameter(getInstanceCall, call);
+			}
+			return getInstanceCall;
+		}
+
+		private Node createNormalInstaniationMethod(Node n, Node call) {
+			Node newCall = new Node(Token.NEW, n);
+			if (call.getChildCount() > 2) {
+				createParameter(newCall, call);
+			}
+			return newCall;
+		}
+
+
+		private void createParameter(Node invocation, Node call) {
+			Node params = call.getFirstChild().getNext().getNext();
+			List<String> paramList = Lists.newArrayList();
+			while (params != null) {
+				if (params.getType() == Token.STRING) {
+					paramList.add(params.getString());
+				}
+				params = params.getNext();
+			}
+			for (String param : paramList) {
+				if (Character.isUpperCase(param.toCharArray()[0])) {
+					Node injector = Node.newString(Token.NAME, "injector");
+					Node instaniate = Node.newString("createInstance");
+					Node getprop = new Node(Token.GETPROP, injector, instaniate);
+					Node createInstanceCall = new Node(Token.CALL, getprop);
+					Node injections = Node.newString(Token.NAME, "injections");
+					Node paramNode = Node.newString(param);
+					Node injection = new Node(Token.GETPROP, injections, paramNode);
+					createInstanceCall.addChildToBack(injection);
+					invocation.addChildToBack(createInstanceCall);
+				} else {
+					Node injections = Node.newString(Token.NAME, "injections");
+					Node paramNode = Node.newString(param);
+					Node getprop = new Node(Token.GETPROP, injections, paramNode);
+					invocation.addChildToBack(getprop);
+				}
+			}
 		}
 		
 		@Override
@@ -134,6 +168,6 @@ public final class InjectionProcessor implements CompilerPass {
 	@Override
 	public void process(Node externs, Node root) {
 		NodeTraversal.traverse(compiler, root, new InjectionInliner());
-		System.out.println(root.toStringTree());
+		//System.out.println(root.toStringTree());
 	}
 }
