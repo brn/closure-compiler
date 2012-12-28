@@ -26,6 +26,31 @@ camp.module('camp.injector', function (exports) {
 
   /**
    * @constructor
+   */
+  exports.AbstractModule = function () {}
+
+  /**
+   * @protected
+   * @template T
+   * @param {function(new:T,...):void} classConstructor
+   * @returns {function(...):T}
+   */
+  exports.AbstractModule.prototype.bind = function (classConstructor) {
+    return classConstructor._factory;
+  }
+
+  /**
+   * @protected
+   * @template T
+   * @param {T} value
+   * @returns {function():T}
+   */
+  exports.AbstractModule.prototype.identify = function (value) {
+    return function () {return value};
+  }
+
+  /**
+   * @constructor
    * @param {Object} prop
    */
   exports.Injector = function (prop) {
@@ -54,11 +79,11 @@ camp.module('camp.injector', function (exports) {
 
   /**
    * @template T
-   * @param {function(new:T,...):void} c
+   * @param {(function(new:T,...):T|T)} c
    * @returns {T}
    */
   exports.Injector.prototype.createInstance = function (c) {
-    return c.prototype._factory(this._injections, this);
+    return c && c.prototype && c.prototype._factory? c.prototype._factory(this._injections) : c;
   }
 
 });

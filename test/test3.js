@@ -1,4 +1,5 @@
 
+
 camp.module('camp.vm.interaction', function (exports) {
   var Injector = camp.using('camp.injector.Injector');
 
@@ -11,6 +12,8 @@ camp.module('camp.vm.interaction', function (exports) {
     this._x = name1;
     this._test2 = test2;
   }
+  Injector.inject(exports.Test);
+
 
   /**
    * @returns {string}
@@ -22,35 +25,46 @@ camp.module('camp.vm.interaction', function (exports) {
 
   /**
    * @constructor
+   * @param {string} name2
    */
-  exports.Test2 = function (name) {
-    this._name = name;
+  exports.Test2 = function (name2) {
+    this._name = name2;
   }
+  Injector.inject(exports.Test2);
 
+
+  /**
+   * @returns {string}
+   */
   exports.Test2.prototype.getName = function () {
     return this._name;
   }
-
-
-  Injector.inject(exports.Test, "name1", "Test2");
-  Injector.inject(exports.Test2, "name2");
 
 
   /**
    * @constructor
    */
   exports.Module = function () {
-    this.name1 = 'name';
-    this.name2 = 'name2';
     /**
-     * @type {Function}
+     * @type {string}
      */
-    this.Test2 = exports.Test2;
+    this.name1 = 'name';
+
+    /**
+     * @type {string}
+     */
+    this.name2 = 'name2';
+
+    /**
+     * @type {function(new:camp.vm.interaction.Test2,string):void}
+     */
+    this.test2 = exports.Test2;
   }
 
   exports.main = function () {
     var injector = new Injector(new exports.Module);
     var l = injector.createInstance(exports.Test);
     window.localStorage['foo'] = l.getName();
+    return 'a' in l? true : false;
   }
 });

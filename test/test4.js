@@ -1,24 +1,22 @@
-goog.provide('test');
-
-//goog.scope(function () {
-  /**
-   * @typedef {!Function}
-   */
-test.XXX;
-//})
+var camp = {};
+/**
+ * @constructor
+ */
+function FOO() {}
 
 /**
  * @constructor
- * @param {test.XXX} m
  */
-test.fn = function (m) {
-  this._value = m();
-}
+var FOO2 = function () {}
 
-test.fn.prototype.get = function () {return this._value;}
+/**
+ * @constructor
+ */
+camp.FOO3 = function () {}
 
-function v () {
-  return document.getElementById('test').innerHTML;
-}
-
-console.log(new test.fn().get())
+var FOO4 = {
+      /**
+       * @constructor
+       */
+      fn : function () {}
+    }
