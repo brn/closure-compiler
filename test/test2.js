@@ -20,70 +20,193 @@ camp.singleton = function (fn) {
   }
 }
 
-camp.injections = {}
+var goog = {};
 
-camp.module('camp.injector', function (exports) {
+/**
+ * Inherit the prototype methods from one constructor into another.
+ *
+ * Usage:
+ * <pre>
+ * function ParentClass(a, b) { }
+ * ParentClass.prototype.foo = function(a) { }
+ *
+ * function ChildClass(a, b, c) {
+ *   goog.base(this, a, b);
+ * }
+ * goog.inherits(ChildClass, ParentClass);
+ *
+ * var child = new ChildClass('a', 'b', 'see');
+ * child.foo(); // works
+ * </pre>
+ *
+ * In addition, a superclass' implementation of a method can be invoked
+ * as follows:
+ *
+ * <pre>
+ * ChildClass.prototype.foo = function(a) {
+ *   ChildClass.superClass_.foo.call(this, a);
+ *   // other code
+ * };
+ * </pre>
+ *
+ * @param {Function} childCtor Child class.
+ * @param {Function} parentCtor Parent class.
+ */
+goog.inherits = function(childCtor, parentCtor) {
+  /** @constructor */
+  function tempCtor() {};
+  tempCtor.prototype = parentCtor.prototype;
+  childCtor.superClass_ = parentCtor.prototype;
+  childCtor.prototype = new tempCtor();
+  /** @override */
+  childCtor.prototype.constructor = childCtor;
+};
 
-  /**
-   * @constructor
-   */
-  exports.AbstractModule = function () {}
+/**
+ * @define {boolean}
+ */
+goog.DEBUG = false;
 
-  /**
-   * @protected
-   * @template T
-   * @param {function(new:T,...):void} classConstructor
-   * @returns {function(...):T}
-   */
-  exports.AbstractModule.prototype.bind = function (classConstructor) {
-    return classConstructor._factory;
-  }
+camp.module('camp.dependencies', function (exports) {
 
-  /**
-   * @protected
-   * @template T
-   * @param {T} value
-   * @returns {function():T}
-   */
-  exports.AbstractModule.prototype.identify = function (value) {
-    return function () {return value};
-  }
+  if (!goog.DEBUG) {
+    /**
+     * @type {Object}
+     */
+    exports.injectionRegistry = {}
+  } else {
+    /**
+     * @private {Object}
+     */
+    exports._injectionsRegistry = {};
 
-  /**
-   * @constructor
-   * @param {Object} prop
-   */
-  exports.Injector = function (prop) {
-    this._injections = prop;
-  }
+    /**
+     * @type {Object}
+     */
+    exports.injector = {}
 
 
-  /**
-   * @template T
-   * @param {function(new:T,...):void} c
-   * @param {...string} var_args
-   */
-  exports.Injector.inject = function (c, var_args) {
-    c.prototype._factory = function () {return new c;};
-  }
+    /**
+     * @param {string} name
+     */
+    exports.injector.bind = function (name) {
+      return new exports.injector._Binder(name);
+    }
+
+    /**
+     * @private
+     * @constructor
+     * @param {string} id
+     */
+    exports.injector._Binder = function (id) {
+      this._id = id;
+    }
+
+    /**
+     * @param {*} item
+     */
+    exports.injector._Binder.prototype.to = function (item) {
+      exports._injectionsRegistry[this._id] = item;
+    }
 
 
-  /**
-   * @template T
-   * @param {function(new:T,...):void} c
-   * @param {...string} var_args
-   */
-  exports.Injector.injectSingleton = function (c, var_args) {
-    c.getInstance = function () {return new c};
-  }
+    /**
+     * @template T
+     * @param {function(new:T,...):T} classConstructor
+     * @returns {T}
+     */
+    exports.injector.createInstance = function (classConstructor) {
+      var injections;
+      var args;
+      if (!classConstructor._injections) {
+        classConstructor._injections = exports.injector._parseArguments(classConstructor);
+      }
+      injections = classConstructor._injections;
+      args = exports.injector._createArguments(injections);
+      if (classConstructor.getInstance) {
+        return classConstructor.getInstance.apply(null, args);
+      }
+      return exports.injector._invokeNewCall(classConstructor, args);
+    }
 
-  /**
-   * @template T
-   * @param {(function(new:T,...):T|T)} c
-   * @returns {T}
-   */
-  exports.Injector.prototype.createInstance = function (c) {
-    return c && c.prototype && c.prototype._factory? c.prototype._factory(this._injections) : c;
+
+    /**
+     * @template T
+     * @param {function(new:T,...):void} classConstructor
+     * @param {...string} var_args
+     */
+    exports.injector.inject = function (classConstructor, var_args) {
+      var args = Array.prototype.slice.call(arguments);
+      classConstructor = args.shift();
+      if (!classConstructor._injections) {
+        classConstructor._injections = exports.injector._parseArguments(classConstructor);
+      } else {
+        classConstructor._injections = classConstructor._injections
+          .concat(exports.injector._parseArguments(classConstructor));
+      }
+    }
+
+
+    /**
+     * @template T
+     * @param {function(new:T,...):T} classConstructor
+     * @returns {Array.<string>}
+     */
+    exports.injector._parseArguments = function (classConstructor) {
+      var args = Function.prototype.toString.call(classConstructor)
+            .match(exports.injector._ARGUMENTS_REG);
+      if (args && args[1]) {
+        return args[1].split(',');
+      } else {
+        return [];
+      }
+    }
+
+
+    /**
+     * @private
+     * @param {Array.<string>} injections
+     * @returns {Array}
+     */
+    exports.injector._createArguments = function (injections) {
+      var args = [];
+      var injection;
+      for (var i = 0, len = injections.length; i < len; i++) {
+        injection = injections[i];
+        if (injection in exports._injectionsRegistry) {
+          injection = exports._injectionsRegistry[injection];
+          if (typeof injection === 'function') {
+            args[i] = exports.injector.createInstance(injection);
+          } else {
+            args[i] = injection;
+          }
+        } else {
+          args[i] = null;
+        }
+      }
+      return args;
+    }
+
+
+    /**
+     * @template T
+     * @param {function(new:T,...):T} classConstructor
+     * @param {Array} injections
+     * @returns {T}
+     */
+    exports.injector._invokeNewCall = function (classConstructor, injections) {
+      var instance;
+      function NewCallProxyClass () {}
+      NewCallProxyClass.prototype = classConstructor.prototype;
+      instance = new NewCallProxyClass;
+      classConstructor.apply(instance, injections);
+      return instance;
+    }
+
+    /**
+     * @const {RegExp}
+     */
+    exports.injector._ARGUMENTS_REG = /function[^\(]*\(([a-zA-Z_$][\w_$,]*)/;
   }
 
 });

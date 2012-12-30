@@ -25,22 +25,37 @@ import java.util.Set;
 
 public final class InjectionProcessor implements CompilerPass {
 
-	static final DiagnosticType MESSAGE_MAIN_NOT_FUNCTION =
-		DiagnosticType.error("JSC_MSG_MODULE_EXPORTS_Main must be a function.", "exported main must be a function of an application bootstrapper.");
+	static final DiagnosticType MESSAGE_INJECT_ARGUMENT_MUST_BE_A_CONSTRUCTOR =
+		DiagnosticType.error("JSC_MSG_INJECT_ARGUMENT_MUST_BE_A_CONSTRUCTOR", "The argument of camp.dependencies.injector.inject must be a constructor function which annotated as @constructor.");
 
+	static final DiagnosticType MESSAGE_SETTER_INJECTION_TARGET_MUST_BE_A_STRING =
+		DiagnosticType.error("JSC_MSG_SETTER_INJECTION_TARGET_MUST_BE_A_STRING", "The second argument and after of camp.dependencies.injector.inject must be a string which name of the prototype method.");
+
+	static final DiagnosticType MESSAGE_BIND_ARGUMENT_MUST_BE_A_STRING =
+		DiagnosticType.error("JSC_MSG_BIND_ARGUMENT_MUST_BE_A_STRING", "The first argument of camp.dependencies.injector.bind must be a string represent id.");
+
+	static final DiagnosticType MESSAGE_BIND_SECOND_ARGUMENT_MUST_BE_SPECIFIED =
+		DiagnosticType.error("JSC_MSG_BIND_ARGUMENT_MUST_BE_SPECIED", "The second argument of camp.dependencies.injector.bind must be specified.");
+	
 	private final AbstractCompiler compiler;
 
-	private final String INJECTION_CALL = "camp.injector.Injector.inject";
+	private static final String INJECTION_CALL = "camp.dependencies.injector.inject";
 
-	private final String SINGLETON_INJECTION_CALL = "camp.injector.Injector.injectSingleton";
+	private static final String SINGLETON_INJECTION_CALL = "camp.dependencies.injector.injectAsSingleton";
 
-	private final String FACTORY_NAME = "_factory";
+	private static final String INSTANIATION_CALL = "camp.dependencies.injector.createInstance";
 
-	private final String PROTOTYPE = "prototype";
+	private static final String BINDING_CALL = "camp.dependencies.injector.bind";
 
-	private HashMap<String, List<String>> argumentsList = new HashMap<String, List<String>>();
+	private static final String PROTOTYPE = "prototype";
+
+	private static final String SINLETON_CALL = "getInstance";
+
+	private ClassInjectionInfoRegistry classInjectionInfoRegistry = new ClassInjectionInfoRegistry();
+
+	private BindingRegistry bindingRegistry = new BindingRegistry();
 	
-	private class InjectionInliner extends AbstractPostOrderCallback {
+	private class SetterInjectionProcessor extends AbstractPostOrderCallback {
 		
 		private void processInjectionCall(NodeTraversal t, Node n) {
 			Node firstChild = n.getFirstChild();
@@ -49,113 +64,230 @@ public final class InjectionProcessor implements CompilerPass {
 				if (fnName != null) {
 					boolean isSingleton = fnName.equals(SINGLETON_INJECTION_CALL);
 					if (fnName.equals(INJECTION_CALL) || isSingleton) {
-						createSimpleFactory(n, isSingleton);
+						registerInjections(t, n, firstChild.getNext(), isSingleton);
+						detachInjectionCall(n);
+						compiler.reportCodeChange();
 					}
 				}
 			}
 		}
 
 
-		private void createSimpleFactory(Node n, boolean isSingleton) {
-			Node lhs = n.getFirstChild().getNext().cloneTree();
-			List<String> args = argumentsList.get(n.getFirstChild().getNext().getQualifiedName());
-			Node prototype = Node.newString(PROTOTYPE);
-			Node factoryProto = new Node(Token.GETPROP, lhs, prototype);
-			Node factoryProp = new Node(Token.GETPROP, factoryProto, Node.newString(FACTORY_NAME));
-			Node factoryBody = createSimpleFactoryBody(lhs.cloneTree(), n.getParent(), isSingleton, args);
-			Node assign = new Node(Token.ASSIGN, factoryProp, factoryBody);
-			JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
-			builder.recordParameter("injections", new JSTypeExpression(new Node(Token.NAME, Node.newString("Object")), ""));
-			builder.recordParameter("injector", new JSTypeExpression(new Node(Token.NAME, Node.newString("camp.injector.Injector")), ""));
-			List<String> templateTypes = Lists.newArrayList();
-			templateTypes.add("T");
-			builder.recordTemplateTypeNames(templateTypes);
-			builder.recordReturnType(new JSTypeExpression(new Node(Token.NAME, Node.newString(lhs.getQualifiedName())), ""));
-			JSDocInfo info = builder.build(assign);
-			assign.copyInformationFromForTree(n);
-			assign.setJSDocInfo(info);
-			n.getParent().replaceChild(n, assign);
-			compiler.reportCodeChange();
-		}
-
-
-		private Node createSimpleFactoryBody(Node n, Node expr, boolean isSingleton, List<String> args) {
-			Node function = new Node(Token.FUNCTION);
-			Node constructorInvocation;
-			if (isSingleton) {
-				constructorInvocation = createSingletonInstanitionMethod(n, expr.getFirstChild(), args);
-				createSingletonGetter(expr, n.cloneTree());
+		private void registerInjections(NodeTraversal t, Node n, Node nameNode, boolean isSingleton) {
+			if (nameNode != null) {
+				String className = nameNode.getQualifiedName();
+				if (className != null && classInjectionInfoRegistry.hasInfo(className)) {
+					ClassInjectionInfo classInjectionInfo = classInjectionInfoRegistry.getInfo(className);
+					Node argumentsNode = nameNode.getNext();
+					List<String> argumentsList = Lists.newArrayList();
+					for (;argumentsNode != null; argumentsNode = argumentsNode.getNext()) {
+						if (argumentsNode.isString()) {
+							argumentsList.add(argumentsNode.getString());
+						} else {
+							t.report(argumentsNode, MESSAGE_SETTER_INJECTION_TARGET_MUST_BE_A_STRING, "");
+						}
+					}
+					classInjectionInfo.setInjectionTargets(argumentsList, isSingleton);
+				} else {
+					t.report(n, MESSAGE_INJECT_ARGUMENT_MUST_BE_A_CONSTRUCTOR, "");
+				}
 			} else {
-				constructorInvocation = createNormalInstaniationMethod(n, expr.getFirstChild(), args);
-			}
-			constructorInvocation.copyInformationFromForTree(expr.getFirstChild());
-			Node ret = new Node(Token.RETURN, constructorInvocation);
-			Node block = new Node(Token.BLOCK, ret);
-			Node param1 = Node.newString(Token.NAME, "injections");
-			Node param2 = Node.newString(Token.NAME, "injector");
-			Node paramList = new Node(Token.PARAM_LIST, param1);
-			paramList.addChildToBack(param2);
-			function.addChildToBack(Node.newString(Token.NAME, ""));
-			function.addChildToBack(paramList);
-			function.addChildToBack(block);
-			return function;
-		}
-
-
-		private void createSingletonGetter(Node expr, Node target) {
-			Node camp = Node.newString(Token.NAME, "camp");
-			Node singleton = Node.newString("singleton");
-			Node getprop = new Node(Token.GETPROP, camp, singleton);
-			Node call = new Node(Token.CALL, getprop, target);
-			Node targetExpr = new Node(Token.EXPR_RESULT, call);
-			expr.getParent().addChildBefore(targetExpr, expr);
-		}
-
-		private Node createSingletonInstanitionMethod(Node n, Node call, List<String> args) {
-			Node getInstanceProp = new Node(Token.GETPROP, n, Node.newString("getInstance"));
-			Node getInstanceCall = new Node(Token.CALL, getInstanceProp);
-			if (args != null && args.size() > 0) {
-				createParameter(getInstanceCall, args);
-			}
-			return getInstanceCall;
-		}
-
-		private Node createNormalInstaniationMethod(Node n, Node call, List<String> args) {
-			Node newCall = new Node(Token.NEW, n);
-			if (args != null && args.size() > 0) {
-				createParameter(newCall, args);
-			}
-			return newCall;
-		}
-
-
-		private void createParameter(Node invocation, List<String> paramList) {
-			for (String param : paramList) {
-				Node injections = Node.newString(Token.NAME, "injections");
-				Node paramNode = Node.newString(param);
-				Node getprop = new Node(Token.GETPROP, injections, paramNode);
-				Node injector = Node.newString(Token.NAME, "injector");
-				Node instaniate = Node.newString("createInstance");
-				Node factory = new Node(Token.GETPROP, injector, instaniate);
-				Node createInstanceCall = new Node(Token.CALL, factory);
-				createInstanceCall.addChildToBack(getprop.cloneTree());
-				invocation.addChildToBack(createInstanceCall);
+				t.report(n, MESSAGE_INJECT_ARGUMENT_MUST_BE_A_CONSTRUCTOR, "");
 			}
 		}
-		
+
+		private void detachInjectionCall(Node n) {
+			Node node = n;
+			while (!node.isExprResult() && node != null) {
+				node = node.getParent();
+			}
+			if (node != null) {
+				node.detachFromParent();
+			}
+		}
+
 		@Override
 		public void visit(NodeTraversal t, Node n, Node parent) {
-			if (n.getType() == Token.CALL) {
+			if (n.isCall()) {
 				processInjectionCall(t, n);
 			}
 		}
 	}
 
+	private final class BindingProcessor extends AbstractPostOrderCallback {
+		@Override
+		public void visit(NodeTraversal t, Node n, Node parent) {
+			if (n.getType() == Token.CALL) {
+				processBiding(t, n);
+			}
+		}
 
-	private final class ConstructorArgumentsProcessor extends AbstractScopedCallback {
+		private void processBiding(NodeTraversal t, Node n) {
+			Node child = n.getFirstChild();
+			if (child.isGetProp() && BINDING_CALL.equals(child.getQualifiedName())) {
+				Node bindingName = child.getNext();
+				if (bindingName != null && bindingName.isString()) {
+					String name = bindingName.getString();
+					Node bindingValue = bindingName.getNext();
+					if (bindingValue != null) {
+						String value = bindingValue.getQualifiedName();
+						if (value != null && classInjectionInfoRegistry.hasInfo(value)) {
+							bindingRegistry.setClassBinding(name, bindingValue.cloneTree());
+							detachBindingCall(n);
+						} else {
+							bindingRegistry.setPrimitiveBindings(name);
+							replaceBindingCall(name, n, bindingValue.cloneTree());
+						}
+					} else {
+						t.report(child, MESSAGE_BIND_SECOND_ARGUMENT_MUST_BE_SPECIFIED, "");
+					}
+				} else {
+					t.report(child, MESSAGE_BIND_ARGUMENT_MUST_BE_A_STRING, "");
+				}
+			}
+		}
+
+		private void detachBindingCall(Node n) {
+			Node node = n;
+			while (!node.isExprResult() && node != null) {
+				node = node.getParent();
+			}
+			if (node != null) {
+				node.detachFromParent();
+			}
+			compiler.reportCodeChange();
+		}
+
+		private void replaceBindingCall(String name, Node n, Node bindingValue) {
+			Node getprop = createPrimitiveArgument(name);
+			Node assign = new Node(Token.ASSIGN, getprop, bindingValue);
+			n.getParent().replaceChild(n, assign);
+			compiler.reportCodeChange();
+		}
+	}
+
+	private final class BindingRegistry {
+		private HashMap<String, Integer> primitiveBindings = new HashMap<String, Integer>();
+		private HashMap<String, Node> classBindings = new HashMap<String, Node>();
+
+		public void setPrimitiveBindings(String name) {
+			primitiveBindings.put(name, new Integer(1));
+		}
+
+		public void setClassBinding(String name, Node to) {
+			classBindings.put(name, to);
+		}
+
+		public boolean hasPrimitiveBindings(String name) {
+			return primitiveBindings.containsKey(name);
+		}
+
+		public Node getClassBindings(String name) {
+			return classBindings.get(name);
+		}
+
+		public boolean isRegistered(String name) {
+			return classBindings.containsKey(name) || primitiveBindings.containsKey(name);
+		}
+	}
+
+
+	private final class InstaniationProcessor extends AbstractPostOrderCallback {
+		@Override
+		public void visit(NodeTraversal t, Node n, Node parent) {
+			if (n.isCall()) {
+				processInstaniation(t, n);
+			}
+		}
+
+		private void processInstaniation(NodeTraversal t, Node n) {
+			Node child = n.getFirstChild();
+			if (INSTANIATION_CALL.equals(child.getQualifiedName())) {
+				child = child.getNext();
+				ClassInjectionInfo classInjectionInfo = classInjectionInfoRegistry.getInfo(child.getQualifiedName());
+				if (classInjectionInfo != null) {
+					Node newcall = createInstaniationCall(child.cloneTree(), classInjectionInfo);
+					Node instaniationScope = createInstaniationScope(newcall, classInjectionInfo);
+					n.getParent().replaceChild(n, instaniationScope);
+					compiler.reportCodeChange();
+				}
+			}
+		}
+
+		private Node createInstaniationCall(Node n, ClassInjectionInfo classInjectionInfo) {
+			Node newcall;
+			if (classInjectionInfo.isSingleton()) {
+				Node getInstance = new Node(Token.GETPROP, n, Node.newString(SINLETON_CALL));
+				newcall = new Node(Token.CALL, getInstance);
+			} else {
+				newcall = new Node(Token.NEW, n);
+			}
+			List<String> targets = classInjectionInfo.getConstructorArguments();
+			createArguments(targets, newcall);
+			return newcall;
+		}
+
+		private Node createInstaniationScope(Node newcall, ClassInjectionInfo classInjectionInfo) {
+			List<String> targets = classInjectionInfo.getInjectionTargets();
+			if (targets != null) {
+				Node functionBody = new Node(Token.BLOCK);
+				Node function = new Node(Token.FUNCTION,
+										 Node.newString(Token.NAME, ""),
+										 new Node(Token.PARAM_LIST),
+										 functionBody);
+				Node anonymouseScope = new Node(Token.CALL, function);
+				Node instance = Node.newString(Token.NAME, "instance");
+				Node var = new Node(Token.VAR, instance);
+				instance.addChildToBack(newcall);
+				functionBody.addChildToBack(var);
+				for (String target : targets) {
+					Node method = Node.newString(target);
+					Node getprop = new Node(Token.GETPROP, instance.cloneNode(), method);
+					Node methodCall = new Node(Token.CALL, getprop);
+					PrototypeMemberInfo prototypeMemberInfo = classInjectionInfo.getPrototypeMemberInfo(target);
+					if (prototypeMemberInfo != null) {
+						createArguments(prototypeMemberInfo.getArgumentsList(), methodCall);
+						Node expr = new Node(Token.EXPR_RESULT, methodCall);
+						functionBody.addChildToBack(expr);
+					}
+				}
+				Node returnStatement = new Node(Token.RETURN, instance.cloneNode());
+				functionBody.addChildToBack(returnStatement);
+				return anonymouseScope;
+			}
+			return newcall;
+		}
+
+		private void createArguments(List<String> targets, Node newcall) {
+			if (targets != null) {
+				for (String target : targets) {
+					if (bindingRegistry.isRegistered(target)) {
+						Node arg = null;
+						if (bindingRegistry.hasPrimitiveBindings(target)) {
+							arg = createPrimitiveArgument(target);
+						} else {
+							Node classEntity = bindingRegistry.getClassBindings(target);
+							ClassInjectionInfo classInjectionInfo =
+								classInjectionInfoRegistry.getInfo(classEntity.getQualifiedName());
+							if (classInjectionInfo != null) {
+								arg = createInstaniationCall(classEntity, classInjectionInfo);
+								arg = createInstaniationScope(arg, classInjectionInfo);
+							}
+						}
+						if (arg != null) {
+							newcall.addChildToBack(arg);
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	private final class ConstructorInjectionProcessor extends AbstractScopedCallback {
 		private ConstructorScopeChecker constructorScopeChecker;
 
-		public ConstructorArgumentsProcessor() {
+		public ConstructorInjectionProcessor() {
 			constructorScopeChecker = new ConstructorScopeChecker();
 		}
 		
@@ -168,7 +300,19 @@ public final class InjectionProcessor implements CompilerPass {
 				Node function = namingProcessor.getNode();
 				if (name != null) {
 					List<String> parsedArgumentsList = new ConstructorArgumentsParser(function).parse();
-					argumentsList.put(name, parsedArgumentsList);
+					ClassInjectionInfo classInjectionInfo = new ClassInjectionInfo(name, parsedArgumentsList);
+					classInjectionInfoRegistry.setInfo(classInjectionInfo);
+				}
+			} else if (n.isAssign() && shouldParsePrototype(n, classInjectionInfoRegistry)) {
+				PrototypeMemberParser parser = new PrototypeMemberParser(n);
+				parser.parse();
+				
+				PrototypeMemberInfo prototypeMemberInfo = new PrototypeMemberInfo(parser.getMethodName(),
+																				  parser.getArgumentsList());				
+				ClassInjectionInfo classInjectionInfo = classInjectionInfoRegistry.getInfo(parser.getClassName());
+
+				if (classInjectionInfo != null) {
+					classInjectionInfo.addPrototypeInfo(prototypeMemberInfo);
 				}
 			}
 		}
@@ -183,7 +327,96 @@ public final class InjectionProcessor implements CompilerPass {
 			constructorScopeChecker.exitScope();
 		}
 	};
+	
+	
+	private final class ClassInjectionInfoRegistry {
+		private HashMap<String, ClassInjectionInfo> injectionInfos = new HashMap<String, ClassInjectionInfo>();
 
+		public void setInfo(ClassInjectionInfo classInjectionInfo) {
+			injectionInfos.put(classInjectionInfo.getClassName(), classInjectionInfo);
+		}
+
+		public ClassInjectionInfo getInfo(String className) {
+			return injectionInfos.get(className);
+		}
+
+		public boolean hasInfo(String className) {
+			return injectionInfos.containsKey(className);
+		}
+	}
+	
+
+	private final class ClassInjectionInfo {
+		private String className;
+		private boolean isSingleton;
+		private List<String> argumentsList;
+		private List<String> argumentsTypes;
+		private List<String> injectionTargets;
+		private HashMap<String, PrototypeMemberInfo> prototypeMemberInfos = new HashMap<String, PrototypeMemberInfo>();
+		private String superClass;
+
+		public ClassInjectionInfo(String className,
+								  List<String> constructorArgumentsList) {
+			this.className = className;
+			this.argumentsList = constructorArgumentsList;
+		}
+
+		public void addPrototypeInfo(PrototypeMemberInfo prototypeMemberInfo) {
+			this.prototypeMemberInfos.put(prototypeMemberInfo.getMethodName(),
+										  prototypeMemberInfo);
+		}
+
+		public List<String> getConstructorArguments() {
+			return argumentsList;
+		}
+		
+		public PrototypeMemberInfo getPrototypeMemberInfo(String methodName) {
+			return this.prototypeMemberInfos.get(methodName);
+		}
+		
+		public void setSuperClass(String superClass) {
+			this.superClass = superClass;
+		}
+
+		public String getClassName() {
+			return this.className;
+		}
+
+		public String getSuperClass() {
+			return this.superClass;
+		}
+
+		public void setInjectionTargets(List<String> injectionTargets, boolean isSingleton) {
+			this.injectionTargets = injectionTargets;
+			this.isSingleton = isSingleton;
+		}
+
+		public List<String> getInjectionTargets() {
+			return this.injectionTargets;
+		}
+
+		public boolean isSingleton() {
+			return this.isSingleton;
+		}
+	}
+
+	private final class PrototypeMemberInfo {
+		String methodName;
+		List<String> argumentsList;
+
+		public PrototypeMemberInfo(String methodName, List<String> argumentsList) {
+			this.methodName = methodName;
+			this.argumentsList = argumentsList;
+		}
+
+		public String getMethodName() {
+			return this.methodName;
+		}
+
+		public List<String> getArgumentsList() {
+			return this.argumentsList;
+		}
+	}
 
 	private final class ConstructorArgumentsParser {
 		private Node constructor;
@@ -256,6 +489,42 @@ public final class InjectionProcessor implements CompilerPass {
 			return this.constructor.isFunction();
 		}
 	}
+
+
+	private final class PrototypeMemberParser {
+		private Node assignNode;
+		private String className;
+		private String methodName;
+		private List<String> argumentsList;
+
+		public PrototypeMemberParser(Node assignNode) {
+			this.assignNode = assignNode;
+		}
+
+		public String getClassName() {
+			return this.className;
+		}
+
+		public String getMethodName() {
+			return this.methodName;
+		}
+
+		public List<String> getArgumentsList() {
+			return this.argumentsList;
+		}
+		
+		public void parse() {
+			Node functionNode = this.assignNode.getFirstChild().getNext();
+			String qualifiedName = this.assignNode.getFirstChild().getQualifiedName();
+			String className = parseMethodBelongedClassName(qualifiedName);
+			String methodName = parseMethodName(qualifiedName);
+			ConstructorArgumentsParser parser = new ConstructorArgumentsParser(functionNode);
+			this.methodName = methodName;
+			this.className = className;
+			this.argumentsList = parser.parse();
+		}
+	}
+	
 	
 	private final class ConstructorScopeChecker {
 		private int scopeDepth = 0;
@@ -276,11 +545,46 @@ public final class InjectionProcessor implements CompilerPass {
 	public InjectionProcessor(AbstractCompiler compiler) {
 		this.compiler = compiler;
 	}
-	
+
 	@Override
 	public void process(Node externs, Node root) {
-		System.out.println(root.toStringTree());
-		NodeTraversal.traverse(compiler, root, new ConstructorArgumentsProcessor());
-		NodeTraversal.traverse(compiler, root, new InjectionInliner());
+		NodeTraversal.traverse(compiler, root, new ConstructorInjectionProcessor());
+		NodeTraversal.traverse(compiler, root, new SetterInjectionProcessor());
+		NodeTraversal.traverse(compiler, root, new BindingProcessor());
+		NodeTraversal.traverse(compiler, root, new InstaniationProcessor());
+	}
+
+	private static boolean shouldParsePrototype(Node assignNode, ClassInjectionInfoRegistry classInjectionInfoRegistry) {
+		String name = parseMethodBelongedClassName(assignNode.getFirstChild().getQualifiedName());
+		if (name != null && assignNode.getFirstChild().getNext().isFunction()) {
+			return assignNode.isAssign() &&
+				classInjectionInfoRegistry.hasInfo(name);
+		}
+		return false;
+	}
+		
+	private static String parseMethodBelongedClassName(String qualifiedName) {
+		if (qualifiedName != null) {
+			int index = qualifiedName.indexOf(PROTOTYPE);
+			if (index > -1) {
+				return qualifiedName.substring(0, index - 1);
+			}
+		}
+		return null;
+	}
+
+	private static String parseMethodName(String qualifiedName) {
+		String[] splited = qualifiedName.split("\\.");
+		return splited[splited.length - 1];
+	}
+
+	private static Node createPrimitiveArgument(String primitive) {
+		Node camp = Node.newString(Token.NAME, "camp");
+		Node dependencies = Node.newString(Token.NAME, "dependencies");
+		Node injectionRegistry = Node.newString("injectionRegistry");
+		Node name = Node.newString(primitive);
+		Node getprop = new Node(Token.GETPROP, camp, dependencies);
+		getprop = new Node(Token.GETPROP, getprop, injectionRegistry);
+		return new Node(Token.GETPROP, getprop, name);
 	}
 }

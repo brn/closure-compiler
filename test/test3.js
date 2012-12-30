@@ -1,7 +1,22 @@
 
 
 camp.module('camp.vm.interaction', function (exports) {
-  var Injector = camp.using('camp.injector.Injector');
+  var injector = camp.using('camp.dependencies.injector');
+
+  /**
+   * @constructor
+   */
+  exports.Service = function () {
+    this._node = document.getElementById('id');
+  }
+
+  /**
+   * @returns {Element}
+   */
+  exports.Service.prototype.getNode = function () {
+    return this._node;
+  }
+
 
   /**
    * @constructor
@@ -12,16 +27,29 @@ camp.module('camp.vm.interaction', function (exports) {
     this._x = name1;
     this._test2 = test2;
   }
-  Injector.inject(exports.Test);
+
+  injector.inject(exports.Test, 'setService');
 
 
   /**
    * @returns {string}
    */
   exports.Test.prototype.getName = function () {
-    return this._x + this._test2.getName();
+    return this._x + this._test2.getName() + this._service.getNode().innerHTML;
   }
 
+
+  /**
+   * @param {camp.vm.interaction.Service} service
+   */
+  exports.Test.prototype.setService = function (service) {
+    this._service = service;
+  }
+
+  /**
+   * @private {camp.vm.interaction.Service}
+   */
+  exports.Test.prototype._service = null;
 
   /**
    * @constructor
@@ -30,7 +58,6 @@ camp.module('camp.vm.interaction', function (exports) {
   exports.Test2 = function (name2) {
     this._name = name2;
   }
-  Injector.inject(exports.Test2);
 
 
   /**
@@ -40,31 +67,12 @@ camp.module('camp.vm.interaction', function (exports) {
     return this._name;
   }
 
-
-  /**
-   * @constructor
-   */
-  exports.Module = function () {
-    /**
-     * @type {string}
-     */
-    this.name1 = 'name';
-
-    /**
-     * @type {string}
-     */
-    this.name2 = 'name2';
-
-    /**
-     * @type {function(new:camp.vm.interaction.Test2,string):void}
-     */
-    this.test2 = exports.Test2;
-  }
-
   exports.main = function () {
-    var injector = new Injector(new exports.Module);
+    injector.bind('name1', 'name1');
+    injector.bind('name2', 'name2');
+    injector.bind('service', exports.Service);
+    injector.bind('test2', exports.Test2);
     var l = injector.createInstance(exports.Test);
     window.localStorage['foo'] = l.getName();
-    return 'a' in l? true : false;
   }
 });
