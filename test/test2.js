@@ -88,25 +88,10 @@ camp.module('camp.dependencies', function (exports) {
 
     /**
      * @param {string} name
+     * @param {*} value
      */
-    exports.injector.bind = function (name) {
-      return new exports.injector._Binder(name);
-    }
-
-    /**
-     * @private
-     * @constructor
-     * @param {string} id
-     */
-    exports.injector._Binder = function (id) {
-      this._id = id;
-    }
-
-    /**
-     * @param {*} item
-     */
-    exports.injector._Binder.prototype.to = function (item) {
-      exports._injectionsRegistry[this._id] = item;
+    exports.injector.bind = function (name, value) {
+      exports._injectionsRegistry[name] = value;
     }
 
 
@@ -196,6 +181,9 @@ camp.module('camp.dependencies', function (exports) {
      */
     exports.injector._invokeNewCall = function (classConstructor, injections) {
       var instance;
+      /**
+       * @constructor
+       */
       function NewCallProxyClass () {}
       NewCallProxyClass.prototype = classConstructor.prototype;
       instance = new NewCallProxyClass;

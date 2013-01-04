@@ -20,6 +20,21 @@ camp.module('camp.vm.interaction', function (exports) {
 
   /**
    * @constructor
+   */
+  exports.Service2 = function () {
+    this._node = document.getElementById('id');
+  }
+
+  /**
+   * @returns {Element}
+   */
+  exports.Service2.prototype.getNode = function () {
+    return this._node;
+  }
+
+
+  /**
+   * @constructor
    * @param {string} name1
    * @param {camp.vm.interaction.Test2} test2
    */
@@ -67,12 +82,29 @@ camp.module('camp.vm.interaction', function (exports) {
     return this._name;
   }
 
+
+  /**
+   * @constructor
+   * @extends {camp.vm.interaction.Test}
+   */
+  exports.Test3 = function (name1, test2) {
+    exports.Test.call(this, name1, test2);
+  }
+  goog.inherits(exports.Test3, exports.Test);
+
+  injector.inject(exports.Test3, "setService");
+
   exports.main = function () {
+    var m = {
+          a : 1,
+          b : 2,
+          c : 3
+        }
     injector.bind('name1', 'name1');
     injector.bind('name2', 'name2');
-    injector.bind('service', exports.Service);
+    injector.bind('service', exports.Service2);
     injector.bind('test2', exports.Test2);
-    var l = injector.createInstance(exports.Test);
+    var l = injector.createInstance(exports.Test3);
     window.localStorage['foo'] = l.getName();
   }
 });
