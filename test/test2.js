@@ -191,6 +191,10 @@ camp.module('camp.dependencies', function (exports) {
       return instance;
     }
 
+    exports.injector.defineProvider = function (classConstructor, provider) {
+      classConstructor._provider = provider;
+    }
+
     /**
      * @const {RegExp}
      */

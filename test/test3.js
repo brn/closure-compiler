@@ -46,25 +46,29 @@ camp.module('camp.vm.interaction', function (exports) {
   injector.inject(exports.Test, 'setService');
 
 
-  /**
-   * @returns {string}
-   */
-  exports.Test.prototype.getName = function () {
-    return this._x + this._test2.getName() + this._service.getNode().innerHTML;
+  exports.Test.prototype = {
+    /**
+     * @returns {string}
+     */
+    getName : function () {
+      return this._x + this._test2.getName() + this._service.getNode().innerHTML;
+    },
+
+
+    /**
+     * @param {camp.vm.interaction.Service} service
+     */
+    setService : function (service) {
+      this._service = service;
+    },
+
+    /**
+     * @private {camp.vm.interaction.Service}
+     */
+    _service : null
   }
 
 
-  /**
-   * @param {camp.vm.interaction.Service} service
-   */
-  exports.Test.prototype.setService = function (service) {
-    this._service = service;
-  }
-
-  /**
-   * @private {camp.vm.interaction.Service}
-   */
-  exports.Test.prototype._service = null;
 
   /**
    * @constructor
@@ -92,6 +96,37 @@ camp.module('camp.vm.interaction', function (exports) {
   }
   goog.inherits(exports.Test3, exports.Test);
 
+
+  /**
+   * @constructor
+   * @param {string} a
+   * @param {string} b
+   */
+  exports.Test4 = function (a, b) {
+    this.a = a;
+    this.b = b;
+  }
+
+  injector.defineProvider(exports.Test4, function () {
+    var a = new exports.Test4(injector.get('name1'), injector.get('name2'));
+    a.setC(injector.get('test2'));
+    return a;
+  })
+
+  exports.Test4.prototype.c = '';
+
+  /**
+   * @param {camp.vm.interaction.Test2} c
+   */
+  exports.Test4.prototype.setC = function (c) {
+    this.c = c;
+  }
+
+  exports.Test4.prototype.get = function () {
+    return this.a + this.b + this.c.getName();
+  }
+
+
   injector.inject(exports.Test3, "setService");
 
   exports.main = function () {
@@ -102,9 +137,10 @@ camp.module('camp.vm.interaction', function (exports) {
         }
     injector.bind('name1', 'name1');
     injector.bind('name2', 'name2');
-    injector.bind('service', exports.Service2);
+    injector.bind('service', exports.Service);
     injector.bind('test2', exports.Test2);
     var l = injector.createInstance(exports.Test3);
     window.localStorage['foo'] = l.getName();
+    window.console.log(injector.createInstance(exports.Test4));
   }
 });
