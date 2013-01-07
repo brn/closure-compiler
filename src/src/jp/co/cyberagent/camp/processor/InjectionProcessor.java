@@ -88,7 +88,7 @@ public final class InjectionProcessor implements CompilerPass {
 						registerInjections(t, n, firstChild.getNext(), false, true);
 						processed = true;
 					}
-					if (processed) {
+					if (processed && !isSingleton) {
 						detachInjectionCall(n);
 						compiler.reportCodeChange();
 					}
@@ -393,21 +393,25 @@ public final class InjectionProcessor implements CompilerPass {
 							arg = createPrimitiveArgument(target);
 						} else {
 							Node classEntity = bindingRegistry.getClassBindings(target);
-							ClassInjectionInfo classInjectionInfo =
-								classInjectionInfoRegistry.getInfo(classEntity.getQualifiedName());
-							if (classInjectionInfo != null) {
-								if (jsDocInfo != null) {
-									String fqMethodName =
-										(methodName != null)? qualifiedName + ".prototype." + methodName : qualifiedName;
-									checkClassType(t,
-												   target,
-												   fqMethodName,
-												   classEntity,
-												   jsDocInfo.getParameterType(target),
-												   classInjectionInfo);
+							if (classEntity != null) {
+								ClassInjectionInfo classInjectionInfo =
+									classInjectionInfoRegistry.getInfo(classEntity.getQualifiedName());
+								if (classInjectionInfo != null) {
+									if (jsDocInfo != null) {
+										String fqMethodName =
+											(methodName != null)? qualifiedName + ".prototype." + methodName : qualifiedName;
+										checkClassType(t,
+													   target,
+													   fqMethodName,
+													   classEntity,
+													   jsDocInfo.getParameterType(target),
+													   classInjectionInfo);
+									}
+									arg = createInstaniationCall(t, classEntity.cloneTree(), classInjectionInfo);
+									arg = createInstaniationScope(t, qualifiedName, arg, classInjectionInfo);
 								}
-								arg = createInstaniationCall(t, classEntity.cloneTree(), classInjectionInfo);
-								arg = createInstaniationScope(t, qualifiedName, arg, classInjectionInfo);
+							} else {
+								arg = new Node(Token.NULL);
 							}
 						}
 						if (arg != null) {
