@@ -152,38 +152,42 @@ public final class InjectionProcessor implements CompilerPass {
 			Node constructor = classInjectionInfo.getConstructorNode();
 			Node className = createNodesFromString(classInjectionInfo.getClassName());
 			Node getInstanceMirror = Node.newString(GET_INSTANCE_MIRROR);
-			Node getprop = new Node(Token.GETPROP, className, getInstanceMirror);
-			Node function = new Node(Token.FUNCTION, Node.newString(Token.NAME, ""), new Node(Token.PARAM_LIST));
-			Node block = new Node(Token.BLOCK);
-			Node if_ = new Node(Token.IF);
-			Node not = new Node(Token.NOT);
-			Node instanceHolder = new Node(Token.GETPROP, className.cloneTree(), Node.newString(INSTANCE_MIRROR));
-			Node ifBlock = new Node(Token.BLOCK);
 			Node createInstance = createNodesFromString(INSTANIATION_CALL);
-			Node getInstanceCall = new Node(Token.CALL,
-											new Node(Token.GETPROP,
-													 className.cloneTree(), Node.newString(SINGLETON_CALL)));
-			ifBlock.addChildToBack(new Node(Token.EXPR_RESULT,
-											new Node(Token.ASSIGN,
-													 instanceHolder.cloneTree(), new Node(Token.TRUE))));
-			ifBlock.addChildToBack(new Node(Token.RETURN,
-											new Node(Token.CALL,
-													 createInstance,
-													 className.cloneTree())));
-			not.addChildToBack(instanceHolder);
-			if_.addChildToBack(not);
-			if_.addChildToBack(ifBlock);
-			block.addChildToBack(if_);
-			block.addChildToBack(new Node(Token.RETURN,
-										  getInstanceCall));
-			function.addChildToBack(block);
-			Node assign = new Node(Token.ASSIGN, getprop, function);
-			Node expr = new Node(Token.EXPR_RESULT, assign);
+			Node instanceHolder = new Node(Token.GETPROP,
+										   className.cloneTree(),
+										   Node.newString(INSTANCE_MIRROR));
+			Node expr = new Node(Token.EXPR_RESULT,
+								 new Node(Token.ASSIGN,
+										  new Node(Token.GETPROP,
+												   className,
+												   getInstanceMirror),
+										  new Node(Token.FUNCTION,
+												   Node.newString(Token.NAME, ""),
+												   new Node(Token.PARAM_LIST),
+												   new Node(Token.BLOCK,
+															new Node(Token.IF,
+																	 new Node(Token.NOT,
+																			  instanceHolder.cloneTree()),
+																	 new Node(Token.BLOCK,
+																			  new Node(Token.EXPR_RESULT,
+																					   new Node(Token.ASSIGN,
+																								instanceHolder.cloneTree(),
+																								new Node(Token.TRUE))),
+																			  new Node(Token.RETURN,
+																					   new Node(Token.CALL,
+																								createInstance,
+																								className.cloneTree())))),
+															new Node(Token.RETURN,
+																	 new Node(Token.CALL,
+																			  new Node(Token.GETPROP,
+																					   className.cloneTree(),
+																					   Node.newString(SINGLETON_CALL))))))));
 			Node tmp = n.getParent();
 			while (tmp != null && !tmp.isExprResult()) {tmp = tmp.getParent();}
 			if (tmp != null) {
 				tmp.getParent().addChildAfter(expr, tmp);
 			}
+			Node assign = expr.getFirstChild();
 			JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
 			builder.recordReturnType(new JSTypeExpression(new Node(Token.BANG, className.cloneTree()), ""));
 			JSDocInfo info = builder.build(assign);

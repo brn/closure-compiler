@@ -23,16 +23,23 @@ camp.singleton = function (fn) {
 var goog = {};
 
 /**
- * @param {Function} classConstructor
+ * Adds a {@code getInstance} static method that always return the same instance
+ * object.
+ * @param {!Function} ctor The constructor for the class to add the static
+ *     method to.
  */
-goog.addSingletonGetter = function (classConstructor) {
-  classConstructor.getInstance = function () {
-    if (!classConstructor._instance) {
-      classConstructor._instance = new classConstructor;
+goog.addSingletonGetter = function(ctor) {
+  ctor.getInstance = function () {
+    if (ctor.instance_) {
+      return ctor.instance_;
     }
-    return classConstructor._instance;
-  }
-}
+    if (goog.DEBUG) {
+      // NOTE: JSCompiler can't optimize away Array#push.
+      goog.instantiatedSingletons_[goog.instantiatedSingletons_.length] = ctor;
+    }
+    return ctor.instance_ = new ctor;
+  };
+};
 
 /**
  * Inherit the prototype methods from one constructor into another.
