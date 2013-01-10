@@ -17,8 +17,6 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.JSDocInfo;
 
-import jp.co.cyberagnet.camp.processor.PreCompileInfo;
-
 import java.util.List;
 import java.util.Set;
 
@@ -41,14 +39,47 @@ public final class CampModuleProcessor implements CompilerPass {
 	private final String exports = "exports";
 	private final HashMap<String, Node> rootHolder = new HashMap<String, Node>();
 	private final HashMap<String, PreCompileInfo> preCompInfo = new HashMap<String, PreCompileInfo>();
-  
+
+
+	private final class PreCompileInfo {
+		private List<Node> useCalls;
+		private List<Node> exportsList;
+		private List<Node> moduleCalls;
+		private List<JSDocInfo> jsdocs;
+	
+		public PreCompileInfo () {
+			useCalls = Lists.newArrayList();
+			exportsList = Lists.newArrayList();
+			moduleCalls = Lists.newArrayList();
+			jsdocs = Lists.newArrayList();
+		}
+
+		public List<Node> getUseCalls () {
+			return useCalls;
+		}
+
+		public List<Node> getExportsList () {
+			return exportsList;
+		}
+
+		public List<Node> getModuleCalls () {
+			return moduleCalls;
+		}
+
+		public List<JSDocInfo> getJSDocs() {
+			return jsdocs;
+		}
+	};
+	
+	
 	private class ModuleResolver extends AbstractPostOrderCallback {
 		private final String useCall = "camp.using";
 		private final String moduleCall = "camp.module";
 		private boolean isMainAlreadyFounded = false;
 		private String firstDefined = "";
 		private String mainPos = "";
-
+		
+		
 		private Node getRoot (Node n) {
 			Node parent = n.getParent();
 			if (parent.getType() == Token.SCRIPT) {
@@ -130,6 +161,7 @@ public final class CampModuleProcessor implements CompilerPass {
 				}
 			}
 		}
+
 		
 		@Override
 		public void visit(NodeTraversal t, Node n, Node parent) {
@@ -141,11 +173,15 @@ public final class CampModuleProcessor implements CompilerPass {
 			List<Node> useCalls = preCompileInfo.getUseCalls();
 			List<Node> moduleCalls = preCompileInfo.getModuleCalls();
 			List<Node> exportsList = preCompileInfo.getExportsList();
+			List<JSDocInfo> jsdocList = preCompileInfo.getJSDocs();
 			JSDocInfo info = n.getJSDocInfo();
 			if (n.getType() == Token.CALL) {
 				processModuleAndUsing(n, t, moduleCalls, useCalls);
 			} else {
 				processMainAndExports(n, t, exportsList);
+			}
+			if (info != null) {
+				jsdocList.add(info);
 			}
 		}
 	}
@@ -175,11 +211,13 @@ public final class CampModuleProcessor implements CompilerPass {
 			List<Node> moduleCalls = preCompileInfo.getModuleCalls();
 			if (moduleCalls.size() > 0) {
 				Node scriptBody = rootHolder.get(key);
-				String[] moduleNames = moduleCalls.get(0).getFirstChild().getNext().getString().split("\\.", 0);
+				String moduleName = moduleCalls.get(0).getFirstChild().getNext().getString();
+				String[] moduleNames = moduleName.split("\\.", 0);
 				List<Node> exportsList = preCompileInfo.getExportsList();
+				List<JSDocInfo> jsdocList = preCompileInfo.getJSDocs();
 				processRequire(scriptBody, preCompileInfo.getUseCalls());
 				processProvide(scriptBody, moduleCalls, exportsList);
-				processExports(moduleNames, scriptBody, exportsList);
+				processExports(moduleNames, moduleName, scriptBody, exportsList, jsdocList);
 			}
 		}
 	}
@@ -263,7 +301,7 @@ public final class CampModuleProcessor implements CompilerPass {
 		}
 	}
   
-	private void processExports (String[] moduleNames, Node scriptBody, List<Node> exportsList) {
+	private void processExports (String[] moduleNames, String moduleName, Node scriptBody, List<Node> exportsList, List<JSDocInfo> jsdocList) {
 		Node module = createModuleQualifiedName(moduleNames);
 		for (Node exports : exportsList) {
 			Node exportsToken = exports.getFirstChild();
@@ -275,6 +313,25 @@ public final class CampModuleProcessor implements CompilerPass {
 			child.setJSDocInfo(exports.getJSDocInfo());
 			exports.getParent().replaceChild(exports, child);
 		}
+		for (JSDocInfo jsdoc : jsdocList) {
+			for (Node type : jsdoc.getTypeNodes()) {
+				fixTypeNode(type, moduleName);
+			}
+		}
 		compiler.reportCodeChange();
+	}
+
+	private void fixTypeNode(Node typeNode, String moduleName) {
+		if (typeNode.isString()) {
+			String name = typeNode.getString();
+			if (name.indexOf(exports + '.') != -1) {
+				typeNode.setString(name.replaceAll(exports + '.', moduleName + '.'));
+			}
+		}
+
+		for (Node child = typeNode.getFirstChild(); child != null;
+			 child = child.getNext()) {
+			fixTypeNode(child, moduleName);
+		}
 	}
 }

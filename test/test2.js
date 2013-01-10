@@ -23,6 +23,18 @@ camp.singleton = function (fn) {
 var goog = {};
 
 /**
+ * @param {Function} classConstructor
+ */
+goog.addSingletonGetter = function (classConstructor) {
+  classConstructor.getInstance = function () {
+    if (!classConstructor._instance) {
+      classConstructor._instance = new classConstructor;
+    }
+    return classConstructor._instance;
+  }
+}
+
+/**
  * Inherit the prototype methods from one constructor into another.
  *
  * Usage:

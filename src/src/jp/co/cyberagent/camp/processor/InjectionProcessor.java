@@ -58,7 +58,7 @@ public final class InjectionProcessor implements CompilerPass {
 
 	private static final String CAMP_SINGLETON_CALL = "camp.singleton";
 
-	private static final String GOOG_SINGLETON_CALL = "goog.singleton";
+	private static final String GOOG_SINGLETON_CALL = "goog.addSingletonGetter";
 
 	private static final String INSTANIATION_CALL = "camp.dependencies.injector.createInstance";
 
@@ -66,7 +66,11 @@ public final class InjectionProcessor implements CompilerPass {
 
 	private static final String PROTOTYPE = "prototype";
 
-	private static final String SINLETON_CALL = "getInstance";
+	private static final String SINGLETON_CALL = "getInstance";
+
+	private static final String GET_INSTANCE_MIRROR = "$jscomp$getInstance$mirror";
+
+	private static final String INSTANCE_MIRROR = "$jscomp$instance$mirror";
 
 	private ClassInjectionInfoRegistry classInjectionInfoRegistry = new ClassInjectionInfoRegistry();
 
@@ -104,15 +108,20 @@ public final class InjectionProcessor implements CompilerPass {
 					ClassInjectionInfo classInjectionInfo = classInjectionInfoRegistry.getInfo(className);
 					Node argumentsNode = nameNode.getNext();
 					if (!isProvider) {
-						List<String> argumentsList = Lists.newArrayList();
-						for (;argumentsNode != null; argumentsNode = argumentsNode.getNext()) {
-							if (argumentsNode.isString()) {
-								argumentsList.add(argumentsNode.getString());
-							} else {
-								t.report(argumentsNode, MESSAGE_SETTER_INJECTION_TARGET_MUST_BE_A_STRING, "");
+						if (!isSingleton) {
+							List<String> argumentsList = Lists.newArrayList();
+							for (;argumentsNode != null; argumentsNode = argumentsNode.getNext()) {
+								if (argumentsNode.isString()) {
+									argumentsList.add(argumentsNode.getString());
+								} else {
+									t.report(argumentsNode, MESSAGE_SETTER_INJECTION_TARGET_MUST_BE_A_STRING, "");
+								}
 							}
+							classInjectionInfo.setInjectionTargets(argumentsList);
+						} else {
+							classInjectionInfo.setSingleton(true);
+							createSingletonGetterMirror(classInjectionInfo, n);
 						}
-						classInjectionInfo.setInjectionTargets(argumentsList, isSingleton);
 					} else {
 						classInjectionInfo.setProvider(argumentsNode.cloneTree());
 					}
@@ -124,6 +133,64 @@ public final class InjectionProcessor implements CompilerPass {
 			}
 		}
 
+
+		private Node createNodesFromString(String name) {
+			String[] methodNames = name.split("\\.", 0);
+			Node prop = null;
+			for (String methodName : methodNames) {
+				if (prop == null) {
+					prop = Node.newString(Token.NAME, methodName);
+				} else {
+					prop = new Node(Token.GETPROP, prop, Node.newString(methodName));
+				}
+			}
+			return prop;
+		}
+		
+
+		private void createSingletonGetterMirror(ClassInjectionInfo classInjectionInfo, Node n) {
+			Node constructor = classInjectionInfo.getConstructorNode();
+			Node className = createNodesFromString(classInjectionInfo.getClassName());
+			Node getInstanceMirror = Node.newString(GET_INSTANCE_MIRROR);
+			Node getprop = new Node(Token.GETPROP, className, getInstanceMirror);
+			Node function = new Node(Token.FUNCTION, Node.newString(Token.NAME, ""), new Node(Token.PARAM_LIST));
+			Node block = new Node(Token.BLOCK);
+			Node if_ = new Node(Token.IF);
+			Node not = new Node(Token.NOT);
+			Node instanceHolder = new Node(Token.GETPROP, className.cloneTree(), Node.newString(INSTANCE_MIRROR));
+			Node ifBlock = new Node(Token.BLOCK);
+			Node createInstance = createNodesFromString(INSTANIATION_CALL);
+			Node getInstanceCall = new Node(Token.CALL,
+											new Node(Token.GETPROP,
+													 className.cloneTree(), Node.newString(SINGLETON_CALL)));
+			ifBlock.addChildToBack(new Node(Token.EXPR_RESULT,
+											new Node(Token.ASSIGN,
+													 instanceHolder.cloneTree(), new Node(Token.TRUE))));
+			ifBlock.addChildToBack(new Node(Token.RETURN,
+											new Node(Token.CALL,
+													 createInstance,
+													 className.cloneTree())));
+			not.addChildToBack(instanceHolder);
+			if_.addChildToBack(not);
+			if_.addChildToBack(ifBlock);
+			block.addChildToBack(if_);
+			block.addChildToBack(new Node(Token.RETURN,
+										  getInstanceCall));
+			function.addChildToBack(block);
+			Node assign = new Node(Token.ASSIGN, getprop, function);
+			Node expr = new Node(Token.EXPR_RESULT, assign);
+			Node tmp = n.getParent();
+			while (tmp != null && !tmp.isExprResult()) {tmp = tmp.getParent();}
+			if (tmp != null) {
+				tmp.getParent().addChildAfter(expr, tmp);
+			}
+			JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
+			builder.recordReturnType(new JSTypeExpression(new Node(Token.BANG, className.cloneTree()), ""));
+			JSDocInfo info = builder.build(assign);
+			assign.setJSDocInfo(info);
+		}
+		
+		
 		private void detachInjectionCall(Node n) {
 			Node node = n;
 			while (!node.isExprResult() && node != null) {
@@ -259,8 +326,10 @@ public final class InjectionProcessor implements CompilerPass {
 							ClassInjectionInfo classInjectionInfo =
 								classInjectionInfoRegistry.getInfo(classEntity.getQualifiedName());
 							if (classInjectionInfo != null) {
-								arg = createInstaniationCall(t, classEntity.cloneTree(), classInjectionInfo);
-								arg = createInstaniationScope(t, "", arg, classInjectionInfo);
+								arg = createInstaniationCall(t, classEntity.cloneTree(), classInjectionInfo, true);
+								if (!classInjectionInfo.hasProvider() && !classInjectionInfo.isSingleton()) {
+									arg = createInstaniationScope(t, "", arg, classInjectionInfo);
+								}
 							}
 						}
 					}
@@ -285,8 +354,9 @@ public final class InjectionProcessor implements CompilerPass {
 				child = child.getNext();
 				ClassInjectionInfo classInjectionInfo = classInjectionInfoRegistry.getInfo(child.getQualifiedName());
 				if (classInjectionInfo != null) {
-					Node newcall = createInstaniationCall(t, child.cloneTree(), classInjectionInfo);
-					if (!classInjectionInfo.hasProvider()) {
+					boolean isCreateSetter = this.isCreateSetter(classInjectionInfo, n);
+					Node newcall = createInstaniationCall(t, child.cloneTree(), classInjectionInfo, !isCreateSetter);
+					if (!classInjectionInfo.hasProvider() && isCreateSetter) {
 						newcall = createInstaniationScope(t, child.getQualifiedName(), newcall, classInjectionInfo);
 					}
 					n.getParent().replaceChild(n, newcall);
@@ -295,14 +365,30 @@ public final class InjectionProcessor implements CompilerPass {
 			}
 		}
 
-		private Node createInstaniationCall(NodeTraversal t, Node n, ClassInjectionInfo classInjectionInfo) {
+		private boolean isCreateSetter(ClassInjectionInfo classInjectionInfo, Node n) {
+			if (classInjectionInfo.isSingleton()) {
+				while (n != null) {
+					if (n.isAssign()) {
+						String name = n.getFirstChild().getQualifiedName();
+						if (name != null && name.indexOf(GET_INSTANCE_MIRROR) != -1) {
+							return true;
+						}
+					}
+					n = n.getParent();
+				}
+				return false;
+			}
+			return true;
+		}
+		
+		private Node createInstaniationCall(NodeTraversal t, Node n, ClassInjectionInfo classInjectionInfo, boolean isMirror) {
 			Node newcall;
 			Node provider = classInjectionInfo.getProvider();
 			if (provider != null) {
 				NodeTraversal.traverse(compiler, provider, new InjectionGetterProcessor());
 				newcall = new Node(Token.CALL, provider.cloneTree());
 			} else if (classInjectionInfo.isSingleton()) {
-				Node getInstance = new Node(Token.GETPROP, n, Node.newString(SINLETON_CALL));
+				Node getInstance = new Node(Token.GETPROP, n, isMirror? Node.newString(GET_INSTANCE_MIRROR) : Node.newString(SINGLETON_CALL));
 				newcall = new Node(Token.CALL, getInstance);
 			} else {
 				newcall = new Node(Token.NEW, n);
@@ -314,6 +400,7 @@ public final class InjectionProcessor implements CompilerPass {
 		}
 
 		private Node createInstaniationScope(NodeTraversal t, String qualifiedName, Node newcall, ClassInjectionInfo classInjectionInfo) {
+			classInjectionInfo.setInstaniationFlag(true);
 			List<String> targets = classInjectionInfo.getInjectionTargets();
 			if (targets != null) {
 				Node functionBody = new Node(Token.BLOCK);
@@ -407,8 +494,10 @@ public final class InjectionProcessor implements CompilerPass {
 													   jsDocInfo.getParameterType(target),
 													   classInjectionInfo);
 									}
-									arg = createInstaniationCall(t, classEntity.cloneTree(), classInjectionInfo);
-									arg = createInstaniationScope(t, qualifiedName, arg, classInjectionInfo);
+									arg = createInstaniationCall(t, classEntity.cloneTree(), classInjectionInfo, true);
+									if (!classInjectionInfo.hasProvider() && !classInjectionInfo.isSingleton()) {
+										arg = createInstaniationScope(t, qualifiedName, arg, classInjectionInfo);
+									}
 								}
 							} else {
 								arg = new Node(Token.NULL);
@@ -541,8 +630,10 @@ public final class InjectionProcessor implements CompilerPass {
 	
 
 	private final class ClassInjectionInfo {
+		private Node constructor;
 		private String className;
 		private boolean isSingleton;
+		private boolean isInstaniated;
 		private List<String> argumentsList;
 		private JSType constructorType;
 		private JSDocInfo constructorDocInfo;
@@ -556,7 +647,9 @@ public final class InjectionProcessor implements CompilerPass {
 								  Node constructor) {
 			this.className = className;
 			this.argumentsList = constructorArgumentsList;
+			this.constructor = constructor;
 			this.constructorType = constructor.getJSType();
+			this.isInstaniated = false;
 		}
 
 		public void addPrototypeInfo(PrototypeMemberInfo prototypeMemberInfo) {
@@ -564,6 +657,12 @@ public final class InjectionProcessor implements CompilerPass {
 										  prototypeMemberInfo);
 		}
 
+
+		public Node getConstructorNode() {
+			return this.constructor;
+		}
+		
+		
 		public JSType getJSType() {
 			return this.constructorType;
 		}
@@ -592,6 +691,14 @@ public final class InjectionProcessor implements CompilerPass {
 			this.provider = provider;
 		}
 
+		public void setInstaniationFlag(boolean isInstaniate) {
+			this.isInstaniated = isInstaniate;
+		}
+
+		public boolean isInstaniated() {
+			return this.isInstaniated;
+		}
+
 		public Node getProvider() {
 			return this.provider;
 		}
@@ -608,8 +715,11 @@ public final class InjectionProcessor implements CompilerPass {
 			return this.superClass;
 		}
 
-		public void setInjectionTargets(List<String> injectionTargets, boolean isSingleton) {
+		public void setInjectionTargets(List<String> injectionTargets) {
 			this.injectionTargets = injectionTargets.size() > 0? injectionTargets : null;
+		}
+
+		public void setSingleton(boolean isSingleton) {
 			this.isSingleton = isSingleton;
 		}
 

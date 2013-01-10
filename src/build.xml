@@ -13,6 +13,7 @@
   <target name="compile">
     <mkdir dir="${classes.dir}" />
     <javac srcdir="${src.dir}"
+					 debug="true"
            classpath="${closure-compiler.jar}"
            destdir="${classes.dir}"
 					 source="1.6"/>
