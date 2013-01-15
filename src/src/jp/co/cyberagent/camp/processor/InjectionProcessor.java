@@ -123,7 +123,7 @@ public final class InjectionProcessor implements CompilerPass {
 							createSingletonGetterMirror(classInjectionInfo, n);
 						}
 					} else {
-						classInjectionInfo.setProvider(argumentsNode.cloneTree());
+						classInjectionInfo.setProvider(argumentsNode);
 					}
 				} else {
 					t.report(n, MESSAGE_INJECT_ARGUMENT_MUST_BE_A_CONSTRUCTOR, "");
@@ -305,15 +305,18 @@ public final class InjectionProcessor implements CompilerPass {
 
 	private final class InstaniationProcessor extends AbstractPostOrderCallback {
 
-		private class InjectionGetterProcessor extends AbstractPostOrderCallback {
+		public final class InjectionGetterProcessor extends AbstractPostOrderCallback {
 			@Override
 			public void visit(NodeTraversal t, Node n, Node parent) {
 				if (n.isCall()) {
 					Node child = n.getFirstChild();
-					if (child.isGetProp() && child.getQualifiedName().equals(GET_INJECTION_CALL)) {
-						Node nameNode = child.getNext();
-						if (nameNode != null && nameNode.isString()) {
-							processGetter(t, n, nameNode.getString());
+					if (child != null && child.isGetProp()) {
+						String fqn = child.getQualifiedName();
+						if (fqn != null && fqn.equals(GET_INJECTION_CALL)) {
+							Node nameNode = child.getNext();
+							if (nameNode != null && nameNode.isString()) {
+								processGetter(t, n, nameNode.getString());
+							}
 						}
 					}
 				}
@@ -389,7 +392,6 @@ public final class InjectionProcessor implements CompilerPass {
 			Node newcall;
 			Node provider = classInjectionInfo.getProvider();
 			if (provider != null) {
-				NodeTraversal.traverse(compiler, provider, new InjectionGetterProcessor());
 				newcall = new Node(Token.CALL, provider.cloneTree());
 			} else if (classInjectionInfo.isSingleton()) {
 				Node getInstance = new Node(Token.GETPROP, n, isMirror? Node.newString(GET_INSTANCE_MIRROR) : Node.newString(SINGLETON_CALL));
@@ -704,7 +706,7 @@ public final class InjectionProcessor implements CompilerPass {
 		}
 
 		public Node getProvider() {
-			return this.provider;
+			return this.provider != null? this.provider.cloneTree() : null;
 		}
 
 		public boolean hasProvider() {
@@ -917,7 +919,10 @@ public final class InjectionProcessor implements CompilerPass {
 		NodeTraversal.traverse(compiler, root, new ConstructorInjectionProcessor());
 		NodeTraversal.traverse(compiler, root, new SetterInjectionProcessor());
 		NodeTraversal.traverse(compiler, root, new BindingProcessor());
-		NodeTraversal.traverse(compiler, root, new InstaniationProcessor());
+		InstaniationProcessor instaniationProcessor = new InstaniationProcessor();
+		InstaniationProcessor.InjectionGetterProcessor injectionGetterProcessor = instaniationProcessor.new InjectionGetterProcessor();
+		NodeTraversal.traverse(compiler, root, injectionGetterProcessor);
+		NodeTraversal.traverse(compiler, root, instaniationProcessor);
 	}
 
 	private static boolean shouldParsePrototype(Node assignNode, ClassInjectionInfoRegistry classInjectionInfoRegistry) {
