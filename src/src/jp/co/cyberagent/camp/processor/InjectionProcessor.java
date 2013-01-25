@@ -694,7 +694,7 @@ public final class InjectionProcessor implements CompilerPass {
 		}
 
 		public void setProvider(Node provider) {
-			this.provider = provider;
+			this.provider = provider.cloneTree();
 		}
 
 		public void setInstaniationFlag(boolean isInstaniate) {
@@ -706,7 +706,7 @@ public final class InjectionProcessor implements CompilerPass {
 		}
 
 		public Node getProvider() {
-			return this.provider != null? this.provider.cloneTree() : null;
+			return this.provider;
 		}
 
 		public boolean hasProvider() {
@@ -921,8 +921,8 @@ public final class InjectionProcessor implements CompilerPass {
 		NodeTraversal.traverse(compiler, root, new BindingProcessor());
 		InstaniationProcessor instaniationProcessor = new InstaniationProcessor();
 		InstaniationProcessor.InjectionGetterProcessor injectionGetterProcessor = instaniationProcessor.new InjectionGetterProcessor();
-		NodeTraversal.traverse(compiler, root, injectionGetterProcessor);
 		NodeTraversal.traverse(compiler, root, instaniationProcessor);
+		NodeTraversal.traverse(compiler, root, injectionGetterProcessor);
 	}
 
 	private static boolean shouldParsePrototype(Node assignNode, ClassInjectionInfoRegistry classInjectionInfoRegistry) {
