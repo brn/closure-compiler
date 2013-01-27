@@ -105,13 +105,13 @@ camp.module('camp.vm.interaction', function (exports) {
    * @param {string} a
    * @param {string} b
    */
-  exports.Test4 = function (a, b) {
-    this.a = a;
-    this.b = b;
+  exports.Test4 = function (name1, name2) {
+    this.a = name1;
+    this.b = name2;
   }
 
-  injector.defineProvider(exports.Test4, function () {
-    var a = new exports.Test4(injector.get('name1'), injector.get('name2'));
+  injector.defineProvider(exports.Test4, function (name1, name2) {
+    var a = new exports.Test4(name1, name2);
     a.setC(injector.get('test2'));
     return a;
   })
@@ -146,7 +146,7 @@ camp.module('camp.vm.interaction', function (exports) {
     var s = injector.createInstance(exports.Service);
     var l = injector.createInstance(exports.Test3);
     var v = injector.createInstance(exports.Test);
-    window.localStorage['foo'] = l.getName() + v.getName() + s.getNode().innerHTML;
+    window.localStorage['foo'] = l.getName() + v.getName()// + s.getNode().innerHTML;
     window.console.log(injector.createInstance(exports.Test4));
   }
 });

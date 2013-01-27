@@ -47,6 +47,9 @@ public final class InjectionProcessor implements CompilerPass {
 
 	static final DiagnosticType MESSAGE_METHOD_NEVER_DEFINED =
 		DiagnosticType.error("JSC_MSG_METHOD_NEVER_DEFINED", "The method {0} never defined on {1}.");
+
+	static final DiagnosticType MESSAGE_CLASS_NOT_FOUND =
+		DiagnosticType.error("JSC_MSG_CLASS_NOT_FOUND", "The target class is not found. The first argument of <camp.dependencies.injector.createInstance> must be passed a constructor directly.");
 	
 	private final AbstractCompiler compiler;
 
@@ -339,6 +342,8 @@ public final class InjectionProcessor implements CompilerPass {
 					}
 					if (arg != null) {
 						n.getParent().replaceChild(n, arg);
+					} else {
+						n.getParent().replaceChild(n, new Node(Token.NULL));
 					}
 				}
 			}
@@ -365,6 +370,8 @@ public final class InjectionProcessor implements CompilerPass {
 					}
 					n.getParent().replaceChild(n, newcall);
 					compiler.reportCodeChange();
+				} else {
+					t.report(child, MESSAGE_CLASS_NOT_FOUND);
 				}
 			}
 		}
@@ -503,13 +510,15 @@ public final class InjectionProcessor implements CompilerPass {
 										arg = createInstaniationScope(t, qualifiedName, arg, classInjectionInfo);
 									}
 								}
-							} else {
-								arg = new Node(Token.NULL);
 							}
 						}
 						if (arg != null) {
 							methodcall.addChildToBack(arg);
+						} else {
+							methodcall.addChildToBack(new Node(Token.NULL));
 						}
+					} else {
+						methodcall.addChildToBack(new Node(Token.NULL));
 					}
 				}
 			}

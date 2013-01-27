@@ -120,17 +120,7 @@ camp.module('camp.dependencies', function (exports) {
      * @returns {T}
      */
     exports.injector.createInstance = function (classConstructor) {
-      var injections;
-      var args;
-      if (!classConstructor._injections) {
-        classConstructor._injections = exports.injector._parseArguments(classConstructor);
-      }
-      injections = classConstructor._injections;
-      args = exports.injector._createArguments(injections);
-      if (classConstructor.getInstance) {
-        return classConstructor.getInstance.apply(null, args);
-      }
-      return exports.injector._invokeNewCall(classConstructor, args);
+      return exports.injector._doCreate(classConstructor);
     }
 
 
@@ -168,6 +158,25 @@ camp.module('camp.dependencies', function (exports) {
 
 
     /**
+     * @template T
+     * @param {function(new:T,...)} classConstructor
+     */
+    exports.injector._doCreate = function (classConstructor) {
+      var injections;
+      var args;
+      if (!classConstructor._injections) {
+        classConstructor._injections = exports.injector._parseArguments(classConstructor);
+      }
+      injections = classConstructor._injections;
+      args = exports.injector._createArguments(injections);
+      if (classConstructor.getInstance) {
+        return classConstructor.getInstance.apply(null, args);
+      }
+      return exports.injector._invokeNewCall(classConstructor, args);
+    }
+
+
+    /**
      * @private
      * @param {Array.<string>} injections
      * @returns {Array}
@@ -180,7 +189,7 @@ camp.module('camp.dependencies', function (exports) {
         if (injection in exports._injectionsRegistry) {
           injection = exports._injectionsRegistry[injection];
           if (typeof injection === 'function') {
-            args[i] = exports.injector.createInstance(injection);
+            args[i] = exports.injector._doCreate(injection);
           } else {
             args[i] = injection;
           }
