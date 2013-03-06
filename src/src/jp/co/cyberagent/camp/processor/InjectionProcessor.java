@@ -49,7 +49,10 @@ public final class InjectionProcessor implements CompilerPass {
 		DiagnosticType.error("JSC_MSG_METHOD_NEVER_DEFINED", "The method {0} never defined on {1}.");
 
 	static final DiagnosticType MESSAGE_CLASS_NOT_FOUND =
-		DiagnosticType.error("JSC_MSG_CLASS_NOT_FOUND", "The target class is not found. The first argument of <camp.dependencies.injector.createInstance> must be passed a constructor directly.");
+		DiagnosticType.error("JSC_MSG_CLASS_NOT_FOUND", "The target class is not found. The first argument of camp.dependencies.injector.createInstance must be passed a constructor directly.");
+
+	static final DiagnosticType MESSAGE_GET_BINDING_ARGUMENTS_ERROR =
+		DiagnosticType.error("JSC_MSG_GET_BINDING_ARGUMENTS_ERROR", "The first argument of camp.dependencies.injector.get must be a string.");
 	
 	private final AbstractCompiler compiler;
 
@@ -319,6 +322,8 @@ public final class InjectionProcessor implements CompilerPass {
 							Node nameNode = child.getNext();
 							if (nameNode != null && nameNode.isString()) {
 								processGetter(t, n, nameNode.getString());
+							} else {
+								t.report(child, MESSAGE_GET_BINDING_ARGUMENTS_ERROR);
 							}
 						}
 					}
