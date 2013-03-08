@@ -1,9 +1,12 @@
 function Foo2() {}
 
-/**
- * @namespace camp.vm
- */
+
 camp.module('camp.vm', function (exports) {
+  /**
+   * @typedef {Array.<exports.Foo>}
+   */
+  exports.Type;
+
   /**
    * @constructor
    */
@@ -14,18 +17,20 @@ camp.module('camp.vm', function (exports) {
       name.b = name;
     }
     this.name = name;
-  }
-  exports.a = function () {return 'a'}
+  };
+
+  exports.a = function () {return 'a'};
+
   /**
-   * @param {Array.<exports.Foo>} foo
+   * @param {exports.Type} foo
    */
   exports.doRun = function (foo) {
     window.console.log(foo[0].name);
     return exports.a();
-  }
+  };
 
   exports.main = function () {
     var arr = [new exports.Foo('a')];
     exports.doRun(arr);
-  }
+  };
 });

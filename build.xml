@@ -5,6 +5,6 @@
 				<ant antfile="build.xml" dir="google-closure-compiler"/>
     </target>
     <target name="compiler-ext">
-				<ant antfile="build.xml" dir="src"/>
+				<ant antfile="build.xml" dir="ext"/>
     </target>
 </project>
