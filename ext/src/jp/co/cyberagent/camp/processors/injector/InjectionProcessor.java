@@ -601,7 +601,7 @@ public final class InjectionProcessor implements CompilerPass {
 				ConstructorNamingProcessor namingProcessor = new ConstructorNamingProcessor(n, constructorScopeChecker);
 				String name = namingProcessor.getName();
 				Node function = namingProcessor.getNode();
-				if (name != null) {
+				if (name != null && function.isFunction()) {
 					List<String> parsedArgumentsList = new ConstructorArgumentsParser(function).parse();
 					ClassInjectionInfo classInjectionInfo = new ClassInjectionInfo(name, parsedArgumentsList, function);
 					JSTypeExpression exp = info.getBaseType();
