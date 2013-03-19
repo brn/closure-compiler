@@ -1,4 +1,4 @@
-package jp.co.cyberagnet.camp.processor;
+package jp.co.cyberagent.camp.processors.injector;
 
 import java.util.HashMap;
 import java.util.Collection;
@@ -272,7 +272,9 @@ public final class InjectionProcessor implements CompilerPass {
 	}
 
 	private final class BindingRegistry {
+
 		private HashMap<String, Node> primitiveBindings = new HashMap<String, Node>();
+
 		private HashMap<String, Node> classBindings = new HashMap<String, Node>();
 
 		public void setPrimitiveBindings(String name, Node bindingValue) {
@@ -601,7 +603,7 @@ public final class InjectionProcessor implements CompilerPass {
 				ConstructorNamingProcessor namingProcessor = new ConstructorNamingProcessor(n, constructorScopeChecker);
 				String name = namingProcessor.getName();
 				Node function = namingProcessor.getNode();
-				if (name != null) {
+				if (name != null && function.isFunction()) {
 					List<String> parsedArgumentsList = new ConstructorArgumentsParser(function).parse();
 					ClassInjectionInfo classInjectionInfo = new ClassInjectionInfo(name, parsedArgumentsList, function);
 					JSTypeExpression exp = info.getBaseType();

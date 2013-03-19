@@ -1,4 +1,4 @@
-package jp.co.cyberagnet.camp.processors.module;
+package jp.co.cyberagent.camp.processors.module;
 
 import java.util.List;
 import com.google.common.collect.Lists;

@@ -1,4 +1,4 @@
-package jp.co.cyberagnet.camp.processor;
+package jp.co.cyberagent.camp.processors.module;
 
 import java.util.HashMap;
 import java.util.Collection;
@@ -16,7 +16,7 @@ import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.JSDocInfo;
-import jp.co.cyberagnet.camp.processor.CampModuleTransformInfo;
+import jp.co.cyberagent.camp.processors.module.CampModuleTransformInfo;
 
 import java.util.List;
 import java.util.Set;
@@ -38,18 +38,29 @@ public final class CampModuleProcessor implements CompilerPass {
 	private final AbstractCompiler compiler;
 
 	private final String EXPORTS = "exports";
+
 	private final HashMap<String, Node> rootHolder = new HashMap<String, Node>();
+
 	private final HashMap<String, CampModuleTransformInfo> campModuleTransformInfoMap = new HashMap<String, CampModuleTransformInfo>();
 	
 	
 	private class ModuleResolver extends AbstractPostOrderCallback {
 		private final String CAMP_USING_CALL = "camp.using";
+		
 		private final String CAMP_MODULE_CALL = "camp.module";
+		
 		private boolean isMainAlreadyFounded = false;
+		
 		private String firstDefined = "";
+		
 		private String mainPos = "";
 		
 		
+		/**
+		 * rootノードを取得する
+		 * @param n
+		 * @return rootノード
+		 */
 		private Node getRoot(Node n) {
 			Node parent = n.getParent();
 			if (parent.getType() == Token.SCRIPT) {
@@ -66,6 +77,12 @@ public final class CampModuleProcessor implements CompilerPass {
 		}
 
 		
+		/**
+		 * <code>CampModuleTransformInfo</code> の初期化
+		 * @param key
+		 * @param parent
+		 * @return
+		 */
 		private void initCampModuleTransformInfo(String key, Node parent) {
 			isMainAlreadyFounded = false;
 			firstDefined = "";
@@ -74,6 +91,12 @@ public final class CampModuleProcessor implements CompilerPass {
 		}
 
 		
+		/**
+		 * <code>camp.module</code> の呼び出しが正しく行われているか確認する。
+		 * @param n
+		 * @param t
+		 * @return 正否
+		 */
 		private boolean checkModuleCallIsValid(Node n, NodeTraversal t) {
 			Node firstArg = n.getFirstChild().getNext();
 			if (firstArg.getType() == Token.STRING) {
@@ -95,8 +118,17 @@ public final class CampModuleProcessor implements CompilerPass {
 			}
 			return false;
 		}
-    
-		private void processModuleAndUsing(Node n, NodeTraversal t, List<Node> moduleCalls, List<Node> usingCalls) {
+
+		
+		/**
+		 * <code>camp.module</code> と
+		 * <code>camp.using</code> の呼び出しをリストにまとめる。
+		 * @param n
+		 * @param t
+		 * @param moduleCalls
+		 * @param usingCalls
+		 */
+		private void collectModuleAndUsing(Node n, NodeTraversal t, List<Node> moduleCalls, List<Node> usingCalls) {
 			Node firstChild = n.getFirstChild();
 			if (firstChild.getType() == Token.GETPROP) {
 				if (firstChild.getFirstChild().getType() == Token.NAME) {
@@ -113,7 +145,14 @@ public final class CampModuleProcessor implements CompilerPass {
 		}
 
 
-		private void processMainAndExports(Node n, NodeTraversal t, List<Node> exportsList) {
+		/**
+		 * <code>exports.~</code> のノードをリストにまとめる。
+		 * @param n
+		 * @param t
+		 * @param exportsList
+		 * @return
+		 */
+		private void collectMainAndExports(Node n, NodeTraversal t, List<Node> exportsList) {
 			if (n.getType() == Token.GETPROP || n.getType() == Token.GETELEM) {
 				Node firstChild = n.getFirstChild();
 				if (firstChild.getType() == Token.NAME) {
@@ -154,9 +193,9 @@ public final class CampModuleProcessor implements CompilerPass {
 			JSDocInfo info = n.getJSDocInfo();
 			
 			if (n.getType() == Token.CALL) {
-				processModuleAndUsing(n, t, moduleCalls, usingCalls);
+				collectModuleAndUsing(n, t, moduleCalls, usingCalls);
 			} else {
-				processMainAndExports(n, t, exportsList);
+				collectMainAndExports(n, t, exportsList);
 			}
 			if (info != null) {
 				jsdocList.add(info);
@@ -195,6 +234,12 @@ public final class CampModuleProcessor implements CompilerPass {
 		}
 
 		
+		/**
+		 * <code>camp.using</code>の呼び出しを
+		 * <code>goog.require</code>に変換する
+		 * @param nil
+		 * @return
+		 */
 		private void processCampUsing () {
 			List<Node> usingCallList = this.campModuleTransformInfo.getUsingCallList();
 			int index = 0;
@@ -415,6 +460,11 @@ public final class CampModuleProcessor implements CompilerPass {
 	}
 
 	
+	/**
+	 * 完全修飾名を生成する。
+	 * @param moduleNames モジュール名をドットで区切った配列
+	 * @return GETPROPノード
+	 */
 	private Node createModuleQualifiedName (String[] moduleNames) {
 		Node prop = null;
 		for (String moduleName : moduleNames) {

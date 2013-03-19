@@ -1,10 +1,44 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <project name="closure-compiler" default="all">
-    <target name="all" depends="compiler, compiler-ext" />
+
+		<property name="compiler.dir" value="${basedir}/lib/google-closure-compiler" />
+		<property name="src.dir" value="${basedir}/src" />
+		<property name="build.dir" value="${basedir}/build" />
+		<property name="classes.dir" value="${basedir}/classes" />
+		<property name="closure-compiler.jar" value="${compiler.dir}/build/compiler.jar" />
+
     <target name="compiler">
-				<ant antfile="build.xml" dir="google-closure-compiler"/>
+				<ant antfile="build.xml"
+						 target="jar"
+						 dir="${compiler.dir}"
+						 inheritAll="false"/>
     </target>
-    <target name="compiler-ext">
-				<ant antfile="build.xml" dir="ext"/>
-    </target>
+
+		<target name="compile" depends="compiler">
+				<mkdir dir="${classes.dir}" />
+				<javac srcdir="${src.dir}"
+							 debug="true"
+							 classpath="${closure-compiler.jar}"
+							 destdir="${classes.dir}"/>
+		</target>
+
+		<target name="camp-command-line-runner" depends="compile">
+				<jar destfile="${build.dir}/compiler.jar">
+						<!-- mycompiler.jar will produce its own META-INF directory -->
+						<zipfileset src="${closure-compiler.jar}" excludes="META-INF/**" />
+						<fileset dir="${classes.dir}" />
+						<manifest>
+								<attribute name="Main-Class"
+													 value="jp.co.cyberagent.camp.CampCommandLineRunner" />
+						</manifest>
+				</jar>
+		</target>
+
+		<target name="clean">
+				<delete dir="${build.dir}" />
+				<delete dir="${classes.dir}" />
+		</target>
+		
+		<target name="build" depends="camp-command-line-runner" />
+		<target name="all" depends="build" />
 </project>

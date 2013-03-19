@@ -1,27 +1,30 @@
-var local = {};
-camp.module("camp.foo.bar.baz", function (exports) {
+var camp = {
+      hoge : {}
+    };
+
+/**
+ * @constructor
+ */
+camp.hoge.X = function () {
+  this._item = 200;
+};
+
+(function() {
   /**
-   * @constructor
+   * @param {camp.hoge.X} x
    */
-  local.Hoge = function Hoge() {
+  function v(x) {
+    document.getElementById('div').innerHTML = x;
+  }
 
-  };
+  v(new camp.hoge.X);
+})();
 
-  local.Hoge.prototype.pyon = function() {
-    document.getElementById('div').innerHTML = this;
-  };
+/**
+ * @param {camp.hoge.X} x
+ */
+camp.hoge.y = function(x) {
+  document.getElementById('div').innerHTML = x;
+};
 
-
-
-  /**
-   * @constructor
-   */
-  exports.Foo = function() {
-    this._hoge = new local.Hoge;
-  };
-
-
-  exports.main = function() {
-    new exports.Foo().pyon();
-  };
-});
+camp.hoge.y(new camp.hoge.X);

@@ -1,7 +1,7 @@
 package jp.co.cyberagent.camp;
 
-import jp.co.cyberagnet.camp.processors.module.CampModuleProcessor;
-import jp.co.cyberagnet.camp.processors.injector.InjectionProcessor;
+import jp.co.cyberagent.camp.processors.module.CampModuleProcessor;
+import jp.co.cyberagent.camp.processors.injector.InjectionProcessor;
 import com.google.common.collect.HashMultimap;
 import com.google.javascript.jscomp.CommandLineRunner;
 import com.google.javascript.jscomp.CompilerOptions;
