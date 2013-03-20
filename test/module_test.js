@@ -1,30 +1,32 @@
-var camp = {
-      hoge : {}
-    };
+camp.module("test.hoge.hoge", function (exports) {
 
-/**
- * @constructor
- */
-camp.hoge.X = function () {
-  this._item = 200;
-};
-
-(function() {
   /**
-   * @param {camp.hoge.X} x
+   * @typedef {(number|string)}
    */
-  function v(x) {
-    document.getElementById('div').innerHTML = x;
+  var Typedef;
+
+  var A = camp.using('test.hoge.hoge.A');
+  A.hoge();
+
+  function B() {
+    this.node = document.getElementById('div');
   }
+  B.prototype.a = function (o) {
+    this.node.innerHTML = o;
+  };
 
-  v(new camp.hoge.X);
-})();
+  (function() {
+    var s = new B;
+    s.a('a');
+  })();
 
-/**
- * @param {camp.hoge.X} x
- */
-camp.hoge.y = function(x) {
-  document.getElementById('div').innerHTML = x;
-};
+  /**
+   * @param {Typedef} X
+   */
+  exports.hoge = function(X) {
+    var s = new B;
+    s.a(X);
+  };
 
-camp.hoge.y(new camp.hoge.X);
+  exports.hoge('hoge');
+});

@@ -1,25 +1,24 @@
-package jp.co.cyberagent.camp.processors.module;
+package com.google.javascript.jscomp;
 
 import java.util.HashMap;
-import java.util.Collection;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.List;
+
 import com.google.javascript.jscomp.AbstractCompiler;
-import com.google.javascript.jscomp.CodingConvention.AssertionFunctionSpec;
 import com.google.javascript.jscomp.CompilerPass;
 import com.google.javascript.jscomp.DiagnosticType;
-import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
-import com.google.javascript.jscomp.NodeTraversal.Callback;
+import com.google.javascript.jscomp.NodeTraversal.AbstractScopedCallback;
 import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeUtil;
+import com.google.javascript.jscomp.Scope;
+import com.google.javascript.jscomp.Scope.Var;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.JSDocInfo;
-import jp.co.cyberagent.camp.processors.module.CampModuleTransformInfo;
-
-import java.util.List;
-import java.util.Set;
+import com.google.javascript.jscomp.CampModuleTransformInfo;
+import com.google.common.base.Strings;
 
 public final class CampModuleProcessor implements CompilerPass {
 
@@ -43,7 +42,6 @@ public final class CampModuleProcessor implements CompilerPass {
 
 	private final HashMap<String, CampModuleTransformInfo> campModuleTransformInfoMap = new HashMap<String, CampModuleTransformInfo>();
 	
-	
 	private class ModuleResolver extends AbstractPostOrderCallback {
 		private final String CAMP_USING_CALL = "camp.using";
 		
@@ -51,9 +49,7 @@ public final class CampModuleProcessor implements CompilerPass {
 		
 		private boolean isMainAlreadyFounded = false;
 		
-		private String firstDefined = "";
-		
-		private String mainPos = "";
+		private String firstDefined = "";		
 		
 		
 		/**
@@ -128,7 +124,7 @@ public final class CampModuleProcessor implements CompilerPass {
 		 * @param moduleCalls
 		 * @param usingCalls
 		 */
-		private void collectModuleAndUsing(Node n, NodeTraversal t, List<Node> moduleCalls, List<Node> usingCalls) {
+		private void collectModuleAndUsing(Node n, NodeTraversal t, List<Node> moduleCalls, List<Node> usingCalls, Map<String, Node> aliasMap) {
 			Node firstChild = n.getFirstChild();
 			if (firstChild.getType() == Token.GETPROP) {
 				if (firstChild.getFirstChild().getType() == Token.NAME) {
@@ -139,6 +135,15 @@ public final class CampModuleProcessor implements CompilerPass {
 						}
 					} else if (fnName.equals(CAMP_USING_CALL)) {
 						usingCalls.add(n);
+						Node maybeNameNode = n.getParent();
+						//var Baz = camp.using('foo.bar.Baz');
+						//変数に束縛されているusing宣言を記録
+						if (maybeNameNode.isName()) {
+							Node maybeVar = maybeNameNode.getParent();
+							if (maybeVar.isVar()) {
+								aliasMap.put(maybeNameNode.getString(), n);
+							}
+						}
 					}
 				}
 			}
@@ -188,22 +193,106 @@ public final class CampModuleProcessor implements CompilerPass {
 			List<Node> usingCalls = campModuleTransformInfo.getUsingCallList();
 			List<Node> moduleCalls = campModuleTransformInfo.getModuleCallList();
 			List<Node> exportsList = campModuleTransformInfo.getExportsList();
-			List<JSDocInfo> jsdocList = campModuleTransformInfo.getJsDocList();
-			
-			JSDocInfo info = n.getJSDocInfo();
-			
+			Map<String, Node> aliasMap = campModuleTransformInfo.getAliasMap();
+
 			if (n.getType() == Token.CALL) {
-				collectModuleAndUsing(n, t, moduleCalls, usingCalls);
+				collectModuleAndUsing(n, t, moduleCalls, usingCalls, aliasMap);
 			} else {
 				collectMainAndExports(n, t, exportsList);
-			}
-			if (info != null) {
-				jsdocList.add(info);
 			}
 		}
 	}
 
-
+	
+	private class AliasResolver extends AbstractScopedCallback {
+		
+		private int scopeDepth = 0;		
+		
+		@Override
+		public void visit(NodeTraversal t, Node n, Node parent) {
+			
+			CampModuleTransformInfo campModuleTransformInfo = campModuleTransformInfoMap.get(t.getSourceName());
+			Map<String, Node> aliasMap = campModuleTransformInfo.getAliasMap();
+			List<CampModuleTransformInfo.JSDocAndScopeInfo> jsdocInfoList = campModuleTransformInfo.getJsDocInfoList();
+			Scope scope = t.getScope();
+			
+			
+			if (isRewritableNode(n)) {
+				String name = n.getString();
+				if (isAlias(name, scope, campModuleTransformInfo, this.scopeDepth)) {
+					Node getprop = createModuleQualifiedName(aliasMap.get(name).getFirstChild().getNext().getString().split("\\."));
+					getprop.copyInformationFromForTree(n);
+					n.getParent().replaceChild(n, getprop);
+				} else {
+					renameVar(n, name, scope, campModuleTransformInfo.getRenameMap(), scopeDepth, campModuleTransformInfo.getModuleId());
+				}
+			}
+			
+			JSDocInfo jsDocInfo = n.getJSDocInfo();
+			if (jsDocInfo != null) {
+				CampModuleTransformInfo.JSDocAndScopeInfo jsDocAndScopeInfo = campModuleTransformInfo.new JSDocAndScopeInfo(jsDocInfo, scope, this.scopeDepth, campModuleTransformInfo.getModuleId());
+				jsdocInfoList.add(jsDocAndScopeInfo);
+			}
+		}
+		
+		private boolean isRewritableNode(Node n) {
+			Node parentNode = n.getParent();
+			if (n.isName() && !parentNode.isVar() && !parentNode.isParamList()) {
+				if (Strings.isNullOrEmpty(n.getString())) {
+					return false;
+				}
+				if (parentNode.isGetElem() || parentNode.isGetProp()) {
+					if (!parentNode.getFirstChild().equals(n)) {
+						return false;
+					}
+					if (parentNode.getFirstChild().isGetElem() || parentNode.getFirstChild().isGetProp()) {
+						return false;
+					}
+				}
+				return true;
+			}
+			return false;
+		}
+		
+		@Override
+		public void enterScope(NodeTraversal t) {
+			this.scopeDepth++;
+		}
+		
+		@Override
+		public void exitScope(NodeTraversal t) {
+			this.scopeDepth--;
+			if (this.scopeDepth == 1) {
+				CampModuleTransformInfo campModuleTransformInfo = campModuleTransformInfoMap.get(t.getSourceName());
+				Scope scope = t.getScope();
+				Iterator<Var> iter = scope.getVars();
+				while (iter.hasNext()) {
+					Var var = iter.next();
+					Node nameNode = var.getNameNode();
+					
+					if (!nameNode.getParent().isParamList()) {
+						String name = nameNode.getString();
+						Map<String, String> varRenameMap = campModuleTransformInfo.getRenameMap();
+						String newName = varRenameMap.get(name);
+						
+						if (newName == null) {
+							newName = name + campModuleTransformInfo.getModuleId();
+							varRenameMap.put(name, newName);
+						} else if (name.equals(newName)) {
+							continue;
+						}
+						
+						if (!name.equals(newName)) {
+							nameNode.setString(newName);
+						}
+					}
+				}
+			}
+		}
+		
+	}
+	
+	
 	private final class Processor {
 
 		private CampModuleTransformInfo campModuleTransformInfo;
@@ -214,17 +303,12 @@ public final class CampModuleProcessor implements CompilerPass {
 
 		private String[] modulePathComponentList;
 
-		private List<Node> exportsList;
-
-		private List<JSDocInfo> jsdocList;		
 		
 		public Processor(CampModuleTransformInfo campModuleTransformInfo, Node scriptBody, String moduleName, String[] modulePathComponentList) {
 			this.campModuleTransformInfo = campModuleTransformInfo;
 			this.scriptBody = scriptBody;
 			this.moduleName = moduleName;
 			this.modulePathComponentList = modulePathComponentList;
-			this.exportsList = this.campModuleTransformInfo.getExportsList();
-			this.jsdocList = this.campModuleTransformInfo.getJsDocList();
 		}
 
 		public void processModules() {
@@ -242,6 +326,7 @@ public final class CampModuleProcessor implements CompilerPass {
 		 */
 		private void processCampUsing () {
 			List<Node> usingCallList = this.campModuleTransformInfo.getUsingCallList();
+			
 			int index = 0;
 			Node firstChild = null;
 			
@@ -253,24 +338,13 @@ public final class CampModuleProcessor implements CompilerPass {
 				if (firstArg.getType() == Token.STRING) {
 
 					Node expResult = this.createGoogRequireCallFrom(firstArg.getString(), campUsingCall);
-					String[] moduleQualifiedName = firstArg.getString().split("\\.", 0);
 					
-					if (moduleQualifiedName.length > 0) {
-						Node module = createModuleQualifiedName(moduleQualifiedName);
-						if (parent.getType() == Token.EXPR_RESULT) {
-							parent.copyInformationFromForTree(module);
-							parent.getParent().replaceChild(parent, module);
-						} else {
-							campUsingCall.copyInformationFromForTree(module);
-							campUsingCall.getParent().replaceChild(campUsingCall, module);
-						}
+					if (parent.isName() && parent.getParent().isVar()) {
+						parent.getParent().detachFromParent();
 					} else {
-						if (parent.getType() == Token.EXPR_RESULT) {
-							parent.getParent().removeChild(parent);
-						} else {
-							campUsingCall.detachFromParent();
-						}
+						parent.detachFromParent();
 					}
+					
 					if (index == 0) {
 						this.scriptBody.addChildToFront(expResult);
 						index++;
@@ -311,7 +385,6 @@ public final class CampModuleProcessor implements CompilerPass {
 			
 			for (Node campModuleCall : campModuleCallList) {
 				
-				Node parent = campModuleCall.getParent();
 				Node campModuleNameNode = campModuleCall.getFirstChild().getNext();
 				this.createGoogProvideCallFrom(campModuleNameNode.getString());
 				this.cleanCampModule(campModuleCall, campModuleNameNode);				
@@ -382,11 +455,13 @@ public final class CampModuleProcessor implements CompilerPass {
 		 * @param campModuleNameNode
 		 */
 		private void cleanCampModule(Node campModule, Node campModuleNameNode) {
-			Node nameNodes = campModule.getFirstChild().getFirstChild();
-			nameNodes.setString("goog");
-			nameNodes.getNext().setString("scope");
-			campModuleNameNode.getNext().getFirstChild().getNext().removeChildren();
-			campModuleNameNode.detachFromParent();
+			Node expressionWithScopeCall = campModule.getParent();
+	        Node scopeClosureBlock = campModule.getLastChild().getLastChild();
+	        scopeClosureBlock.detachFromParent();
+	        expressionWithScopeCall.getParent().replaceChild(
+	            expressionWithScopeCall,
+	            scopeClosureBlock);
+	        NodeUtil.tryMergeBlock(scopeClosureBlock);
 		}
 
 		
@@ -399,16 +474,17 @@ public final class CampModuleProcessor implements CompilerPass {
 		private void processExportedClassName () {
 			
 			List<Node> exportsList = this.campModuleTransformInfo.getExportsList();
-			List<JSDocInfo> jsdocList = this.campModuleTransformInfo.getJsDocList();
+			List<CampModuleTransformInfo.JSDocAndScopeInfo> jsdocInfoList = this.campModuleTransformInfo.getJsDocInfoList();
 			Node module = createModuleQualifiedName(this.modulePathComponentList);
 			
 			for (Node exports : exportsList) {
 				this.convertExportsToFqn(exports, module);
 			}
 			
-			for (JSDocInfo jsdoc : jsdocList) {
-				for (Node type : jsdoc.getTypeNodes()) {
-					fixTypeNode(type, this.moduleName);
+			for (CampModuleTransformInfo.JSDocAndScopeInfo jsDocAndScopeInfo : jsdocInfoList) {
+				JSDocInfo jsDocInfo = jsDocAndScopeInfo.getJsDocInfo();
+				for (Node type : jsDocInfo.getTypeNodes()) {
+					fixTypeNode(type, this.moduleName, jsDocAndScopeInfo.getScope(), jsDocAndScopeInfo.getDepth());
 				}
 			}
 			
@@ -439,17 +515,23 @@ public final class CampModuleProcessor implements CompilerPass {
 		 * @param typeNode
 		 * @param moduleName
 		 */
-		private void fixTypeNode(Node typeNode, String moduleName) {
+		private void fixTypeNode(Node typeNode, String moduleName, Scope scope, int depth) {
+			Map<String, Node> aliasMap = this.campModuleTransformInfo.getAliasMap();
 			if (typeNode.isString()) {
 				String name = typeNode.getString();
 				if (name.indexOf(EXPORTS + '.') != -1) {
 					typeNode.setString(name.replaceAll(EXPORTS + '.', moduleName + '.'));
+				} else if (isAlias(name, scope, this.campModuleTransformInfo, depth)) {
+					typeNode.setString(aliasMap.get(name).getFirstChild().getNext().getString());
+				} else {
+					renameVar(typeNode, name, scope, this.campModuleTransformInfo.getRenameMap(),
+							depth, this.campModuleTransformInfo.getModuleId());
 				}
 			}
 
 			for (Node child = typeNode.getFirstChild(); child != null;
 				 child = child.getNext()) {
-				fixTypeNode(child, moduleName);
+				fixTypeNode(child, moduleName, scope, depth);
 			}
 		}
 	}
@@ -478,11 +560,62 @@ public final class CampModuleProcessor implements CompilerPass {
 	}
 
 	
+	private boolean isAlias(String name, Scope scope, CampModuleTransformInfo campModuleTransformInfo, int scopeDepth) {
+		Map<String, Node> aliasMap = campModuleTransformInfo.getAliasMap();
+		if (name.equals(EXPORTS)) {
+			return false;
+		}
+		if (scopeDepth > 1 && aliasMap.containsKey(name)) {
+			Var var = getVarFromScope(name, scope);
+			if (var != null && scopeDepth == 2) {
+				Node initialValue = var.getInitialValue();
+				if (initialValue != null) {
+					return aliasMap.get(name).equals(initialValue);
+				}
+			} else {
+				return (var != null)? false : isAlias(name, scope.getParent(), campModuleTransformInfo, scopeDepth - 1);
+			}
+		}
+		return false;
+	}
+	
+	
+	private void renameVar(Node target, String name, Scope scope, Map<String, String> varRenameMap, int depth, int moduleId) {
+		if (scope != null) {
+			Var var = getVarFromScope(name, scope);
+			if (var != null && depth == 2) {
+				String newName;
+				if (varRenameMap.containsKey(name)) {
+					newName = varRenameMap.get(name);
+				} else {
+					newName = name + moduleId;
+					varRenameMap.put(name, newName);
+				}
+				target.setString(newName);
+			} else if (var == null && depth > 2) {
+				renameVar(target, name, scope.getParent(), varRenameMap, depth - 1, moduleId);
+			}
+		}
+	}
+	
+	
+	private Var getVarFromScope(String name, Scope scope) {
+		Iterator<Var> iter = scope.getVars();
+		while (iter.hasNext()) {
+			Var var = iter.next();
+			if (var.getName().equals(name)) {
+				return var;
+			}
+		}
+		return null;
+	}
+	
+	
 	@Override
 	public void process(Node externs, Node root) {
-
-		NodeTraversal.traverse(compiler, root, new ModuleResolver());
 		
+		NodeTraversal.traverse(compiler, root, new ModuleResolver());
+		NodeTraversal.traverse(compiler, root, new AliasResolver());
 		for (String key : campModuleTransformInfoMap.keySet()) {
 			
 			CampModuleTransformInfo campModuleTransformInfo = campModuleTransformInfoMap.get(key);

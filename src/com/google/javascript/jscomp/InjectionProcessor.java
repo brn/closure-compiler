@@ -1,4 +1,4 @@
-package jp.co.cyberagent.camp.processors.injector;
+package com.google.javascript.jscomp;
 
 import java.util.HashMap;
 import java.util.Collection;

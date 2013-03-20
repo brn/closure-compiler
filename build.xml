@@ -9,7 +9,6 @@
 
     <target name="compiler">
 				<ant antfile="build.xml"
-						 target="jar"
 						 dir="${compiler.dir}"
 						 inheritAll="false"/>
     </target>
@@ -29,7 +28,7 @@
 						<fileset dir="${classes.dir}" />
 						<manifest>
 								<attribute name="Main-Class"
-													 value="jp.co.cyberagent.camp.CampCommandLineRunner" />
+													 value="com.google.javascript.jscomp.CampCommandLineRunner" />
 						</manifest>
 				</jar>
 		</target>

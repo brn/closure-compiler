@@ -1,7 +1,7 @@
-package jp.co.cyberagent.camp;
+package com.google.javascript.jscomp;
 
-import jp.co.cyberagent.camp.processors.module.CampModuleProcessor;
-import jp.co.cyberagent.camp.processors.injector.InjectionProcessor;
+import com.google.javascript.jscomp.CampModuleProcessor;
+import com.google.javascript.jscomp.InjectionProcessor;
 import com.google.common.collect.HashMultimap;
 import com.google.javascript.jscomp.CommandLineRunner;
 import com.google.javascript.jscomp.CompilerOptions;
