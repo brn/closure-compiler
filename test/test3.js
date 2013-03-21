@@ -25,14 +25,14 @@ camp.module('camp.vm.interaction', function (exports) {
   /**
    * @constructor
    */
-  exports.Service2 = function () {
+  function Service2 () {
     this._node = document.getElementById('id');
   }
 
   /**
    * @returns {Element}
    */
-  exports.Service2.prototype.getNode = function () {
+  Service2.prototype.getNode = function () {
     return this._node;
   }
 
@@ -102,8 +102,8 @@ camp.module('camp.vm.interaction', function (exports) {
 
   /**
    * @constructor
-   * @param {string} a
-   * @param {string} b
+   * @param {string} name1
+   * @param {string} name2
    */
   exports.Test4 = function (name1, name2) {
     this.a = name1;
@@ -129,6 +129,49 @@ camp.module('camp.vm.interaction', function (exports) {
     return this.a + this.b + this.c.getName();
   }
 
+  /**
+   * @constructor
+   */
+  function PubSub(){
+    this._node = document.getElementsById('echo');
+  }
+
+  /**
+   * @return {Element} node
+   */
+  PubSub.prototype.getNode = function() {
+    return this._node;
+  };
+
+  /**
+   * DataSourceをまとめて公開するためのユーティリティ
+   * @constructor
+   * @param {PubSub} pubsub
+   */
+  exports.DataSourceManager = function(pubsub) {
+    /**
+     * @private {!Object}
+     */
+    this._dataSources = {};
+
+    /**
+     * @private {PubSub}
+     */
+    this._pubsub = pubsub;
+  };
+
+  /**
+   * @param {string} value
+   */
+  exports.DataSourceManager.prototype.echo = function(value) {
+    this._pubsub.getNode().innertHTML = value;
+  };
+
+
+  injector.defineProvider(exports.DataSourceManager, function() {
+    return new exports.DataSourceManager(new PubSub);
+  });
+
 
   injector.inject(exports.Test3, "setService");
 
@@ -146,7 +189,9 @@ camp.module('camp.vm.interaction', function (exports) {
     var s = injector.get('service');
     var l = injector.createInstance(exports.Test3);
     var v = injector.createInstance(exports.Test);
-    window.localStorage['foo'] = l.getName() + v.getName()// + s.getNode().innerHTML;
+    var o = injector.createInstance(exports.DataSourceManager);
+    o.echo(l.getName() + v.getName());
+    window.localStorage['foo'] = l.getName() + v.getName() + new Service2().getNode().innerHTML;// + s.getNode().innerHTML;
     window.console.log(injector.createInstance(exports.Test4));
   }
 });

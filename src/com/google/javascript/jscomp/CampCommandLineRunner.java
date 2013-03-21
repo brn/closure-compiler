@@ -1,7 +1,6 @@
 package com.google.javascript.jscomp;
 
 import com.google.javascript.jscomp.CampModuleProcessor;
-import com.google.javascript.jscomp.InjectionProcessor;
 import com.google.common.collect.HashMultimap;
 import com.google.javascript.jscomp.CommandLineRunner;
 import com.google.javascript.jscomp.CompilerOptions;
@@ -23,9 +22,8 @@ public class CampCommandLineRunner extends CommandLineRunner {
     // ENABLE ADDITIONAL OPTIONS HERE.
     if (options.customPasses == null) {
       options.customPasses = HashMultimap.create();
-    }
-    options.customPasses.put(CustomPassExecutionTime.BEFORE_CHECKS, new CampModuleProcessor(getCompiler()));
-	options.customPasses.put(CustomPassExecutionTime.BEFORE_OPTIMIZATIONS, new InjectionProcessor(getCompiler()));
+    }	
+	options.customPasses.put(CustomPassExecutionTime.BEFORE_CHECKS, new CampModuleProcessor(getCompiler()));
 
     return options;
   }

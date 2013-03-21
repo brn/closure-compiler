@@ -6,8 +6,13 @@ camp.module("test.hoge.hoge", function (exports) {
   var Typedef;
 
   var A = camp.using('test.hoge.hoge.A');
+  var C = camp.using('test.hoge.hoge.Ba').x;
+  //camp.using('test.hoge.hoge.Btest');
   A.hoge();
 
+  /**
+   * @constructor
+   */
   function B() {
     this.node = document.getElementById('div');
   }
@@ -18,6 +23,7 @@ camp.module("test.hoge.hoge", function (exports) {
   (function() {
     var s = new B;
     s.a('a');
+    C();
   })();
 
   /**
@@ -25,8 +31,12 @@ camp.module("test.hoge.hoge", function (exports) {
    */
   exports.hoge = function(X) {
     var s = new B;
+    var v = new A('a');
     s.a(X);
+    v.hoge();
   };
 
   exports.hoge('hoge');
+
+  exports.B = B;
 });

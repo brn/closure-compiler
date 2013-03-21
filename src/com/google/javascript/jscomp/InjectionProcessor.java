@@ -26,7 +26,7 @@ import com.google.javascript.rhino.JSTypeExpression;
 import java.util.List;
 import java.util.Set;
 
-public final class InjectionProcessor implements CompilerPass {
+public final class InjectionProcessor {
 
 	static final DiagnosticType TYPE_MISMATCH_WARNING =
 		DiagnosticType.warning("JSC_TYPE_MISMATCH", "actual parameter \"{0}\" of {1} does not match formal parameter.\n"
@@ -195,7 +195,7 @@ public final class InjectionProcessor implements CompilerPass {
 			}
 			Node assign = expr.getFirstChild();
 			JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
-			builder.recordReturnType(new JSTypeExpression(new Node(Token.BANG, className.cloneTree()), ""));
+			builder.recordReturnType(new JSTypeExpression(new Node(Token.BANG, Node.newString(className.getQualifiedName())), ""));
 			JSDocInfo info = builder.build(assign);
 			assign.setJSDocInfo(info);
 		}
@@ -412,8 +412,9 @@ public final class InjectionProcessor implements CompilerPass {
 				newcall = new Node(Token.CALL, getInstance);
 			} else {
 				newcall = new Node(Token.NEW, n);
+				newcall.copyInformationFromForTree(n);
 			}
-			newcall.copyInformationFromForTree(n);
+			
 			List<String> targets = classInjectionInfo.getConstructorArguments();
 			createArguments(t, n.getQualifiedName(), null, targets, newcall, classInjectionInfo.getJSDocInfo());
 			return newcall;
@@ -485,6 +486,9 @@ public final class InjectionProcessor implements CompilerPass {
 									 List<String> targets, Node methodcall, JSDocInfo jsDocInfo) {
 			if (targets != null) {
 				for (String target : targets) {
+					if (argumentsIsFull(methodcall)) {
+						break;
+					}
 					if (bindingRegistry.isRegistered(target)) {
 						Node arg = null;
 						if (bindingRegistry.hasPrimitiveBindings(target)) {
@@ -521,6 +525,7 @@ public final class InjectionProcessor implements CompilerPass {
 								}
 							}
 						}
+						
 						if (arg != null) {
 							methodcall.addChildToBack(arg);
 						} else {
@@ -531,6 +536,15 @@ public final class InjectionProcessor implements CompilerPass {
 					}
 				}
 			}
+		}
+		
+		private boolean argumentsIsFull(Node methodcall) {
+			if (methodcall.getFirstChild().isFunction()) {
+				if (methodcall.getFirstChild().getFirstChild().getNext().getChildCount() == methodcall.getChildCount() - 1) {
+					return true;
+				}
+			}
+			return false;
 		}
 	}
 
@@ -930,7 +944,7 @@ public final class InjectionProcessor implements CompilerPass {
 		this.compiler = compiler;
 	}
 
-	@Override
+	
 	public void process(Node externs, Node root) {
 		NodeTraversal.traverse(compiler, root, new ConstructorInjectionProcessor());
 		NodeTraversal.traverse(compiler, root, new SetterInjectionProcessor());
@@ -939,6 +953,7 @@ public final class InjectionProcessor implements CompilerPass {
 		InstaniationProcessor.InjectionGetterProcessor injectionGetterProcessor = instaniationProcessor.new InjectionGetterProcessor();
 		NodeTraversal.traverse(compiler, root, instaniationProcessor);
 		NodeTraversal.traverse(compiler, root, injectionGetterProcessor);
+		compiler.reportCodeChange();
 	}
 
 	private static boolean shouldParsePrototype(Node assignNode, ClassInjectionInfoRegistry classInjectionInfoRegistry) {
