@@ -22,7 +22,7 @@ public class CampCommandLineRunner extends CommandLineRunner {
     // ENABLE ADDITIONAL OPTIONS HERE.
     if (options.customPasses == null) {
       options.customPasses = HashMultimap.create();
-    }	
+    }
 	options.customPasses.put(CustomPassExecutionTime.BEFORE_CHECKS, new CampModuleProcessor(getCompiler()));
 
     return options;

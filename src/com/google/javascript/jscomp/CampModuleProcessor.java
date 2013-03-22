@@ -720,7 +720,10 @@ public final class CampModuleProcessor implements CompilerPass {
 			}
 		}
 		
-		InjectionProcessor injectionProcessor = new InjectionProcessor(this.compiler);
-		injectionProcessor.process(externs, root);
+		CampInjectionProcessor campInjectionProcessor = new CampInjectionProcessor(this.compiler);
+		campInjectionProcessor.process(externs, root);
+		
+		/*InjectionProcessor injectionProcessor = new InjectionProcessor(this.compiler);
+		injectionProcessor.process(externs, root);*/
 	}
 }
