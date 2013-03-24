@@ -50,7 +50,7 @@ public final class CampModuleTransformInfo {
 		return varRenameMap;
 	}
 	
-	public final class JSDocAndScopeInfo {
+	public static final class JSDocAndScopeInfo {
 		private Scope scope;
 		
 		private int depth;

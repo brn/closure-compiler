@@ -6,21 +6,26 @@ camp.module('camp.vm.interaction', function (exports) {
   /**
    * @constructor
    */
-  exports.Service = function () {}
-  goog.addSingletonGetter(exports.Service);
-  injector.inject(exports.Service, 'setNode');
-  exports.Service.prototype._node = null;
+  function Service() {}
+  goog.addSingletonGetter(Service);
+  injector.inject(Service, 'setNode');
+  Service.prototype._node = null;
 
   /**
    * @returns {Element}
    */
-  exports.Service.prototype.getNode = function () {
+  Service.prototype.getNode = function () {
     return this._node;
-  }
+  };
 
-  exports.Service.prototype.setNode = function (node) {
+  Service.prototype.setNode = function (node) {
     this._node = node;
-  }
+  };
+
+  /**
+   * @type {function(new:Service)}
+   */
+  exports.Service = Service;
 
   /**
    * @constructor
@@ -191,7 +196,7 @@ camp.module('camp.vm.interaction', function (exports) {
     var v = injector.createInstance(exports.Test);
     var o = injector.createInstance(exports.DataSourceManager);
     o.echo(l.getName() + v.getName());
-    window.localStorage['foo'] = l.getName() + v.getName() + new Service2().getNode().innerHTML;// + s.getNode().innerHTML;
+    window.localStorage['foo'] = l.getName() + v.getName() + s.getNode().innerHTML;
     window.console.log(injector.createInstance(exports.Test4));
   }
 });
