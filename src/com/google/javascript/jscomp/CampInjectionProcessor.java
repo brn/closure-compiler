@@ -824,8 +824,8 @@ class CampInjectionProcessor {
 
   private final class InjectionRewriter {
     public void process() {
-      this.inliningCreateInstanceCall();
       this.inliningGetCall();
+      this.inliningCreateInstanceCall();
       this.cleanBinding();
     }
 
@@ -965,7 +965,13 @@ class CampInjectionProcessor {
         while (!singletonCall.isExprResult()) {
           singletonCall = singletonCall.getParent();
         }
-        singletonCall.getParent().replaceChild(singletonCall, expr);
+        
+        Node tmp = singletonCall;
+        while (!tmp.isExprResult()) {
+        	tmp = tmp.getParent();
+        }
+        
+        tmp.getParent().addChildAfter(expr, tmp);
         classInfo.setSingletonCallNode(null);
       }
       return new Node(Token.CALL, createQualifiedNameNode(classInfo.getClassName() + "."

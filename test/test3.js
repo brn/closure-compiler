@@ -191,12 +191,11 @@ camp.module('camp.vm.interaction', function (exports) {
     injector.bind('node', document.getElementById('id'));
     injector.bind('service', exports.Service);
     injector.bind('test2', exports.Test2);
-    var s = injector.get('service');
     var l = injector.createInstance(exports.Test3);
     var v = injector.createInstance(exports.Test);
     var o = injector.createInstance(exports.DataSourceManager);
     o.echo(l.getName() + v.getName());
-    window.localStorage['foo'] = l.getName() + v.getName() + s.getNode().innerHTML;
+    window.localStorage['foo'] = l.getName() + v.getName();
     window.console.log(injector.createInstance(exports.Test4));
   }
 });
