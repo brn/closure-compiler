@@ -2,6 +2,7 @@
 
 camp.module('camp.vm.interaction', function (exports) {
   var injector = camp.using('camp.dependencies.injector');
+  var binder = camp.using('camp.dependencies.binder');
 
   /**
    * @constructor
@@ -115,7 +116,7 @@ camp.module('camp.vm.interaction', function (exports) {
     this.b = name2;
   }
 
-  injector.defineProvider(exports.Test4, function (name1, name2) {
+  binder.bindProvider(exports.Test4, function (name1, name2) {
     var a = new exports.Test4(name1, name2);
     a.setC(injector.get('test2'));
     return a;
@@ -173,7 +174,7 @@ camp.module('camp.vm.interaction', function (exports) {
   };
 
 
-  injector.defineProvider(exports.DataSourceManager, function() {
+  binder.bindProvider(exports.DataSourceManager, function() {
     return new exports.DataSourceManager(new PubSub);
   });
 
@@ -181,16 +182,35 @@ camp.module('camp.vm.interaction', function (exports) {
   injector.inject(exports.Test3, "setService");
 
   exports.main = function () {
+    binder.bindInterceptor("camp.*", "*", function(methodInvocation) {
+      window.console.log('call before ' + methodInvocation.getClassName() + '.' + methodInvocation.getMethodName());
+      var ret = methodInvocation.proceed();
+      return ret;
+    });
+
+    binder.bindInterceptor("camp.*", "*", function nullify(methodInvocation) {
+      var ret = methodInvocation.proceed();
+
+      return ret? ret : null;
+    });
+
+
+    binder.bindInterceptor("goog.*", "*", function nullify(methodInvocation) {
+      var ret = methodInvocation.proceed();
+
+      return ret? ret : null;
+    });
+
     var m = {
           a : 1,
           b : 2,
           c : 3
-        }
-    injector.bind('name1', 'name1');
-    injector.bind('name2', 'name2');
-    injector.bind('node', document.getElementById('id'));
-    injector.bind('service', exports.Service);
-    injector.bind('test2', exports.Test2);
+        };
+    binder.bind('name1', 'name1');
+    binder.bind('name2', 'name2');
+    binder.bind('node', document.getElementById('id'));
+    binder.bind('service', exports.Service);
+    binder.bind('test2', exports.Test2);
     var l = injector.createInstance(exports.Test3);
     var v = injector.createInstance(exports.Test);
     var o = injector.createInstance(exports.DataSourceManager);

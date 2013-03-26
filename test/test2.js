@@ -92,7 +92,12 @@ camp.module('camp.dependencies', function (exports) {
     /**
      * @type {Object}
      */
-    exports.injectionRegistry = {}
+    exports.injectionRegistry = {};
+
+    /**
+     * @type {Object.<string, Function>}
+     */
+    exports.injector.interceptorRegistry = {};
   } else {
     /**
      * @private {Object}
@@ -102,14 +107,15 @@ camp.module('camp.dependencies', function (exports) {
     /**
      * @type {Object}
      */
-    exports.injector = {}
+    exports.injector = {};
+    exports.binder = {};
 
 
     /**
      * @param {string} name
      * @param {*} value
      */
-    exports.injector.bind = function (name, value) {
+    exports.binder.bind = function (name, value) {
       exports._injectionsRegistry[name] = value;
     }
 
@@ -219,7 +225,7 @@ camp.module('camp.dependencies', function (exports) {
       return instance;
     }
 
-    exports.injector.defineProvider = function (classConstructor, provider) {
+    exports.binder.bindProvider = function (classConstructor, provider) {
       classConstructor._provider = provider;
     }
 
