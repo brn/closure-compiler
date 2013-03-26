@@ -3,6 +3,7 @@
 camp.module('camp.vm.interaction', function (exports) {
   var injector = camp.using('camp.dependencies.injector');
   var binder = camp.using('camp.dependencies.binder');
+    var x = injector.bind ? injector.bind : binder.bind;
 
   /**
    * @constructor
