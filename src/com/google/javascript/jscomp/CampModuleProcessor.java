@@ -42,13 +42,12 @@ public final class CampModuleProcessor implements CompilerPass {
           "JSC_MSG_MODULE_SECOND_ARGUMENT_NOT_VALID.",
           "The second argument of the camp.module must be a function which has an argument named <exports> only.");
 
-  static final DiagnosticType MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_NAME = DiagnosticType
-      .error("JSC_MSG_EXPORTS_ALIAS_ONLY_ALLOWED_NAME",
-          "Assignment of exports must be a simple variable name or immediate value.");
-  
-  static final DiagnosticType MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_ONCE = DiagnosticType
-      .error("JSC_MSG_EXPORTS_ALIAS_ONLY_ALLOWED_ONCE",
-          "Assignment of exports only allowed once.");
+  static final DiagnosticType MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_NAME = DiagnosticType.error(
+      "JSC_MSG_EXPORTS_ALIAS_ONLY_ALLOWED_NAME",
+      "Assignment of exports must be a simple variable name or immediate value.");
+
+  static final DiagnosticType MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_ONCE = DiagnosticType.error(
+      "JSC_MSG_EXPORTS_ALIAS_ONLY_ALLOWED_ONCE", "Assignment of exports only allowed once.");
 
   static final DiagnosticType MESSAGE_ILLEGAL_USING_CALL = DiagnosticType.error(
       "JSC_MSG_ILLEGAL_USING_CALL.", "Illegal camp.using call.");
@@ -125,13 +124,19 @@ public final class CampModuleProcessor implements CompilerPass {
             if (initialValue != null && initialValue.equals(exportsAliasInfo.getInitialValue())) {
               String className = exportsAliasInfo.getClassName();
               Node nameNode = createModuleQualifiedName(className.split("\\."));
-              if (n.getParent().isFunction()) {
-                n.getParent()
-                    .getParent()
-                    .replaceChild(
-                        n.getParent(),
-                        new Node(Token.EXPR_RESULT, new Node(Token.ASSIGN, nameNode, n.getParent()
-                            .cloneTree())));
+              if (parent.isAssign()) {
+                parent.replaceChild(n, nameNode);
+              } else if (parent.isVar()) {
+                Node newChild = new Node(Token.EXPR_RESULT, new Node(Token.ASSIGN, nameNode, n
+                    .getFirstChild().cloneTree()));
+                parent.getParent().replaceChild(parent, newChild);
+                newChild.copyInformationFromForTree(parent);
+                newChild.getFirstChild().setJSDocInfo(parent.getJSDocInfo());
+              } else if (parent.isFunction()) {
+                Node newChild = new Node(Token.EXPR_RESULT, new Node(Token.ASSIGN, nameNode, parent.cloneTree()));
+                parent.getParent().replaceChild(parent, newChild);
+                newChild.copyInformationFromForTree(parent);
+                newChild.setJSDocInfo(parent.getJSDocInfo());
               } else {
                 n.getParent().replaceChild(n, nameNode);
               }
@@ -300,7 +305,7 @@ public final class CampModuleProcessor implements CompilerPass {
                     ExportsAliasInfo exportsAliasInfo = new ExportsAliasInfo(n.getQualifiedName(),
                         initial, n.getParent());
                     exportsAliasMap.put(var.getName(), exportsAliasInfo);
-                    while (!n.isExprResult()) {
+                    while (!NodeUtil.isStatement(n)) {
                       n = n.getParent();
                     }
                     n.detachFromParent();
@@ -828,7 +833,9 @@ public final class CampModuleProcessor implements CompilerPass {
   public void process(Node externs, Node root) {
 
     NodeTraversal.traverse(compiler, root, new ModuleResolver());
+    compiler.reportCodeChange();
     NodeTraversal.traverse(compiler, root, new ExportsAliasRewriter());
+    compiler.reportCodeChange();
     NodeTraversal.traverse(compiler, root, new AliasResolver());
     for (String key : campModuleTransformInfoMap.keySet()) {
 

@@ -7,10 +7,10 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.javascript.jscomp.NodeTraversal.AbstractNodeTypePruningCallback;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.Scope.Var;
 import com.google.javascript.rhino.JSDocInfo;
@@ -44,6 +44,43 @@ class CampInjectionProcessor {
   static final DiagnosticType MESSAGE_DEFINE_PROVIDER_SECOND_ARGUMENT_IS_NOT_VALID = DiagnosticType
       .error("JSC_MSG_DEFINE_PROVIDER__SECOND_ARGUMENT_IS_NOT_VALID.",
           "The second argument of camp.dependencies.injector.defineProvider must be a function.");
+
+  static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID = DiagnosticType
+      .error(
+          "JSC_MSG_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID.",
+          "The first argument of camp.dependencies.binder.bindInterceptor must be a string expression of the target module name.\n"
+              + "The matcher is string expression which treat wilidcard(*) as a special character of the module name.");
+
+  static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID = DiagnosticType
+      .error(
+          "JSC_MSG_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID.",
+          "The second argument of camp.dependencies.binder.bindInterceptor must be a string expression of the target method name.\n"
+              + "The matcher is string expression which treat wilidcard(*) as a special character of the method name.");
+
+  static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_THIRD_ARGUMENT_IS_INVALID = DiagnosticType
+      .error(
+          "JSC_MSG_BIND_INTERCEPTOR_THIRD_ARGUMENT_IS_INVALID.",
+          "The third argument of camp.dependencies.binder.bindInterceptor must be a function expression which define behavior of the interceptor.");
+
+  static final DiagnosticType MESSAGE_ACCESSED_TO_METHOD_INVOCATION_VIRTUAL_METHODS = DiagnosticType
+      .error(
+          "JSC_MSG_ACCESSED_TO_METHOD_INVOCATION_VIRTUAL_METHODS.",
+          "The all methods of MethodInvocation can not use as the function object and can not access to method itself.\n"
+              + "These are only virtual method because these methods are inlining by compiler.");
+
+  static final DiagnosticType MESSAGE_INVALID_ACCESS_TO_METHOD_INVOCATION = DiagnosticType
+      .error(
+          "JSC_MSG_INVALID_ACCESS_TO_METHOD_INVOCATION.",
+          "The MethodInvocation can not use as a object and can not access to itself because that inlined by compiler.");
+
+  static final DiagnosticType MESSAGE_METHOD_INVOCATION_HAS_NO_SUCH_METHOD = DiagnosticType.error(
+      "JSC_MSG_METHOD_INVOCATION_HAS_NO_SUCH_METHOD.",
+      "MethodInvocation not has method {0}.\nAvailable methods are\n"
+          + " #getThis()\n"
+          + " #getClassName()\n"
+          + " #getMethodName()\n"
+          + " #getArguments()\n"
+          + " #proceed()\n");
 
   private static final String CREATE_INSTANCE_CALL = "camp.dependencies.injector.createInstance";
 
@@ -87,24 +124,50 @@ class CampInjectionProcessor {
 
   private static final String INTERCEPTOR_RESULT_REFERENCE = "jscomp$interceptor$temporary$result";
 
+  private static final String METHOD_ALIAS = "jscomp$interceptor$method";
+
   private int interceptorId = 0;
 
   private InjectionTargetInfo injectionTargetInfo = new InjectionTargetInfo();
 
   private Map<String, ClassInfo> classInfoMap = new HashMap<String, ClassInfo>();
 
+  private abstract class AbstractPostOrderNodeTypePruningCallback extends AbstractPostOrderCallback {
+    private Set<Integer> nodeTypeSet;
+
+
+    public AbstractPostOrderNodeTypePruningCallback(Set<Integer> nodeTypeSet) {
+      this.nodeTypeSet = nodeTypeSet;
+    }
+
+
+    @Override
+    public void visit(NodeTraversal t, Node n, Node parent) {
+      if (this.nodeTypeSet.contains(n.getType())) {
+        this.visitPrunedNode(t, n, parent);
+      }
+    }
+
+
+    abstract public void visitPrunedNode(NodeTraversal t, Node n, Node parent);
+  }
+
   private final class Pair<T, S> {
     private T first;
+
     private S second;
+
 
     public Pair(T first, S second) {
       this.first = first;
       this.second = second;
     }
 
+
     public T getFirst() {
       return this.first;
     }
+
 
     public S getSecond() {
       return this.second;
@@ -130,33 +193,41 @@ class CampInjectionProcessor {
 
     private List<InterceptorInfo> interceptorInfoList = Lists.newArrayList();
 
+
     public void putCreateInstanceTarget(String name, Node n) {
       this.createInstanceTargetMap.put(name, n);
     }
+
 
     public Node getCreateInstanceTarget(String name) {
       return this.createInstanceTargetMap.get(name);
     }
 
+
     public Set<String> getCreateInstanceTargetMapIter() {
       return this.createInstanceTargetMap.keySet();
     }
+
 
     public boolean hasCreateInstanceTarget(String name) {
       return this.createInstanceTargetMap.containsKey(name);
     }
 
+
     public void putProvider(String name, Node n) {
       this.providerMap.put(name, n);
     }
+
 
     public Node getProvider(String name) {
       return this.providerMap.get(name);
     }
 
+
     public boolean hasProvider(String name) {
       return this.providerMap.containsKey(name);
     }
+
 
     public void putSetter(String className, String setterName) {
       if (!this.setterMap.containsKey(className)) {
@@ -166,25 +237,31 @@ class CampInjectionProcessor {
       setterList.add(setterName);
     }
 
+
     public List<String> getSetterMap(String name) {
       return this.setterMap.get(name);
     }
+
 
     public boolean hasSetter(String name) {
       return this.setterMap.containsKey(name);
     }
 
+
     public void putSingleton(String className, Node n) {
       this.singletonMap.put(className, n);
     }
+
 
     public boolean isSingleton(String className) {
       return this.singletonMap.containsKey(className);
     }
 
+
     public Node getSingletonNode(String className) {
       return this.singletonMap.get(className);
     }
+
 
     public void putPrototypeInfo(String className, PrototypeInfo prototypeInfo) {
       Map<String, PrototypeInfo> prototypeInfoList;
@@ -197,53 +274,66 @@ class CampInjectionProcessor {
       prototypeInfoList.put(prototypeInfo.getMethodName(), prototypeInfo);
     }
 
+
     public boolean hasPrototypeInfo(String className) {
       return this.prototypeInfoMap.containsKey(className);
     }
+
 
     public Map<String, PrototypeInfo> getPrototypeInfo(String className) {
       return this.prototypeInfoMap.get(className);
     }
 
+
     public void putBindTarget(String bindingName, Node node, Node entity) {
       this.bindTargetMap.put(bindingName, new Pair<Node, Node>(entity, node));
     }
+
 
     public Pair<Node, Node> getBindTarget(String name) {
       return this.bindTargetMap.get(name);
     }
 
+
     public boolean hasBindTarget(String name) {
       return this.bindTargetMap.containsKey(name);
     }
+
 
     public Set<String> getBindTargetIter() {
       return this.bindTargetMap.keySet();
     }
 
+
     public void putGet(String name, Node n) {
       this.getMap.put(name, n);
     }
+
 
     public Iterable<String> getGetMapIter() {
       return this.getMap.keySet();
     }
 
+
     public Node getGetMap(String bindingName) {
       return this.getMap.get(bindingName);
     }
+
 
     public boolean getProvide(String name) {
       return this.provideMap.containsKey(name);
     }
 
+
     public void setProvide(String name) {
       this.provideMap.put(name, true);
     }
 
+
     public void addInterceptorInfo(InterceptorInfo interceptorInfo) {
       this.interceptorInfoList.add(interceptorInfo);
     }
+
 
     public List<InterceptorInfo> getInterceptorInfoList() {
       return this.interceptorInfoList;
@@ -268,6 +358,7 @@ class CampInjectionProcessor {
 
     private boolean weaved = false;
 
+
     public InterceptorInfo(String name, Node interceptor, String packageMatcher,
         String methodMatcher) {
       this.name = name;
@@ -276,21 +367,26 @@ class CampInjectionProcessor {
       this.methodMatcher = methodMatcher;
     }
 
+
     public String getName() {
       return this.name;
     }
+
 
     public Node getInterceptor() {
       return this.interceptor;
     }
 
+
     public String getPackageMatcher() {
       return this.packageMatcher;
     }
 
+
     public String getMethodMatcher() {
       return this.methodMatcher;
     }
+
 
     /**
      * @return the methodNameAccess
@@ -298,6 +394,7 @@ class CampInjectionProcessor {
     public boolean isMethodNameAccess() {
       return methodNameAccess;
     }
+
 
     /**
      * @param methodNameAccess
@@ -307,12 +404,14 @@ class CampInjectionProcessor {
       this.methodNameAccess = methodNameAccess;
     }
 
+
     /**
      * @return the classNameAccess
      */
     public boolean isClassNameAccess() {
       return classNameAccess;
     }
+
 
     /**
      * @param classNameAccess
@@ -322,13 +421,16 @@ class CampInjectionProcessor {
       this.classNameAccess = classNameAccess;
     }
 
+
     public boolean isProceedAccess() {
       return proceedAccess;
     }
 
+
     public void setProceedAccess(boolean proceedAccess) {
       this.proceedAccess = proceedAccess;
     }
+
 
     /**
      * @return the weaved
@@ -336,6 +438,7 @@ class CampInjectionProcessor {
     public boolean isWeaved() {
       return weaved;
     }
+
 
     /**
      * @param weaved
@@ -348,11 +451,17 @@ class CampInjectionProcessor {
 
   private final class PrototypeInfo {
     private Node function;
+
     private Node baseFunction;
+
     private List<String> paramList = Lists.newArrayList();
+
     private String name;
+
     private boolean weaved = false;
+
     private boolean proceeded = false;
+
 
     public PrototypeInfo(String name, Node function) {
       this.function = function;
@@ -361,37 +470,46 @@ class CampInjectionProcessor {
       this.name = name;
     }
 
+
     public void addParam(String name) {
       this.paramList.add(name);
     }
+
 
     public List<String> getParamList() {
       return this.paramList;
     }
 
+
     public String getMethodName() {
       return this.name;
     }
+
 
     public Node getFunction() {
       return this.function;
     }
 
+
     public Node getBaseFunction() {
       return this.baseFunction;
     }
+
 
     public boolean isWeaved() {
       return weaved;
     }
 
+
     public void setWeaved(boolean weaved) {
       this.weaved = weaved;
     }
 
+
     public boolean isProceeded() {
       return proceeded;
     }
+
 
     public void setProceeded(boolean proceeded) {
       this.proceeded = proceeded;
@@ -413,21 +531,26 @@ class CampInjectionProcessor {
 
     private Map<String, PrototypeInfo> prototypeInfoMap;
 
+
     public ClassInfo(String className) {
       this.className = className;
     }
+
 
     public String getClassName() {
       return this.className;
     }
 
+
     public void addParam(String name) {
       paramList.add(name);
     }
 
+
     public List<String> getParamList() {
       return this.paramList;
     }
+
 
     /**
      * @return the isSingleton
@@ -435,6 +558,7 @@ class CampInjectionProcessor {
     public boolean isSingleton() {
       return isSingleton;
     }
+
 
     /**
      * @param isSingleton
@@ -444,12 +568,14 @@ class CampInjectionProcessor {
       this.isSingleton = isSingleton;
     }
 
+
     /**
      * @return the setterList
      */
     public List<String> getSetterList() {
       return setterList;
     }
+
 
     /**
      * @param setterList
@@ -463,12 +589,14 @@ class CampInjectionProcessor {
       }
     }
 
+
     /**
      * @return the provider
      */
     public Node getProvider() {
       return provider;
     }
+
 
     /**
      * @param provider
@@ -478,6 +606,7 @@ class CampInjectionProcessor {
       this.provider = provider;
     }
 
+
     /**
      * @return the prototypeInfoMap
      */
@@ -485,9 +614,11 @@ class CampInjectionProcessor {
       return prototypeInfoMap != null ? prototypeInfoMap.get(name) : null;
     }
 
+
     public Map<String, PrototypeInfo> getPrototypeInfoMap() {
       return this.prototypeInfoMap;
     }
+
 
     /**
      * @param prototypeInfoMap
@@ -501,9 +632,11 @@ class CampInjectionProcessor {
       }
     }
 
+
     public Node getSingletonCallNode() {
       return singletonCallNode;
     }
+
 
     public void setSingletonCallNode(Node singletonCallNode) {
       this.singletonCallNode = singletonCallNode;
@@ -529,6 +662,7 @@ class CampInjectionProcessor {
       }
       return null;
     }
+
 
     private InjectionMarkerProcessor doCreate(String qualifiedName, NodeTraversal t, Node n) {
       if (qualifiedName.equals(CREATE_INSTANCE_CALL)) {
@@ -561,10 +695,12 @@ class CampInjectionProcessor {
 
     private NodeTraversal nodeTraversal;
 
+
     public CreateInstanceMarkerProcessor(NodeTraversal t, Node n) {
       this.nodeTraversal = t;
       this.node = n;
     }
+
 
     public void processMarker() {
       Node maybeGetProp = this.node.getFirstChild().getNext();
@@ -584,10 +720,12 @@ class CampInjectionProcessor {
 
     private NodeTraversal nodeTraversal;
 
+
     public InjectionBinderMarkerProcessor(NodeTraversal t, Node n) {
       this.nodeTraversal = t;
       this.node = n;
     }
+
 
     public void processMarker() {
       Node bindingNameNode = this.node.getFirstChild().getNext();
@@ -610,10 +748,12 @@ class CampInjectionProcessor {
 
     private Node node;
 
+
     public SetterInjectionMarkerProcessor(NodeTraversal t, Node n) {
       this.nodeTraversal = t;
       this.node = n;
     }
+
 
     public void processMarker() {
       Node targetClass = this.node.getFirstChild().getNext();
@@ -644,10 +784,12 @@ class CampInjectionProcessor {
 
     private NodeTraversal nodeTraversal;
 
+
     public InjectionGetterMarkerProcessor(NodeTraversal t, Node n) {
       this.node = n;
       this.nodeTraversal = t;
     }
+
 
     public void processMarker() {
       Node bindingNameNode = this.node.getFirstChild().getNext();
@@ -669,10 +811,12 @@ class CampInjectionProcessor {
 
     private NodeTraversal nodeTraversal;
 
+
     public ProviderMarkerProcessor(NodeTraversal t, Node n) {
       this.node = n;
       this.nodeTraversal = t;
     }
+
 
     public void processMarker() {
       Node targetClass = this.node.getFirstChild().getNext();
@@ -698,10 +842,12 @@ class CampInjectionProcessor {
 
     private NodeTraversal nodeTraversal;
 
+
     public ExportedClassMarkerProcessor(NodeTraversal t, Node n) {
       this.node = n;
       this.nodeTraversal = t;
     }
+
 
     public void processMarker() {
       Node stringNode = this.node.getFirstChild().getNext();
@@ -719,13 +865,16 @@ class CampInjectionProcessor {
 
     private NodeTraversal nodeTraversal;
 
+
     public SingletonMarkerProcessor(NodeTraversal t, Node n) {
       this.node = n;
       this.nodeTraversal = t;
     }
 
+
     public void processMarker() {
       Node targetClass = this.node.getFirstChild().getNext();
+
       if (targetClass != null) {
         String qualifiedName = targetClass.getQualifiedName();
         if (qualifiedName != null) {
@@ -740,10 +889,12 @@ class CampInjectionProcessor {
 
     private NodeTraversal nodeTraversal;
 
+
     public PrototypeMarkerProcessor(NodeTraversal t, Node n) {
       this.node = n;
       this.nodeTraversal = t;
     }
+
 
     public void processMarker() {
       Node lvalue = this.node.getFirstChild();
@@ -753,12 +904,16 @@ class CampInjectionProcessor {
       }
     }
 
+
     private void collectPrototype(Node lvalue, Node rvalue) {
       String qualifiedName = lvalue.getQualifiedName();
+
       if (qualifiedName != null) {
         String[] nameArr = qualifiedName.split("\\.");
+
         if (nameArr.length > 1 && qualifiedName.indexOf("." + PROTOTYPE) > -1) {
           String className = qualifiedName.substring(0, qualifiedName.indexOf("." + PROTOTYPE));
+
           // foo.prototype.bar = function() {...
           if (rvalue.isFunction() && qualifiedName.matches(PROTOTYPE_REGEX)) {
             String methodName = nameArr[nameArr.length - 1];
@@ -783,6 +938,7 @@ class CampInjectionProcessor {
       }
     }
 
+
     private void addPrototypeMember(String className, String methodName, Node function) {
       PrototypeInfo prototypeInfo = new PrototypeInfo(methodName, function);
       Node paramList = function.getFirstChild().getNext();
@@ -798,65 +954,92 @@ class CampInjectionProcessor {
 
     private NodeTraversal nodeTraversal;
 
+
     public InterceptorMarkerProcessor(NodeTraversal nodeTraversal, Node node) {
       this.node = node;
       this.nodeTraversal = nodeTraversal;
     }
 
+
     public void processMarker() {
       Node packageMatcherNode = this.node.getFirstChild().getNext();
+
       if (packageMatcherNode != null) {
         Node methodMatcherNode = packageMatcherNode.getNext();
-        String packageMatcher = packageMatcherNode.getString();
+        String moduleMatcher = packageMatcherNode.getString();
         String methodMatcher = methodMatcherNode.getString();
-        if (!Strings.isNullOrEmpty(packageMatcher) && !Strings.isNullOrEmpty(methodMatcher)) {
+
+        if (!Strings.isNullOrEmpty(moduleMatcher) && !Strings.isNullOrEmpty(methodMatcher)) {
           Node interceptor = methodMatcherNode.getNext();
           if (interceptor != null && interceptor.isFunction()) {
-            packageMatcher = packageMatcher.replaceAll("\\.", "\\\\.").replaceAll("\\*", ".*");
-            methodMatcher = methodMatcher.replaceAll("\\*", ".*");
-
-            String interceptorName = INTERCEPTOR_REGISTRY + "." + INTERCEPTOR_PREFIX
-                + interceptorId++;
-
-            InterceptorRewriter interceptorRewriter = new InterceptorRewriter(interceptor,
-                interceptor.getFirstChild().getNext(), this.nodeTraversal);
-
-            NodeTraversal.traverseRoots(compiler, Lists.newArrayList(interceptor),
-                interceptorRewriter);
-
-            interceptor.detachFromParent();
-            Node paramList = interceptor.getFirstChild().getNext();
-            paramList.detachChildren();
-            for (Node param : interceptorRewriter.getParamList()) {
-              paramList.addChildToBack(param);
-            }
-
-            Node tmp = this.node;
-            while (tmp != null && !tmp.isExprResult()) {
-              tmp = tmp.getParent();
-            }
-
-            Node assign = new Node(Token.EXPR_RESULT, new Node(Token.ASSIGN,
-                createQualifiedNameNode(interceptorName), interceptor));
-
-            InterceptorInfo interceptorInfo = new InterceptorInfo(interceptorName, assign,
-                packageMatcher, methodMatcher);
-
-            interceptorInfo.setMethodNameAccess(interceptorRewriter.getMethodNameAccessFlag());
-            interceptorInfo.setClassNameAccess(interceptorRewriter.getClassNameAccessFlag());
-            interceptorInfo.setProceedAccess(interceptorRewriter.getProceedAccessFlag());
-
-            injectionTargetInfo.addInterceptorInfo(interceptorInfo);
-            tmp.getParent().addChildAfter(assign, tmp);
-            if (tmp != null) {
-              tmp.detachFromParent();
-            }
+            this.rewriteInterceptorDefinition(moduleMatcher, methodMatcher, interceptor);
+          } else {
+            this.nodeTraversal
+                .report(this.node, MESSAGE_BIND_INTERCEPTOR_THIRD_ARGUMENT_IS_INVALID);
           }
+        } else {
+          this.nodeTraversal.report(this.node, MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID);
         }
+      } else {
+        this.nodeTraversal.report(this.node, MESSAGE_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID);
       }
     }
 
-    private final class InterceptorRewriter extends AbstractPostOrderCallback {
+
+    private void rewriteInterceptorDefinition(String moduleMatcher, String methodMatcher,
+        Node interceptor) {
+
+      String moduleMatcherRegExp = moduleMatcher.replaceAll("\\.", "\\\\.").replaceAll("\\*", ".*");
+      String methodMatcherRegExp = methodMatcher.replaceAll("\\*", ".*");
+
+      String interceptorName = INTERCEPTOR_REGISTRY + "." + INTERCEPTOR_PREFIX + interceptorId++;
+
+      InterceptorRewriter interceptorRewriter = new InterceptorRewriter(interceptor, interceptor
+          .getFirstChild().getNext(), this.nodeTraversal);
+      NodeTraversal.traverseRoots(compiler, Lists.newArrayList(interceptor), interceptorRewriter);
+
+      this.rewriteInterceptorParamList(interceptor, interceptorRewriter);
+      this.replaceInterceptorNode(moduleMatcherRegExp, methodMatcherRegExp, interceptorName,
+          interceptor, interceptorRewriter);
+    }
+
+
+    private void rewriteInterceptorParamList(Node interceptor,
+        InterceptorRewriter interceptorRewriter) {
+      interceptor.detachFromParent();
+      Node paramList = interceptor.getFirstChild().getNext();
+      paramList.detachChildren();
+      for (Node param : interceptorRewriter.getParamList()) {
+        paramList.addChildToBack(param);
+      }
+    }
+
+
+    private void replaceInterceptorNode(String moduleMatcherRegExp, String methodMatcherRegExp,
+        String interceptorName, Node interceptor, InterceptorRewriter interceptorRewriter) {
+      Node tmp = this.node;
+      while (tmp != null && !tmp.isExprResult()) {
+        tmp = tmp.getParent();
+      }
+
+      Node assign = new Node(Token.EXPR_RESULT, new Node(Token.ASSIGN,
+          createQualifiedNameNode(interceptorName), interceptor));
+
+      InterceptorInfo interceptorInfo = new InterceptorInfo(interceptorName, assign,
+          moduleMatcherRegExp, methodMatcherRegExp);
+
+      interceptorInfo.setMethodNameAccess(interceptorRewriter.getMethodNameAccessFlag());
+      interceptorInfo.setClassNameAccess(interceptorRewriter.getClassNameAccessFlag());
+      interceptorInfo.setProceedAccess(interceptorRewriter.getProceedAccessFlag());
+
+      injectionTargetInfo.addInterceptorInfo(interceptorInfo);
+      tmp.getParent().addChildAfter(assign, tmp);
+      if (tmp != null) {
+        tmp.detachFromParent();
+      }
+    }
+
+    private final class InterceptorRewriter extends AbstractPostOrderNodeTypePruningCallback {
       private static final String GET_ARGUMENTS = "getArguments";
 
       private static final String GET_THIS = "getThis";
@@ -874,7 +1057,8 @@ class CampInjectionProcessor {
           Node.newString(Token.NAME, ARGUMENTS_REFERENCE),
           Node.newString(Token.NAME, METHOD_NAME_REFERENCE),
           Node.newString(Token.NAME, CLASS_NAME_REFERENCE),
-          Node.newString(Token.NAME, RESULT_REFERENCE), Node.newString(Token.NAME, CALL_REFERENCE));
+          Node.newString(Token.NAME, RESULT_REFERENCE),
+          Node.newString(Token.NAME, CALL_REFERENCE));
 
       private String methodInvocation = "";
 
@@ -886,70 +1070,133 @@ class CampInjectionProcessor {
 
       private boolean hasProceedAccess = false;
 
+      private final ImmutableSet<String> METHOD_SET = new ImmutableSet.Builder<String>()
+          .add(GET_ARGUMENTS)
+          .add(GET_THIS)
+          .add(GET_METHOD_NAME)
+          .add(GET_CLASS_NAME)
+          .build();
+
+
       public InterceptorRewriter(Node interceptor, Node args, NodeTraversal t) {
+        super(Sets.newHashSet(Token.CALL, Token.GETPROP, Token.NAME));
         this.interceptor = interceptor;
         if (args != null) {
           this.methodInvocationNode = args.getFirstChild();
           this.methodInvocation = args.getFirstChild().getString();
         }
+        this.attachJSDocInfo(t);
+      }
+
+
+      public List<Node> getParamList() {
+        return this.functionParamList;
+      }
+
+
+      public boolean getMethodNameAccessFlag() {
+        return this.hasMethodNameAccess;
+      }
+
+
+      public boolean getClassNameAccessFlag() {
+        return this.hasClassNameAccess;
+      }
+
+
+      public boolean getProceedAccessFlag() {
+        return this.hasProceedAccess;
+      }
+
+
+      @Override
+      public void visitPrunedNode(NodeTraversal t, Node n, Node parent) {
+        if (n.isCall()) {
+          if (n.getFirstChild().isGetProp()) {
+            this.inliningMethodInvocationMethod(t, n);
+          }
+        } else if (n.isGetProp() && !parent.isCall()) {
+          this.checkMethodInvocationMethodsAccess(t, n);
+        } else if (n.isName() && !parent.isParamList() && !parent.isGetProp()) {
+          this.checkMethodInvocationAccess(t, n);
+        }
+      }
+
+
+      private void attachJSDocInfo(NodeTraversal t) {
         JSDocInfoBuilder jsdocInfoBuilder = new JSDocInfoBuilder(false);
         Node functionType = Node.newString(Token.NAME, "Function");
         Node stringType = Node.newString(Token.NAME, "string");
+
         jsdocInfoBuilder.recordParameter(THIS_REFERENCE,
             new JSTypeExpression(functionType, t.getSourceName()));
         jsdocInfoBuilder.recordParameter(ARGUMENTS_REFERENCE,
             new JSTypeExpression(functionType, t.getSourceName()));
         jsdocInfoBuilder.recordParameter(METHOD_NAME_REFERENCE,
             new JSTypeExpression(stringType, t.getSourceName()));
-        jsdocInfoBuilder.recordParameter(CLASS_NAME_REFERENCE,
-            new JSTypeExpression(stringType.cloneNode(), t.getSourceName()));
+        jsdocInfoBuilder.recordParameter(CLASS_NAME_REFERENCE, JSTypeExpression
+            .makeOptionalArg(new JSTypeExpression(stringType.cloneNode(), t.getSourceName())));
+
         jsdocInfoBuilder.build(this.interceptor);
       }
 
-      public List<Node> getParamList() {
-        return this.functionParamList;
+
+      private void checkMethodInvocationAccess(NodeTraversal t, Node n) {
+        String name = n.getString();
+        if (name != null) {
+          if (name.equals(this.methodInvocation) && this.isMethodInvocation(t, name)) {
+            t.report(n, MESSAGE_INVALID_ACCESS_TO_METHOD_INVOCATION);
+          }
+        }
       }
 
-      public boolean getMethodNameAccessFlag() {
-        return this.hasMethodNameAccess;
-      }
 
-      public boolean getClassNameAccessFlag() {
-        return this.hasClassNameAccess;
-      }
-
-      public boolean getProceedAccessFlag() {
-        return this.hasProceedAccess;
-      }
-
-      @Override
-      public void visit(NodeTraversal t, Node n, Node parent) {
-        if (n.isCall()) {
-          if (n.getFirstChild().isGetProp()) {
-            Node firstChild = n.getFirstChild();
-            String qualifiedName = firstChild.getQualifiedName();
-            String[] arr = qualifiedName.split("\\.");
-            String caller = arr[0];
-            if (caller.equals(this.methodInvocation) && this.matchMethodInvocation(t, caller)) {
-              if (arr[1].equals(GET_THIS)) {
-                n.getParent().replaceChild(n, Node.newString(Token.NAME, THIS_REFERENCE));
-              } else if (arr[1].equals(GET_ARGUMENTS)) {
-                n.getParent().replaceChild(n, Node.newString(Token.NAME, ARGUMENTS_REFERENCE));
-              } else if (arr[1].equals(PROCEED)) {
-                n.getParent().replaceChild(n, this.makeProceed());
-              } else if (arr[1].equals(GET_METHOD_NAME)) {
-                this.hasMethodNameAccess = true;
-                n.getParent().replaceChild(n, Node.newString(Token.NAME, METHOD_NAME_REFERENCE));
-              } else if (arr[1].equals(GET_CLASS_NAME)) {
-                this.hasClassNameAccess = true;
-                n.getParent().replaceChild(n, Node.newString(Token.NAME, CLASS_NAME_REFERENCE));
-              }
+      private void checkMethodInvocationMethodsAccess(NodeTraversal t, Node n) {
+        String qualifiedName = n.getQualifiedName();
+        if (qualifiedName != null) {
+          String[] arr = qualifiedName.split("\\.");
+          String caller = arr[0];
+          if (arr.length > 1 && caller.equals(this.methodInvocation)
+              && this.isMethodInvocation(t, caller)) {
+            if (METHOD_SET.contains(arr[1])) {
+              t.report(n, MESSAGE_ACCESSED_TO_METHOD_INVOCATION_VIRTUAL_METHODS);
+            } else {
+              t.report(n, MESSAGE_METHOD_INVOCATION_HAS_NO_SUCH_METHOD, arr[1]);
             }
           }
         }
       }
 
-      private Node makeProceed() {
+
+      private void inliningMethodInvocationMethod(NodeTraversal t, Node n) {
+        Node firstChild = n.getFirstChild();
+        String qualifiedName = firstChild.getQualifiedName();
+        if (qualifiedName != null) {
+          String[] arr = qualifiedName.split("\\.");
+          String caller = arr[0];
+          if (arr.length > 1 && caller.equals(this.methodInvocation)
+              && this.isMethodInvocation(t, caller)) {
+            if (arr[1].equals(GET_THIS)) {
+              n.getParent().replaceChild(n, Node.newString(Token.NAME, THIS_REFERENCE));
+            } else if (arr[1].equals(GET_ARGUMENTS)) {
+              n.getParent().replaceChild(n, Node.newString(Token.NAME, ARGUMENTS_REFERENCE));
+            } else if (arr[1].equals(PROCEED)) {
+              n.getParent().replaceChild(n, this.inliningProceedCall());
+            } else if (arr[1].equals(GET_METHOD_NAME)) {
+              this.hasMethodNameAccess = true;
+              n.getParent().replaceChild(n, Node.newString(Token.NAME, METHOD_NAME_REFERENCE));
+            } else if (arr[1].equals(GET_CLASS_NAME)) {
+              this.hasClassNameAccess = true;
+              n.getParent().replaceChild(n, Node.newString(Token.NAME, CLASS_NAME_REFERENCE));
+            } else {
+              t.report(n, MESSAGE_METHOD_INVOCATION_HAS_NO_SUCH_METHOD, arr[1]);
+            }
+          }
+        }
+      }
+
+
+      private Node inliningProceedCall() {
         this.hasProceedAccess = true;
         Node callNode = new Node(Token.CALL, createQualifiedNameNode(CALL_REFERENCE + ".call"),
             Node.newString(Token.NAME, THIS_REFERENCE));
@@ -957,7 +1204,8 @@ class CampInjectionProcessor {
             Node.newNumber(6)), callNode, Node.newString(Token.NAME, RESULT_REFERENCE));
       }
 
-      private boolean matchMethodInvocation(NodeTraversal t, String name) {
+
+      private boolean isMethodInvocation(NodeTraversal t, String name) {
         if (t.hasScope()) {
           Scope scope = t.getScope();
           Var var = scope.getVar(name);
@@ -976,9 +1224,11 @@ class CampInjectionProcessor {
 
     private InjectionMarkerProcessorFactory injectionMarkerProcessorFactory;
 
+
     public InjectionFinder() {
       this.injectionMarkerProcessorFactory = new InjectionMarkerProcessorFactory();
     }
+
 
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
@@ -994,6 +1244,7 @@ class CampInjectionProcessor {
     private Map<String, Map<String, Node>> lvalueMap = new HashMap<String, Map<String, Node>>();
 
     private Map<String, Node> scopedLvalueMap;
+
 
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
@@ -1015,6 +1266,7 @@ class CampInjectionProcessor {
         break;
       }
     }
+
 
     private void checkAssignment(NodeTraversal t, Node n) {
       Node child = n.getFirstChild();
@@ -1039,6 +1291,7 @@ class CampInjectionProcessor {
       }
     }
 
+
     private void checkVar(NodeTraversal t, Node n) {
       Node nameNode = n.getFirstChild();
       Node initialValue = nameNode.getFirstChild();
@@ -1057,6 +1310,7 @@ class CampInjectionProcessor {
         }
       }
     }
+
 
     private void checkFunction(NodeTraversal t, Node n) {
       boolean isDeclaration = n.getParent().isExprResult();
@@ -1079,9 +1333,11 @@ class CampInjectionProcessor {
       }
     }
 
+
     private void findDefinition(NodeTraversal t, Node n, String name, boolean isCreateInstance) {
       this.doFindDefinition(t, n, name, isCreateInstance, new ClassInfo(name));
     }
+
 
     private void doFindDefinition(NodeTraversal t, Node n, String name, boolean isCreateInstance,
         ClassInfo classInfo) {
@@ -1149,6 +1405,7 @@ class CampInjectionProcessor {
       }
     }
 
+
     private void setInfoToClassInfo(String name, ClassInfo classInfo) {
       if (injectionTargetInfo.hasProvider(name) && classInfo.getProvider() == null) {
         classInfo.setProvider(injectionTargetInfo.getProvider(name));
@@ -1168,12 +1425,16 @@ class CampInjectionProcessor {
       }
     }
 
+
     private JSDocInfo getJSDocInfoFromAncestorOr(Node n) {
-      JSDocInfo info = n.getJSDocInfo();
-      if (info == null) {
-        return getJSDocInfoFromAncestorOr(n.getParent());
+      if (n != null) {
+        JSDocInfo info = n.getJSDocInfo();
+        if (info == null) {
+          return getJSDocInfoFromAncestorOr(n.getParent());
+        }
+        return info;
       }
-      return info;
+      return null;
     }
   }
 
@@ -1211,11 +1472,13 @@ class CampInjectionProcessor {
       this.clean();
     }
 
+
     private void addRegistryDeclaration(Node root) {
       Node registryNameNode = Node.newString(Token.NAME, INTERCEPTOR_REGISTRY);
       registryNameNode.addChildToBack(new Node(Token.OBJECTLIT));
       root.getFirstChild().addChildToBack(new Node(Token.VAR, registryNameNode));
     }
+
 
     private void makeWeavingCall(PrototypeInfo prototypeInfo, InterceptorInfo interceptorInfo,
         String className, String methodName) {
@@ -1232,15 +1495,46 @@ class CampInjectionProcessor {
       if (!prototypeInfo.isWeaved()) {
         block.detachChildren();
         block.addChildToBack(result);
+
+        Node clone = baseFunction.cloneTree();
+        clone.getFirstChild().getNext().detachChildren();
+        NodeTraversal.traverse(compiler, clone.getLastChild(),
+            new MethodBodyRewriter(clone.getLastChild(), result.getFirstChild()));
+        Node name = Node.newString(Token.NAME, METHOD_ALIAS);
+        name.addChildToBack(clone);
+        Node var = new Node(Token.VAR, name);
+        block.addChildToBack(var);
+
+        JSDocInfo jsDocInfo = clone.getJSDocInfo();
+        if (jsDocInfo != null) {
+          JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
+          builder.recordReturnType(jsDocInfo.getReturnType());
+          clone.setJSDocInfo(null);
+          builder.build(var);
+        }
+
+        Node ifBlock = new Node(Token.BLOCK);
+        Node elseBlock = new Node(Token.BLOCK, new Node(Token.RETURN, new Node(Token.CALL,
+            createQualifiedNameNode(METHOD_ALIAS + ".call"), new Node(Token.THIS))));
+        Node cond = new Node(Token.IF, weavingFunction.getFirstChild().cloneTree(), ifBlock,
+            elseBlock);
+
+        block.addChildToBack(cond);
+        block = ifBlock;
+      } else {
+        Node cond = block.getLastChild();
+        cond.replaceChild(cond.getFirstChild(), new Node(Token.OR, weavingFunction.getFirstChild()
+            .cloneTree(), cond.getFirstChild().cloneTree()));
+        block = block.getLastChild().getFirstChild().getNext();
       }
 
-      Node expr = new Node(Token.HOOK, weavingFunction.getFirstChild()
-          .cloneTree(), weavingFunction, result.getFirstChild().cloneNode());
-      if (block.getChildCount() > 1) {
-        Node target = block.getChildAtIndex(block.getChildCount() - 1);
-        block.replaceChild(target,
-            new Node(Token.EXPR_RESULT, 
-                new Node(Token.AND, target.getFirstChild().getFirstChild().cloneTree(), target.getFirstChild().getFirstChild().getNext().cloneTree())));
+      Node expr = new Node(Token.HOOK, weavingFunction.getFirstChild().cloneTree(),
+          weavingFunction, result.getFirstChild().cloneNode());
+      if (block.getLastChild() != null) {
+        Node target = block.getLastChild();
+        block.replaceChild(target, new Node(Token.EXPR_RESULT, new Node(Token.AND, target
+            .getFirstChild().getFirstChild().cloneTree(), target.getFirstChild().getFirstChild()
+            .getNext().cloneTree())));
       }
 
       block.addChildToBack(new Node(Token.RETURN, expr));
@@ -1260,11 +1554,7 @@ class CampInjectionProcessor {
       if (interceptorInfo.isProceedAccess() && !prototypeInfo.isProceeded()) {
         prototypeInfo.setProceeded(true);
         weavingFunction.addChildToBack(new Node(Token.NULL));
-        Node clone = baseFunction.cloneTree();
-        clone.getFirstChild().getNext().detachChildren();
-        weavingFunction.addChildToBack(clone);
-        NodeTraversal.traverse(compiler, clone.getLastChild(),
-            new ResultRewriter(clone.getLastChild(), result.getFirstChild()));
+        weavingFunction.addChildToBack(Node.newString(Token.NAME, METHOD_ALIAS));
       } else if (interceptorInfo.isProceedAccess()) {
         weavingFunction.addChildToBack(result.getFirstChild().cloneNode());
       }
@@ -1272,6 +1562,7 @@ class CampInjectionProcessor {
       prototypeInfo.setWeaved(true);
       interceptorInfo.setWeaved(true);
     }
+
 
     private void clean() {
       List<InterceptorInfo> interceptorInfoList = injectionTargetInfo.getInterceptorInfoList();
@@ -1283,21 +1574,25 @@ class CampInjectionProcessor {
       }
     }
 
-    private final class ResultRewriter extends AbstractPostOrderCallback {
+    private final class MethodBodyRewriter extends AbstractPostOrderNodeTypePruningCallback {
 
       private Node scopeRoot;
 
       private Node resultReference;
+      
+      private final String GOOG_BASE = "goog.base";
 
-      public ResultRewriter(Node scopeRoot, Node resultReference) {
+      public MethodBodyRewriter(Node scopeRoot, Node resultReference) {
+        super(Sets.newHashSet(Token.RETURN, Token.CALL));
         this.scopeRoot = scopeRoot;
         this.resultReference = resultReference;
       }
 
-      public void visit(NodeTraversal t, Node n, Node parent) {
+
+      @Override
+      public void visitPrunedNode(NodeTraversal t, Node n, Node parent) {
         if (n.isReturn()) {
           Scope scope = t.getScope();
-          System.out.println(scope.getRootNode().equals(this.scopeRoot));
           if (scope.getRootNode().equals(this.scopeRoot)) {
             Node firstChild = n.getFirstChild();
             if (firstChild != null) {
@@ -1306,6 +1601,41 @@ class CampInjectionProcessor {
             } else {
               n.addChildToBack(new Node(Token.ASSIGN, this.resultReference.cloneNode(), new Node(
                   Token.CALL, new Node(Token.VOID), Node.newNumber(0))));
+            }
+          }
+        } else {
+          Node firstChild = n.getFirstChild();
+          String qualifiedName = firstChild.getQualifiedName();
+          if (qualifiedName != null) {
+            if (qualifiedName.equals(GOOG_BASE)) {
+              Node target = firstChild.getNext();
+              Node methodName = target.getNext();
+              Node replaced;
+              if (methodName != null && methodName.isString()) {
+                replaced = createQualifiedNameNode("this.constructor.superClass_.prototype." + methodName.getString() + ".call");
+                Node call = new Node(Token.CALL, replaced, new Node(Token.THIS));
+                while (methodName != null) {
+                  methodName = methodName.getNext();
+                  if (methodName != null) {
+                    call.addChildToBack(methodName);
+                  }
+                }
+                parent.replaceChild(n, call);
+                
+              } else if (methodName != null){
+                replaced = createQualifiedNameNode("this.constructor.superClass_.call");
+                Node call = new Node(Token.CALL, replaced, new Node(Token.THIS), methodName);
+                while (methodName != null) {
+                  methodName = methodName.getNext();
+                  if (methodName != null) {
+                    call.addChildToBack(methodName);
+                  }
+                }               
+                parent.replaceChild(n, call);
+              } else {
+                replaced = createQualifiedNameNode("this.constructor.superClass_.call");
+                parent.replaceChild(n, new Node(Token.CALL, replaced, new Node(Token.THIS)));
+              }
             }
           }
         }
@@ -1319,6 +1649,7 @@ class CampInjectionProcessor {
       this.inliningCreateInstanceCall();
       this.cleanBinding();
     }
+
 
     private void inliningCreateInstanceCall() {
       for (String key : injectionTargetInfo.getCreateInstanceTargetMapIter()) {
@@ -1340,6 +1671,7 @@ class CampInjectionProcessor {
       }
     }
 
+
     private void inliningGetCall() {
       for (String key : injectionTargetInfo.getGetMapIter()) {
         Node node = injectionTargetInfo.getGetMap(key);
@@ -1352,6 +1684,7 @@ class CampInjectionProcessor {
       }
     }
 
+
     private void cleanBinding() {
       for (String key : injectionTargetInfo.getBindTargetIter()) {
         Pair<Node, Node> nodePair = injectionTargetInfo.getBindTarget(key);
@@ -1363,6 +1696,7 @@ class CampInjectionProcessor {
         }
       }
     }
+
 
     private Node resolveBinding(String bindingName) {
       if (injectionTargetInfo.hasBindTarget(bindingName)) {
@@ -1403,6 +1737,7 @@ class CampInjectionProcessor {
       return new Node(Token.NULL);
     }
 
+
     private Node makeNewCallFromProvider(ClassInfo info) {
       Node function = info.getProvider();
       Node paramList = function.getFirstChild().getNext();
@@ -1412,6 +1747,7 @@ class CampInjectionProcessor {
       }
       return ret;
     }
+
 
     private Node makeNewCall(ClassInfo classInfo) {
       Node newCall;
@@ -1426,6 +1762,7 @@ class CampInjectionProcessor {
       return newCall;
     }
 
+
     private Node makeSimpleNewCall(ClassInfo classInfo) {
       Node newCall = new Node(Token.NEW, createQualifiedNameNode(classInfo.getClassName()));
       for (String param : classInfo.getParamList()) {
@@ -1433,6 +1770,7 @@ class CampInjectionProcessor {
       }
       return newCall;
     }
+
 
     private Node makeSingleton(ClassInfo classInfo) {
       Node singletonCall = classInfo.getSingletonCallNode();
@@ -1469,6 +1807,7 @@ class CampInjectionProcessor {
           + GET_INJECTIED_INSTANCE));
     }
 
+
     private Node makeNewCallScope(Node newCall, ClassInfo classInfo) {
       Node instanceVar = Node.newString(Token.NAME, "instance");
       instanceVar.addChildToBack(newCall);
@@ -1481,6 +1820,7 @@ class CampInjectionProcessor {
       return new Node(Token.CALL, new Node(Token.FUNCTION, Node.newString(Token.NAME, ""),
           new Node(Token.PARAM_LIST), block));
     }
+
 
     private void makeNewCallScopeBody(Node block, Node instanceVar, ClassInfo classInfo) {
       instanceVar = instanceVar.cloneTree();
@@ -1498,24 +1838,39 @@ class CampInjectionProcessor {
     }
   }
 
+
   private static Node createQualifiedNameNode(String name) {
     String[] moduleNames = name.split("\\.");
     Node prop = null;
     for (String moduleName : moduleNames) {
       if (prop == null) {
-        prop = Node.newString(Token.NAME, moduleName);
+        prop = makeNameNodeOrKeyWord(moduleName, true);
       } else {
-        prop = new Node(Token.GETPROP, prop, Node.newString(moduleName));
+        prop = new Node(Token.GETPROP, prop, makeNameNodeOrKeyWord(moduleName, false));
       }
     }
     return prop;
   }
+  
+  private static Node makeNameNodeOrKeyWord(String name, boolean isFirst) {
+    if (name.equals("this")) {
+      return new Node(Token.THIS);
+    } else {
+      if (isFirst) {
+        return Node.newString(Token.NAME, name);
+      } else {
+        return Node.newString(name);
+      }
+    }
+  }
 
   private AbstractCompiler compiler;
+
 
   public CampInjectionProcessor(AbstractCompiler compiler) {
     this.compiler = compiler;
   }
+
 
   public void process(Node externs, Node root) {
     NodeTraversal.traverse(compiler, root, new InjectionFinder());

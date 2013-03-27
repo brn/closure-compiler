@@ -182,6 +182,28 @@ camp.module('camp.vm.interaction', function (exports) {
 
   injector.inject(exports.Test3, "setService");
 
+  /**
+   * @constructor
+   * @param {string} pkgReg
+   * @param {string} methodReg
+   * @param {Function} interceptor
+   */
+  var InterceptorInfo = function(pkgReg, methodReg, interceptor) {
+        this._packageReg = pkgReg;
+        this._methodReg = methodReg;
+        this._interceptor = interceptor;
+      };
+
+  /**
+   * packageRegの取得
+   * @return {string} packageReg
+   */
+  InterceptorInfo.prototype.getPackageReg = function() {
+    return this._packageReg;
+  };
+
+  exports.InterceptorInfo = InterceptorInfo;
+
   exports.main = function () {
     binder.bindInterceptor("camp.*", "*", function(methodInvocation) {
       window.console.log('call before ' + methodInvocation.getClassName() + '.' + methodInvocation.getMethodName());
