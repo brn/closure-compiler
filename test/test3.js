@@ -21,6 +21,7 @@ camp.module('camp.vm.interaction', function (exports) {
   };
 
   Service.prototype.setNode = function (node) {
+    goog.base(this, 1, 2, 3);
     this._node = node;
   };
 

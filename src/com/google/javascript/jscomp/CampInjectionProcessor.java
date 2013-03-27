@@ -1499,7 +1499,7 @@ class CampInjectionProcessor {
         Node clone = baseFunction.cloneTree();
         clone.getFirstChild().getNext().detachChildren();
         NodeTraversal.traverse(compiler, clone.getLastChild(),
-            new MethodBodyRewriter(clone.getLastChild(), result.getFirstChild()));
+            new MethodBodyRewriter(className, clone.getLastChild(), result.getFirstChild()));
         Node name = Node.newString(Token.NAME, METHOD_ALIAS);
         name.addChildToBack(clone);
         Node var = new Node(Token.VAR, name);
@@ -1580,12 +1580,15 @@ class CampInjectionProcessor {
 
       private Node resultReference;
       
+      private String className;
+      
       private final String GOOG_BASE = "goog.base";
 
-      public MethodBodyRewriter(Node scopeRoot, Node resultReference) {
+      public MethodBodyRewriter(String className, Node scopeRoot, Node resultReference) {
         super(Sets.newHashSet(Token.RETURN, Token.CALL));
         this.scopeRoot = scopeRoot;
         this.resultReference = resultReference;
+        this.className = className;
       }
 
 
@@ -1612,28 +1615,28 @@ class CampInjectionProcessor {
               Node methodName = target.getNext();
               Node replaced;
               if (methodName != null && methodName.isString()) {
-                replaced = createQualifiedNameNode("this.constructor.superClass_.prototype." + methodName.getString() + ".call");
+                replaced = createQualifiedNameNode(this.className + ".superClass_.prototype." + methodName.getString() + ".call");
                 Node call = new Node(Token.CALL, replaced, new Node(Token.THIS));
                 while (methodName != null) {
                   methodName = methodName.getNext();
                   if (methodName != null) {
-                    call.addChildToBack(methodName);
+                    call.addChildToBack(methodName.cloneNode());
                   }
                 }
                 parent.replaceChild(n, call);
                 
               } else if (methodName != null){
-                replaced = createQualifiedNameNode("this.constructor.superClass_.call");
-                Node call = new Node(Token.CALL, replaced, new Node(Token.THIS), methodName);
+                replaced = createQualifiedNameNode(this.className + ".superClass_.call");
+                Node call = new Node(Token.CALL, replaced, new Node(Token.THIS), methodName.cloneNode());
                 while (methodName != null) {
                   methodName = methodName.getNext();
                   if (methodName != null) {
-                    call.addChildToBack(methodName);
+                    call.addChildToBack(methodName.cloneNode());
                   }
                 }               
                 parent.replaceChild(n, call);
               } else {
-                replaced = createQualifiedNameNode("this.constructor.superClass_.call");
+                replaced = createQualifiedNameNode(this.className + ".superClass_.call");
                 parent.replaceChild(n, new Node(Token.CALL, replaced, new Node(Token.THIS)));
               }
             }
