@@ -1,16 +1,16 @@
 
 
 camp.module('camp.vm.interaction', function (exports) {
-  var injector = camp.using('camp.dependencies.injector');
-  var binder = camp.using('camp.dependencies.binder');
-    var x = injector.bind ? injector.bind : binder.bind;
+  var Injector = camp.using('camp.dependencies.Injector');
+  var Module = camp.using('camp.dependencies.Module');
+  var module = camp.using('camp.dependencies.module');
 
   /**
    * @constructor
    */
   function Service() {}
   goog.addSingletonGetter(Service);
-  injector.inject(Service, 'setNode');
+  Injector.inject(Service, 'setNode');
   Service.prototype._node = null;
 
   /**
@@ -21,7 +21,7 @@ camp.module('camp.vm.interaction', function (exports) {
   };
 
   Service.prototype.setNode = function (node) {
-    goog.base(this, 1, 2, 3);
+    //goog.base(this, 1, 2, 3);
     this._node = node;
   };
 
@@ -54,7 +54,7 @@ camp.module('camp.vm.interaction', function (exports) {
     this._x = name1;
     this._test2 = test2;
   }
-  injector.inject(exports.Test, 'setService');
+  Injector.inject(exports.Test, 'setService');
 
 
   exports.Test.prototype = {
@@ -120,7 +120,7 @@ camp.module('camp.vm.interaction', function (exports) {
 
   binder.bindProvider(exports.Test4, function (name1, name2) {
     var a = new exports.Test4(name1, name2);
-    a.setC(injector.get('test2'));
+    a.setC(Injector.get('test2'));
     return a;
   })
 
@@ -176,34 +176,7 @@ camp.module('camp.vm.interaction', function (exports) {
   };
 
 
-  binder.bindProvider(exports.DataSourceManager, function() {
-    return new exports.DataSourceManager(new PubSub);
-  });
-
-
-  injector.inject(exports.Test3, "setService");
-
-  /**
-   * @constructor
-   * @param {string} pkgReg
-   * @param {string} methodReg
-   * @param {Function} interceptor
-   */
-  var InterceptorInfo = function(pkgReg, methodReg, interceptor) {
-        this._packageReg = pkgReg;
-        this._methodReg = methodReg;
-        this._interceptor = interceptor;
-      };
-
-  /**
-   * packageRegの取得
-   * @return {string} packageReg
-   */
-  InterceptorInfo.prototype.getPackageReg = function() {
-    return this._packageReg;
-  };
-
-  exports.InterceptorInfo = InterceptorInfo;
+  Injector.inject(exports.Test3, "setService");
 
   /**
    * @constructor
@@ -211,8 +184,8 @@ camp.module('camp.vm.interaction', function (exports) {
    */
   exports.DefaultModule = function() {};
 
-  exports.DefaultModule.configure = function(binder) {
-
+  exports.DefaultModule.prototype.configure = function(binder) {
+    /*
     binder.bindInterceptor("camp.*", "*", function(methodInvocation) {
       window.console.log('call before ' + methodInvocation.getClassName() + '.' + methodInvocation.getMethodName());
       var ret = methodInvocation.proceed();
@@ -230,8 +203,11 @@ camp.module('camp.vm.interaction', function (exports) {
       var ret = methodInvocation.proceed();
 
       return ret? ret : null;
-    });
+    });*/
 
+    binder.bindProvider(null, exports.DataSourceManager, function() {
+      return new exports.DataSourceManager(new PubSub);
+    });
     var m = {
           a : 1,
           b : 2,
@@ -245,13 +221,13 @@ camp.module('camp.vm.interaction', function (exports) {
   };
 
   exports.main = function () {
-    modules.init(exports.DefaultModule, function (injector) {
+    module.init([exports.DefaultModule], function (injector) {
       var l = injector.createInstance(exports.Test3);
       var v = injector.createInstance(exports.Test);
       var o = injector.createInstance(exports.DataSourceManager);
       o.echo(l.getName() + v.getName());
       window.localStorage['foo'] = l.getName() + v.getName();
-      window.console.log(injector.createInstance(exports.Test4));
+      window.console.log(Injector.createInstance(exports.Test4));
     });
   };
 });

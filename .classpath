@@ -14,6 +14,6 @@
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/jsr305.jar"/>
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/junit.jar"/>
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/protobuf-java.jar"/>
-	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/build/lib/rhino.jar"/>
+	<classpathentry kind="lib" path="C:/Users/brn/github/closure-compiler/lib/google-closure-compiler/build/lib/rhino.jar"/>
 	<classpathentry kind="output" path="build"/>
 </classpath>

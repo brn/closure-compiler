@@ -853,7 +853,7 @@ public final class CampModuleProcessor implements CompilerPass {
     }
     compiler.reportCodeChange();
 
-    CampInjectionProcessor_ campInjectionProcessor_ = new CampInjectionProcessor_(this.compiler);
-    campInjectionProcessor_.process(externs, root);
+    CampInjectionProcessor campInjectionProcessor = new CampInjectionProcessor(this.compiler);
+    campInjectionProcessor.process(externs, root);
   }
 }

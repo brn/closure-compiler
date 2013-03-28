@@ -87,152 +87,44 @@ goog.inherits = function(childCtor, parentCtor) {
 goog.DEBUG = false;
 
 camp.module('camp.dependencies', function (exports) {
-
+  //コンパイル後に消える
   if (!goog.DEBUG) {
     /**
+     * コンパイル後にグローバルな型以外はここに集められる。
      * @type {Object}
      */
     exports.injectionRegistry = {};
-
-    /**
-     * @type {Object.<string, Function>}
-     */
-    exports.injector.interceptorRegistry = {};
   } else {
     /**
-     * @private {Object}
+     * @constructor
+     * @param {Binder} binderList
      */
-    exports._injectionsRegistry = {};
-
-    /**
-     * @type {Object}
-     */
-    exports.injector = {};
-    exports.binder = {};
-
-
-    /**
-     * @param {string} name
-     * @param {*} value
-     */
-    exports.binder.bind = function (name, value) {
-      exports._injectionsRegistry[name] = value;
-    }
-
-
-    /**
-     * @template T
-     * @param {function(new:T,...):T} classConstructor
-     * @returns {T}
-     */
-    exports.injector.createInstance = function (classConstructor) {
-      return exports.injector._doCreate(classConstructor);
-    }
-
-
-    /**
-     * @template T
-     * @param {function(new:T,...):void} classConstructor
-     * @param {...string} var_args
-     */
-    exports.injector.inject = function (classConstructor, var_args) {
-      var args = Array.prototype.slice.call(arguments);
-      classConstructor = args.shift();
-      if (!classConstructor._injections) {
-        classConstructor._injections = exports.injector._parseArguments(classConstructor);
-      } else {
-        classConstructor._injections = classConstructor._injections
-          .concat(exports.injector._parseArguments(classConstructor));
-      }
-    }
-
-
-    /**
-     * @template T
-     * @param {function(new:T,...):T} classConstructor
-     * @returns {Array.<string>}
-     */
-    exports.injector._parseArguments = function (classConstructor) {
-      var args = Function.prototype.toString.call(classConstructor)
-            .match(exports.injector._ARGUMENTS_REG);
-      if (args && args[1]) {
-        return args[1].split(',');
-      } else {
-        return [];
-      }
-    }
-
-
-    /**
-     * @template T
-     * @param {function(new:T,...)} classConstructor
-     */
-    exports.injector._doCreate = function (classConstructor) {
-      var injections;
-      var args;
-      if (!classConstructor._injections) {
-        classConstructor._injections = exports.injector._parseArguments(classConstructor);
-      }
-      injections = classConstructor._injections;
-      args = exports.injector._createArguments(injections);
-      if (classConstructor.getInstance) {
-        return classConstructor.getInstance.apply(null, args);
-      }
-      return exports.injector._invokeNewCall(classConstructor, args);
-    }
-
-
-    /**
-     * @private
-     * @param {Array.<string>} injections
-     * @returns {Array}
-     */
-    exports.injector._createArguments = function (injections) {
-      var args = [];
-      var injection;
-      for (var i = 0, len = injections.length; i < len; i++) {
-        injection = injections[i];
-        if (injection in exports._injectionsRegistry) {
-          injection = exports._injectionsRegistry[injection];
-          if (typeof injection === 'function') {
-            args[i] = exports.injector._doCreate(injection);
-          } else {
-            args[i] = injection;
-          }
-        } else {
-          args[i] = null;
+    exports.Injector = function(binderList) {
+      this._injections = {};
+      this._interceptors = [];
+      binderList.forEach(function(binder) {
+        var injections = binder.getInjections();
+        for (var prop in injections) {
+          this._injections[prop] = injections[prop];
         }
-      }
-      return args;
-    }
-
-
-    /**
-     * @template T
-     * @param {function(new:T,...):T} classConstructor
-     * @param {Array} injections
-     * @returns {T}
-     */
-    exports.injector._invokeNewCall = function (classConstructor, injections) {
-      var instance;
-      /**
-       * @constructor
-       */
-      function NewCallProxyClass () {}
-      NewCallProxyClass.prototype = classConstructor.prototype;
-      instance = new NewCallProxyClass;
-      classConstructor.apply(instance, injections);
-      return instance;
-    }
-
-    exports.binder.bindProvider = function (classConstructor, provider) {
-      classConstructor._provider = provider;
-    }
+        this._interceptors = this._interceptors.concat(binder.getInterceptors());
+      }, this);
+    };
+    exports.Injector.prototype.createInstance = function(classConstructor) {
+      return this._doCreate(classConstructor);
+    };
+    exports.Injector.inject = function(classConstructor, var_args) {
+    };
 
     /**
-     * @const {RegExp}
+     * @interface
      */
-    exports.injector._ARGUMENTS_REG = /function[^\(]*\(([a-zA-Z_$][\w_$,]*)/;
+    exports.Module = function() {};
+
+    exports.Module.prototype.configure = function(binder) {};
+
+    exports.module = {
+      init : function() {}
+    };
   }
-
 });
