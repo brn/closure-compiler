@@ -205,7 +205,14 @@ camp.module('camp.vm.interaction', function (exports) {
 
   exports.InterceptorInfo = InterceptorInfo;
 
-  exports.main = function () {
+  /**
+   * @constructor
+   * @implements {Module}
+   */
+  exports.DefaultModule = function() {};
+
+  exports.DefaultModule.configure = function(binder) {
+
     binder.bindInterceptor("camp.*", "*", function(methodInvocation) {
       window.console.log('call before ' + methodInvocation.getClassName() + '.' + methodInvocation.getMethodName());
       var ret = methodInvocation.proceed();
@@ -235,11 +242,16 @@ camp.module('camp.vm.interaction', function (exports) {
     binder.bind('node', document.getElementById('id'));
     binder.bind('service', exports.Service);
     binder.bind('test2', exports.Test2);
-    var l = injector.createInstance(exports.Test3);
-    var v = injector.createInstance(exports.Test);
-    var o = injector.createInstance(exports.DataSourceManager);
-    o.echo(l.getName() + v.getName());
-    window.localStorage['foo'] = l.getName() + v.getName();
-    window.console.log(injector.createInstance(exports.Test4));
-  }
+  };
+
+  exports.main = function () {
+    modules.init(exports.DefaultModule, function (injector) {
+      var l = injector.createInstance(exports.Test3);
+      var v = injector.createInstance(exports.Test);
+      var o = injector.createInstance(exports.DataSourceManager);
+      o.echo(l.getName() + v.getName());
+      window.localStorage['foo'] = l.getName() + v.getName();
+      window.console.log(injector.createInstance(exports.Test4));
+    });
+  };
 });
