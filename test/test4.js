@@ -1,6 +1,6 @@
 
 camp.module("camp.test.main", function (exports) {
-  var modules = camp.using('camp.dependencies.module');
+  var modules = camp.using('camp.dependencies.modules');
   var DefaultModule = camp.using('camp.vm.interaction.DefaultModule');
   var DefaultModule2 = camp.using('camp.vm.interaction.DefaultModule2');
   var Test3 = camp.using('camp.vm.interaction.Test3');

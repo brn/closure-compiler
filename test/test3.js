@@ -3,7 +3,6 @@
 camp.module('camp.vm.interaction', function (exports) {
   var Injector = camp.using('camp.dependencies.Injector');
   var Module = camp.using('camp.dependencies.Module');
-  var modules = camp.using('camp.dependencies.module');
   var Matcher = camp.using('camp.dependencies.Matcher');
 
   /**
