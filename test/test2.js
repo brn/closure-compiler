@@ -123,8 +123,10 @@ camp.module('camp.dependencies', function (exports) {
 
     exports.Module.prototype.configure = function(binder) {};
 
-    exports.module = {
+    exports.modules = {
       init : function() {}
     };
+    exports.Matcher = function(){};
+    exports.JointPoint = function(){};
   }
 });
