@@ -1184,19 +1184,15 @@ final class CampInjectionRewriter {
 
 
     private Node createInterceptorThisRefNode() {
-      return new Node(Token.EXPR_RESULT, new Node(Token.ASSIGN,
-          Node.newString(Token.NAME, CampInjectionConsts.THIS_REFERENCE),
-          Node.newString(Token.NAME, CampInjectionConsts.THIS)));
+      return CampInjectionProcessor.makeVar(CampInjectionConsts.THIS_REFERENCE, new Node(Token.THIS));
     }
 
 
     private Node createInterceptorArgumentsRefNode() {
-      return new Node(Token.EXPR_RESULT,
-          new Node(Token.ASSIGN, Node.newString(Token.NAME,
-              CampInjectionConsts.INTERCEPTOR_ARGUMENTS),
-              new Node(Token.CALL,
+      return CampInjectionProcessor.makeVar(CampInjectionConsts.INTERCEPTOR_ARGUMENTS,
+          new Node(Token.CALL,
                   CampInjectionProcessor.createQualifiedNameNode(CampInjectionConsts.SLICE),
-                  Node.newString(Token.NAME, "arguments"))));
+                  Node.newString(Token.NAME, "arguments")));
     }
 
 
