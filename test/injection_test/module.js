@@ -1,6 +1,6 @@
-camp.module("camp.dependencies", function (exports) {
-  var Binder = camp.using('camp.dependencies.Binder');
-  var Injector = camp.using('camp.dependencies.Injector');
+camp.module("camp.injections", function (exports) {
+  var Binder = camp.using('camp.injections.Binder');
+  var Injector = camp.using('camp.injections.Injector');
 
   if (goog.DEBUG) {
     /**

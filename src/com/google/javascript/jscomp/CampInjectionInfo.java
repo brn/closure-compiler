@@ -3,9 +3,11 @@ package com.google.javascript.jscomp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.CampInjectionConsts.ClassMatchType;
 import com.google.javascript.jscomp.CampInjectionConsts.JoinPointType;
 import com.google.javascript.jscomp.CampInjectionConsts.MethodMatchType;
@@ -201,6 +203,8 @@ final class CampInjectionInfo {
 
     private boolean methodNameAccess = false;
 
+    private String moduleName;
+
 
     /**
      * @return the classMatcher
@@ -353,6 +357,16 @@ final class CampInjectionInfo {
     public void setMethodNameAccess(boolean methodNameAccess) {
       this.methodNameAccess = methodNameAccess;
     }
+
+
+    public String getModuleName() {
+      return moduleName;
+    }
+
+
+    public void setModuleName(String moduleName) {
+      this.moduleName = moduleName;
+    }
   }
 
 
@@ -362,6 +376,8 @@ final class CampInjectionInfo {
     private List<String> paramList = Lists.newArrayList();
 
     private List<String> setterList = Lists.newArrayList();
+
+    private boolean hasInterceptor = false;
 
     private Node providerNode;
 
@@ -393,6 +409,16 @@ final class CampInjectionInfo {
 
     public List<String> getParamList() {
       return this.paramList;
+    }
+
+
+    public void setInterceptorFlag() {
+      this.hasInterceptor = true;
+    }
+
+
+    public boolean hasInterceptorFlag() {
+      return this.hasInterceptor;
     }
 
 
@@ -649,6 +675,8 @@ final class CampInjectionInfo {
 
     private Node providerNode;
 
+    private ClassInfo classInfo;
+
 
     /**
      * @return the name
@@ -714,10 +742,20 @@ final class CampInjectionInfo {
       this.providerNode = provider;
     }
 
+
+    public ClassInfo getClassInfo() {
+      return classInfo;
+    }
+
+
+    public void setClassInfo(ClassInfo classInfo) {
+      this.classInfo = classInfo;
+    }
+
   }
 
 
-  static final class PrototypeInfo {
+  static final class PrototypeInfo implements Cloneable {
     private Node methodNode;
 
     private Node lastInsertedInterceptorNode;
@@ -728,7 +766,7 @@ final class CampInjectionInfo {
 
     private boolean weaved = false;
 
-    private Map<String, Boolean> interceptorMap = Maps.newHashMap();
+    private List<InterceptorInfo> interceptorInfoList = Lists.newArrayList();
 
 
     public PrototypeInfo(String name, Node function) {
@@ -756,6 +794,16 @@ final class CampInjectionInfo {
      */
     public void setLastInsertedInterceptor(Node lastInsertedInterceptor) {
       this.lastInsertedInterceptorNode = lastInsertedInterceptor;
+    }
+
+
+    public void addInterceptor(InterceptorInfo interceptorInfo) {
+      this.interceptorInfoList.add(interceptorInfo);
+    }
+
+
+    public List<InterceptorInfo> getInterceptorInfoList() {
+      return this.interceptorInfoList;
     }
 
 
@@ -787,8 +835,8 @@ final class CampInjectionInfo {
     /**
      * @return the interceptorMap
      */
-    public boolean hasInterceptor(String name) {
-      return interceptorMap.containsKey(name);
+    public List<InterceptorInfo> getInterceptor(String name) {
+      return this.interceptorInfoList;
     }
 
 
@@ -796,8 +844,18 @@ final class CampInjectionInfo {
      * @param interceptorMap
      *          the interceptorMap to set
      */
-    public void putInterceptor(String name) {
-      this.interceptorMap.put(name, true);
+    public void addInterceptorInfo(InterceptorInfo interceptorInfo) {
+      this.interceptorInfoList.add(interceptorInfo);
+    }
+
+
+    @Override
+    public Object clone() {
+      try {
+        return super.clone();
+      } catch (CloneNotSupportedException e) {
+        throw new InternalError(e.toString());
+      }
     }
   }
 }

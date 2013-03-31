@@ -11,7 +11,6 @@ import com.google.javascript.rhino.Token;
  */
 public class CampInjectionProcessor {
 
-
   public void process(Node extern, Node root) {
     CampInjectionInfoCollector campInjectionInfoCollector = new CampInjectionInfoCollector(compiler);
     campInjectionInfoCollector.collectInfo(root);

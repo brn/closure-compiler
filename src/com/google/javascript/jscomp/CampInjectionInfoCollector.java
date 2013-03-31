@@ -44,13 +44,15 @@ final class CampInjectionInfoCollector {
           "The second argument and rest of camp.injections.Injector.inject must be a string expression which is method name of injection target.");
 
   private AbstractCompiler compiler;
-  
+
   private CampInjectionInfo campInjectionInfo = CampInjectionInfo.getInstance();
-  
+
+
   public CampInjectionInfoCollector(AbstractCompiler compiler) {
     this.compiler = compiler;
   }
-  
+
+
   private interface MarkerProcessor {
     public void processMarker();
   }
@@ -339,14 +341,16 @@ final class CampInjectionInfoCollector {
         String[] nameArr = qualifiedName.split("\\.");
 
         if (nameArr.length > 1 && qualifiedName.indexOf("." + CampInjectionConsts.PROTOTYPE) > -1) {
-          String className = qualifiedName.substring(0, qualifiedName.indexOf("." + CampInjectionConsts.PROTOTYPE));
+          String className = qualifiedName.substring(0,
+              qualifiedName.indexOf("." + CampInjectionConsts.PROTOTYPE));
 
           // foo.prototype.bar = function() {...
           if (rvalue.isFunction() && qualifiedName.matches(CampInjectionConsts.PROTOTYPE_REGEX)) {
             String methodName = nameArr[nameArr.length - 1];
             this.addPrototypeMember(className, methodName, rvalue);
 
-          } else if (qualifiedName.endsWith("." + CampInjectionConsts.PROTOTYPE) && rvalue.isObjectLit()) {
+          } else if (qualifiedName.endsWith("." + CampInjectionConsts.PROTOTYPE)
+              && rvalue.isObjectLit()) {
             // foo.prototype = {...
             processAssignmentOfObjectLiteral(rvalue, className);
           }
@@ -386,6 +390,7 @@ final class CampInjectionInfoCollector {
 
     public void integrate() {
       this.bindClassInfo();
+      this.bindBaseTypeInfo();
       this.bindModuleInfo();
     }
 
@@ -406,6 +411,55 @@ final class CampInjectionInfoCollector {
 
         classInfo.setSingletonCallNode(campInjectionInfo.getSingleton(className));
       }
+    }
+
+
+    private void bindBaseTypeInfo() {
+      Map<String, ClassInfo> classInfoMap = campInjectionInfo.getClassInfoMap();
+      for (ClassInfo classInfo : classInfoMap.values()) {
+        this.checkBaseType(classInfo);
+      }
+    }
+
+
+    private void checkBaseType(ClassInfo classInfo) {
+      List<ClassInfo> classInfoList = this.getBaseTypeList(classInfo);
+      Map<String, PrototypeInfo> prototypeInfoMap = classInfo.getPrototypeInfoMap();
+      for (ClassInfo baseTypeInfo : classInfoList) {
+        Map<String, PrototypeInfo> basePrototypeInfoMap = baseTypeInfo.getPrototypeInfoMap();
+        for (String baseMethodName : basePrototypeInfoMap.keySet()) {
+          if (!prototypeInfoMap.containsKey(baseMethodName)) {
+            prototypeInfoMap.put(baseMethodName,
+                (PrototypeInfo) basePrototypeInfoMap.get(baseMethodName).clone());
+          }
+        }
+      }
+    }
+
+
+    private List<ClassInfo> getBaseTypeList(ClassInfo classInfo) {
+      List<ClassInfo> classInfoList = Lists.newArrayList();
+      while (true) {
+        JSDocInfo jsDocInfo = classInfo.getJSDocInfo();
+        if (jsDocInfo != null) {
+          JSTypeExpression type = jsDocInfo.getBaseType();
+          if (type != null) {
+            Node typeRoot = type.getRoot();
+            Node firstChild = typeRoot.getFirstChild();
+            if (firstChild.isString()) {
+              String baseType = firstChild.getString();
+              ClassInfo baseInfo = campInjectionInfo.getClassInfo(baseType);
+              if (baseInfo != null) {
+                classInfoList.add(baseInfo);
+                classInfo = baseInfo;
+                continue;
+              }
+            }
+          }
+        }
+        break;
+      }
+      return classInfoList;
     }
 
 
@@ -434,18 +488,22 @@ final class CampInjectionInfoCollector {
     }
   }
 
+
   public void collectInfo(Node root) {
     NodeTraversal.traverse(compiler, root, new CollectCallback());
   }
-  
+
+
   public void integrateInfo() {
     new InformationIntegrator().integrate();
   }
-  
+
+
   private final class CollectCallback extends AbstractPostOrderCallback {
-  
+
     private MarkerProcessorFactory factory = new MarkerProcessorFactory();
-  
+
+
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
       MarkerProcessor markerProcessor = factory.create(t, n);

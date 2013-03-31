@@ -1,4 +1,4 @@
-camp.module("camp.dependencies", function (exports) {
+camp.module("camp.injections", function (exports) {
   var RefrectionUtil = camp.using('camp.utils.RefrectionUtil');
 
   /**

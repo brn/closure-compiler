@@ -1,9 +1,9 @@
 
 
 camp.module('camp.vm.interaction', function (exports) {
-  var Injector = camp.using('camp.dependencies.Injector');
-  var Module = camp.using('camp.dependencies.Module');
-  var Matcher = camp.using('camp.dependencies.Matcher');
+  var Injector = camp.using('camp.injections.Injector');
+  var Module = camp.using('camp.injections.Module');
+  var Matcher = camp.using('camp.injections.Matcher');
 
   /**
    * @constructor
@@ -202,6 +202,39 @@ camp.module('camp.vm.interaction', function (exports) {
 
   /**
    * @constructor
+   */
+  exports.Base1 = function() {
+
+  };
+
+  exports.Base1.prototype.setName = function(name1) {
+    this.name1 = name1;
+  };
+
+  /**
+   * @constructor
+   * @extends {exports.Base1}
+   */
+  exports.Base2 = function() {
+
+  };
+
+
+  /**
+   * @constructor
+   * @extends {exports.Base2}
+   */
+  exports.Base3 = function() {
+
+  };
+  Injector.inject(exports.Base3, "setName");
+
+  exports.Base3.prototype.insert = function() {
+    document.getElementById('test').innertHTML = "test";
+  };
+
+  /**
+   * @constructor
    * @implements {Module}
    */
   exports.DefaultModule = function() {};
@@ -210,18 +243,19 @@ camp.module('camp.vm.interaction', function (exports) {
     binder.bindInterceptor(
       Matcher.inNamespace('camp.vm.interaction'),
       Matcher.like("ech*"),
-      Matcher.PointCuts.BEFORE,
-      function(jointPoint) {
-        window.console.log('call before ' + jointPoint.getQualifiedName());
+      function(methodInvocation) {
+        window.console.log('call before ' + methodInvocation.getQualifiedName());
+        return methodInvocation.proceed();
       }
     );
 
     binder.bindInterceptor(
-      Matcher.inNamespace('camp.vm.interaction'),
-      Matcher.like("*"),
-      Matcher.PointCuts.AFTER,
-      function(jointPoint) {
-        window.console.log('ok !' + jointPoint.getResult());
+      Matcher.subclassOf(exports.Base1),
+      Matcher.like("insert"),
+      function(methodInvocation) {
+        var ret = methodInvocation.proceed();
+        window.console.log('ok !' + ret);
+        return ret;
       }
     );
 

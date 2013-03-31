@@ -1,4 +1,4 @@
-camp.module("camp.dependencies", function (exports) {
+camp.module("camp.injections", function (exports) {
   if (goog.DEBUG) {
     exports.Binder = function() {
       this._injections = {};
@@ -50,7 +50,7 @@ camp.module("camp.dependencies", function (exports) {
     /**
      * Providerを定義する。
      * Providerを定義することで、インスタンスの生成方法を指定することができる。
-     * camp.dependencies.injectorに未対応なクラス(goog名前空間のクラス等)
+     * camp.injections.injectorに未対応なクラス(goog名前空間のクラス等)
      * に対してインスタンス生成方法を与えることが可能。
      *
      * @template T
@@ -68,9 +68,9 @@ camp.module("camp.dependencies", function (exports) {
      *
      * //この呼出で、binder.bindProviderの第二引数に渡したProvider関数が呼ばれる
      * Injector.createInstance(Foo);
-     * @see {camp.dependencies.Injector.get}
-     * @see {camp.dependencies.Injector.createInstance}
-     * @see {camp.dependencies.Injector.bind}
+     * @see {camp.injections.Injector.get}
+     * @see {camp.injections.Injector.createInstance}
+     * @see {camp.injections.Injector.bind}
      */
     exports.Binder.prototype.bindProvider = function(name, classConstructor, provider) {
       if (name) {

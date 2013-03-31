@@ -9,8 +9,8 @@
  */
 
 
-camp.module("camp.dependencies", function(exports) {
-  var Config = camp.using('camp.dependencies.Config');
+camp.module("camp.injections", function(exports) {
+  var Config = camp.using('camp.injections.Config');
   var asserts = camp.using("goog.asserts");
   var Disposable = camp.using("goog.Disposable");
   var DisposeUtil = camp.using("camp.utils.DisposeUtil");
@@ -20,7 +20,7 @@ camp.module("camp.dependencies", function(exports) {
   var object = camp.using("goog.object");
   var Interceptor = camp.using('camp.aop.Interceptor');
   var RefrectionUtil = camp.using('camp.utils.RefrectionUtil');
-  var Binder = camp.using('camp.dependencies.Binder');
+  var Binder = camp.using('camp.injections.Binder');
   var Logger = camp.using('goog.debug.Logger');
 
 
@@ -80,7 +80,7 @@ camp.module("camp.dependencies", function(exports) {
      *
      * //この呼出でBarクラスの引数fooにInjector.bindで指定されている値が自動で注入される。
      * Injector.createInstance(Bar);
-     * @see {camp.dependencies.Injector.bind}
+     * @see {camp.injections.Injector.bind}
      */
     exports.Injector.prototype.createInstance = function(classConstructor) {
       return this._doCreate(classConstructor);
@@ -115,11 +115,11 @@ camp.module("camp.dependencies", function(exports) {
      * //})()
      * Injector.createInstance(Bar);
      *
-     * @see {camp.dependencies.Injector.createInstance}
-     * @see {camp.dependencies.Injector.bind}
+     * @see {camp.injections.Injector.createInstance}
+     * @see {camp.injections.Injector.bind}
      */
     exports.Injector.inject = function(classConstructor, var_args) {
-      asserts.assertFunction(classConstructor, "camp.dependencies.injector@inject()");
+      asserts.assertFunction(classConstructor, "camp.injections.injector@inject()");
       var args = Array.prototype.slice.call(arguments);
       classConstructor = args.shift();
       if (!classConstructor._injections) {
@@ -141,7 +141,7 @@ camp.module("camp.dependencies", function(exports) {
      * @return {T}
      */
     exports.Injector.prototype._doCreate = function(classConstructor) {
-      asserts.assertFunction(classConstructor, "camp.dependencies.injector@_doCreate()");
+      asserts.assertFunction(classConstructor, "camp.injections.injector@_doCreate()");
       var injections;
       var args;
       var instance;
