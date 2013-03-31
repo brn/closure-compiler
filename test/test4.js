@@ -8,6 +8,7 @@ camp.module("camp.test.main", function (exports) {
   var DataSourceManager = camp.using('camp.vm.interaction.DataSourceManager');
   var Test4 = camp.using('camp.vm.interaction.Test4');
   var Service = camp.using('camp.vm.interaction.Service');
+  var Hoge = camp.using('camp.vm.interaction.Hoge');
 
   exports.main = function () {
     modules.init([DefaultModule, DefaultModule2], function (injector) {
@@ -22,5 +23,21 @@ camp.module("camp.test.main", function (exports) {
       var o = injector.createInstance(Service);
       o.getNode().innerHTML = 'hogehoge';
     });
+    var x = {};
+    x.interceptor1 = function interceptor1(c, a, fn) {
+      window.console.log('before 1');
+      return fn.call(c);
+    }
+    x.interceptor2 = function interceptor2(c, a, fn) {
+      window.console.log('before 2');
+      return fn.call(c);
+    }
+    var h = new Hoge;
+    h.fuga = function() {
+      return x.interceptor1(this, arguments, function() {
+        return x.interceptor2(this, arguments, Hoge.prototype.fuga);
+      });
+    };
+    window.console.log(h.fuga())
   };
 });

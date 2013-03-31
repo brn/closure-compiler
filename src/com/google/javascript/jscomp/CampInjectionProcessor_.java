@@ -23,44 +23,44 @@ class CampInjectionProcessor_ {
 
   static final DiagnosticType MESSAGE_CREATE_INSTANCE_TARGET_NOT_VALID = DiagnosticType.error(
       "JSC_MSG_CREATE_INSTANCE_TARGET_NOT_VALID.",
-      "The argument of camp.dependencies.injector.createInstance must be a constructor.");
+      "The argument of camp.injections.injector.createInstance must be a constructor.");
 
   static final DiagnosticType MESSAGE_BIND_CALL_FIRST_ARGUMENT_IS_NOT_VALID = DiagnosticType.error(
       "JSC_MSG_BIND_CALL_FIRST_ARGUMENT_IS_NOT_VALID.",
-      "The first argument of camp.dependencies.injector.bind must be a string.");
+      "The first argument of camp.injections.injector.bind must be a string.");
 
   static final DiagnosticType MESSAGE_BIND_CALL_SECOND_ARGUMENT_IS_NOT_VALID = DiagnosticType
       .error("JSC_MSG_BIND_CALL_SECOND_ARGUMENT_IS_NOT_VALID.",
-          "The second argument of camp.dependencies.injector.bind is required.");
+          "The second argument of camp.injections.injector.bind is required.");
 
   static final DiagnosticType MESSAGE_INVALID_DEPENDECY_GET_CALL = DiagnosticType.error(
       "JSC_MSG_INVALID_DEPENDECY_GET_CALL",
-      "The arguments of camp.dependencies.get must be a string.");
+      "The arguments of camp.injections.get must be a string.");
 
   static final DiagnosticType MESSAGE_DEFINE_PROVIDER_FIRST_ARGUMENT_IS_NOT_VALID = DiagnosticType
       .error("JSC_MSG_DEFINE_PROVIDER_FIRST_ARGUMENT_IS_NOT_VALID.",
-          "The first argument of camp.dependencies.injector.defineProvider must be a class.");
+          "The first argument of camp.injections.injector.defineProvider must be a class.");
 
   static final DiagnosticType MESSAGE_DEFINE_PROVIDER_SECOND_ARGUMENT_IS_NOT_VALID = DiagnosticType
       .error("JSC_MSG_DEFINE_PROVIDER__SECOND_ARGUMENT_IS_NOT_VALID.",
-          "The second argument of camp.dependencies.injector.defineProvider must be a function.");
+          "The second argument of camp.injections.injector.defineProvider must be a function.");
 
   static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID = DiagnosticType
       .error(
           "JSC_MSG_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID.",
-          "The first argument of camp.dependencies.binder.bindInterceptor must be a string expression of the target module name.\n"
+          "The first argument of camp.injections.binder.bindInterceptor must be a string expression of the target module name.\n"
               + "The matcher is string expression which treat wilidcard(*) as a special character of the module name.");
 
   static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID = DiagnosticType
       .error(
           "JSC_MSG_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID.",
-          "The second argument of camp.dependencies.binder.bindInterceptor must be a string expression of the target method name.\n"
+          "The second argument of camp.injections.binder.bindInterceptor must be a string expression of the target method name.\n"
               + "The matcher is string expression which treat wilidcard(*) as a special character of the method name.");
 
   static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_THIRD_ARGUMENT_IS_INVALID = DiagnosticType
       .error(
           "JSC_MSG_BIND_INTERCEPTOR_THIRD_ARGUMENT_IS_INVALID.",
-          "The third argument of camp.dependencies.binder.bindInterceptor must be a function expression which define behavior of the interceptor.");
+          "The third argument of camp.injections.binder.bindInterceptor must be a function expression which define behavior of the interceptor.");
 
   static final DiagnosticType MESSAGE_ACCESSED_TO_METHOD_INVOCATION_VIRTUAL_METHODS = DiagnosticType
       .error(
@@ -82,23 +82,23 @@ class CampInjectionProcessor_ {
           + " #getArguments()\n"
           + " #proceed()\n");
 
-  private static final String MODULE_INIT_CALL = "camp.dependencies.module.init";
+  private static final String MODULE_INIT_CALL = "camp.injections.module.init";
 
-  private static final String MODULE_INTERFACE = "camp.dependencies.Module";
+  private static final String MODULE_INTERFACE = "camp.injections.Module";
 
-  private static final String CREATE_INSTANCE_CALL = "camp.dependencies.injector.createInstance";
+  private static final String CREATE_INSTANCE_CALL = "camp.injections.injector.createInstance";
 
-  private static final String BIND_CALL = "camp.dependencies.binder.bind";
+  private static final String BIND_CALL = "camp.injections.binder.bind";
 
-  private static final String BIND_PROVIDER_CALL = "camp.dependencies.binder.bindProvider";
+  private static final String BIND_PROVIDER_CALL = "camp.injections.binder.bindProvider";
 
-  private static final String BIND_INTERCEPTOR_CALL = "camp.dependencies.binder.bindInterceptor";
+  private static final String BIND_INTERCEPTOR_CALL = "camp.injections.binder.bindInterceptor";
 
   private static final String INTERCEPTOR_REGISTRY = "jscomp$aop$interceptorRegistry";
 
-  private static final String INJECT_CALL = "camp.dependencies.injector.inject";
+  private static final String INJECT_CALL = "camp.injections.injector.inject";
 
-  private static final String GET_CALL = "camp.dependencies.injector.get";
+  private static final String GET_CALL = "camp.injections.injector.get";
 
   private static final String SINGLETON_CALL = "goog.addSingletonGetter";
 
@@ -770,18 +770,18 @@ class CampInjectionProcessor_ {
       if (qualifiedName.equals(CREATE_INSTANCE_CALL)) {
         return new CreateInstanceMarkerProcessor(t, n);
       } else if (qualifiedName.equals(BIND_CALL)) {
-        // camp.dependencies.injector.bind(...)
+        // camp.injections.injector.bind(...)
         return new InjectionBinderMarkerProcessor(t, n);
       } else if (qualifiedName.equals(INJECT_CALL)) {
-        // camp.dependencies.injector.inject(...)
+        // camp.injections.injector.inject(...)
         return new SetterInjectionMarkerProcessor(t, n);
       } else if (qualifiedName.equals(GET_CALL)) {
         return new InjectionGetterMarkerProcessor(t, n);
       } else if (qualifiedName.equals(BIND_PROVIDER_CALL)) {
-        // camp.dependencies.injector.defineProvider(...)
+        // camp.injections.injector.defineProvider(...)
         return new ProviderMarkerProcessor(t, n);
       } else if (qualifiedName.equals(BIND_INTERCEPTOR_CALL)) {
-        // camp.dependencies.binder.bindInterceptor(...)
+        // camp.injections.binder.bindInterceptor(...)
         return new InterceptorMarkerProcessor(t, n);
       } else if (qualifiedName.equals(PROVIDE_CALL)) {
         return new ExportedClassMarkerProcessor(t, n);
@@ -1843,12 +1843,12 @@ class CampInjectionProcessor_ {
           }
         } else {
           Node newNode = new Node(Token.ASSIGN,
-              createQualifiedNameNode("camp.dependencies.injectionRegistry." + bindingName),
+              createQualifiedNameNode("camp.injections.injectionRegistry." + bindingName),
               entity.cloneTree());
           if (call.getParent() != null) {
             call.getParent().replaceChild(call, newNode);
           }
-          ret = createQualifiedNameNode("camp.dependencies.injectionRegistry." + bindingName);
+          ret = createQualifiedNameNode("camp.injections.injectionRegistry." + bindingName);
         }
         return ret;
       }

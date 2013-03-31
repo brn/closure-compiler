@@ -160,6 +160,18 @@ camp.module('camp.vm.interaction', function (exports) {
   };
 
   /**
+   * @constructor
+   */
+  exports.Hoge = function() {
+
+  };
+
+  exports.Hoge.prototype.fuga = function() {
+    return 100;
+  };
+
+
+  /**
    * DataSourceをまとめて公開するためのユーティリティ
    * @constructor
    * @param {PubSub} pubsub

@@ -34,41 +34,41 @@ public final class InjectionProcessor {
 							   + "required: {3}");
 	
 	static final DiagnosticType MESSAGE_INJECT_ARGUMENT_MUST_BE_A_CONSTRUCTOR =
-		DiagnosticType.error("JSC_MSG_INJECT_ARGUMENT_MUST_BE_A_CONSTRUCTOR", "The argument of camp.dependencies.injector.inject must be a constructor function which annotated as @constructor.");
+		DiagnosticType.error("JSC_MSG_INJECT_ARGUMENT_MUST_BE_A_CONSTRUCTOR", "The argument of camp.injections.injector.inject must be a constructor function which annotated as @constructor.");
 
 	static final DiagnosticType MESSAGE_SETTER_INJECTION_TARGET_MUST_BE_A_STRING =
-		DiagnosticType.error("JSC_MSG_SETTER_INJECTION_TARGET_MUST_BE_A_STRING", "The second argument and after of camp.dependencies.injector.inject must be a string which name of the prototype method.");
+		DiagnosticType.error("JSC_MSG_SETTER_INJECTION_TARGET_MUST_BE_A_STRING", "The second argument and after of camp.injections.injector.inject must be a string which name of the prototype method.");
 
 	static final DiagnosticType MESSAGE_BIND_ARGUMENT_MUST_BE_A_STRING =
-		DiagnosticType.error("JSC_MSG_BIND_ARGUMENT_MUST_BE_A_STRING", "The first argument of camp.dependencies.injector.bind must be a string represent id.");
+		DiagnosticType.error("JSC_MSG_BIND_ARGUMENT_MUST_BE_A_STRING", "The first argument of camp.injections.injector.bind must be a string represent id.");
 
 	static final DiagnosticType MESSAGE_BIND_SECOND_ARGUMENT_MUST_BE_SPECIFIED =
-		DiagnosticType.error("JSC_MSG_BIND_ARGUMENT_MUST_BE_SPECIED", "The second argument of camp.dependencies.injector.bind must be specified.");
+		DiagnosticType.error("JSC_MSG_BIND_ARGUMENT_MUST_BE_SPECIED", "The second argument of camp.injections.injector.bind must be specified.");
 
 	static final DiagnosticType MESSAGE_METHOD_NEVER_DEFINED =
 		DiagnosticType.error("JSC_MSG_METHOD_NEVER_DEFINED", "The method {0} never defined on {1}.");
 
 	static final DiagnosticType MESSAGE_CLASS_NOT_FOUND =
-		DiagnosticType.error("JSC_MSG_CLASS_NOT_FOUND", "The target class is not found. The first argument of camp.dependencies.injector.createInstance must be passed a constructor directly.");
+		DiagnosticType.error("JSC_MSG_CLASS_NOT_FOUND", "The target class is not found. The first argument of camp.injections.injector.createInstance must be passed a constructor directly.");
 
 	static final DiagnosticType MESSAGE_GET_BINDING_ARGUMENTS_ERROR =
-		DiagnosticType.error("JSC_MSG_GET_BINDING_ARGUMENTS_ERROR", "The first argument of camp.dependencies.injector.get must be a string.");
+		DiagnosticType.error("JSC_MSG_GET_BINDING_ARGUMENTS_ERROR", "The first argument of camp.injections.injector.get must be a string.");
 	
 	private final AbstractCompiler compiler;
 
-	private static final String INJECTION_CALL = "camp.dependencies.injector.inject";
+	private static final String INJECTION_CALL = "camp.injections.injector.inject";
 
-	private static final String GET_INJECTION_CALL = "camp.dependencies.injector.get";
+	private static final String GET_INJECTION_CALL = "camp.injections.injector.get";
 	
-	private static final String PROVIDER_CALL = "camp.dependencies.injector.defineProvider";
+	private static final String PROVIDER_CALL = "camp.injections.injector.defineProvider";
 
 	private static final String CAMP_SINGLETON_CALL = "camp.singleton";
 
 	private static final String GOOG_SINGLETON_CALL = "goog.addSingletonGetter";
 
-	private static final String INSTANIATION_CALL = "camp.dependencies.injector.createInstance";
+	private static final String INSTANIATION_CALL = "camp.injections.injector.createInstance";
 
-	private static final String BINDING_CALL = "camp.dependencies.injector.bind";
+	private static final String BINDING_CALL = "camp.injections.injector.bind";
 
 	private static final String PROTOTYPE = "prototype";
 
