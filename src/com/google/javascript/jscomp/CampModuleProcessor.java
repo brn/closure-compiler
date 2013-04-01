@@ -73,6 +73,7 @@ public final class CampModuleProcessor implements CompilerPass {
     this.compiler = compiler;
   }
 
+
   private final class ExportsAliasInfo {
     private String className;
 
@@ -118,6 +119,7 @@ public final class CampModuleProcessor implements CompilerPass {
     }
 
   }
+
 
   private class ExportsAliasRewriter extends AbstractPostOrderCallback {
     @Override
@@ -199,6 +201,7 @@ public final class CampModuleProcessor implements CompilerPass {
       return null;
     }
   }
+
 
   private class ModuleResolver extends AbstractPostOrderCallback {
 
@@ -405,6 +408,7 @@ public final class CampModuleProcessor implements CompilerPass {
     }
   }
 
+
   private class AliasResolver extends AbstractScopedCallback {
 
     private int scopeDepth = 0;
@@ -557,6 +561,7 @@ public final class CampModuleProcessor implements CompilerPass {
     }
 
   }
+
 
   private final class Processor {
 

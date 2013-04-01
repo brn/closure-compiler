@@ -9,7 +9,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.CampInjectionConsts.ClassMatchType;
-import com.google.javascript.jscomp.CampInjectionConsts.JoinPointType;
 import com.google.javascript.jscomp.CampInjectionConsts.MethodMatchType;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
@@ -189,8 +188,6 @@ final class CampInjectionInfo {
 
     private String methodMatcher;
 
-    private CampInjectionConsts.JoinPointType joinPoint;
-
     private String name;
 
     private ClassMatchType classMatchType;
@@ -237,23 +234,6 @@ final class CampInjectionInfo {
      */
     public void setMethodMatcher(String methodMatcher) {
       this.methodMatcher = methodMatcher;
-    }
-
-
-    /**
-     * @return the joinPoint
-     */
-    public JoinPointType getJoinPoint() {
-      return joinPoint;
-    }
-
-
-    /**
-     * @param joinPoint
-     *          the joinPoint to set
-     */
-    public void setJoinPoint(JoinPointType joinPoint) {
-      this.joinPoint = joinPoint;
     }
 
 
@@ -390,7 +370,7 @@ final class CampInjectionInfo {
     private Map<String, Node> injectedSingletonCallMap = Maps.newHashMap();
 
     private JSDocInfo jsDocInfo;
-    
+
     private boolean constructorExtended = false;
 
 
@@ -555,7 +535,8 @@ final class CampInjectionInfo {
 
 
     /**
-     * @param constructorExtended the constructorExtended to set
+     * @param constructorExtended
+     *          the constructorExtended to set
      */
     public void setConstructorExtended(boolean constructorExtended) {
       this.constructorExtended = constructorExtended;
@@ -734,8 +715,8 @@ final class CampInjectionInfo {
      * @param isProvider
      *          the isProvider to set
      */
-    public void registeredAsProvider(boolean isProvider) {
-      this.asProvider = asProvider;
+    public void registerAsProvider(boolean isProvider) {
+      this.asProvider = isProvider;
     }
 
 
@@ -784,7 +765,7 @@ final class CampInjectionInfo {
 
     private boolean weaved = false;
 
-    private List<InterceptorInfo> interceptorInfoList = Lists.newArrayList();
+    private Set<InterceptorInfo> interceptorInfoSet = Sets.newLinkedHashSet();
 
 
     public PrototypeInfo(String name, Node function) {
@@ -816,12 +797,17 @@ final class CampInjectionInfo {
 
 
     public void addInterceptor(InterceptorInfo interceptorInfo) {
-      this.interceptorInfoList.add(interceptorInfo);
+      this.interceptorInfoSet.add(interceptorInfo);
     }
 
 
-    public List<InterceptorInfo> getInterceptorInfoList() {
-      return this.interceptorInfoList;
+    public Set<InterceptorInfo> getInterceptorInfoSet() {
+      return this.interceptorInfoSet;
+    }
+
+
+    public boolean hasInterceptorInfo(InterceptorInfo interceptorInfo) {
+      return this.interceptorInfoSet.contains(interceptorInfo);
     }
 
 
@@ -851,19 +837,11 @@ final class CampInjectionInfo {
 
 
     /**
-     * @return the interceptorMap
-     */
-    public List<InterceptorInfo> getInterceptor(String name) {
-      return this.interceptorInfoList;
-    }
-
-
-    /**
      * @param interceptorMap
      *          the interceptorMap to set
      */
     public void addInterceptorInfo(InterceptorInfo interceptorInfo) {
-      this.interceptorInfoList.add(interceptorInfo);
+      this.interceptorInfoSet.add(interceptorInfo);
     }
 
 

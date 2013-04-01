@@ -3,6 +3,7 @@ package com.google.javascript.jscomp;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -11,7 +12,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.javascript.jscomp.CampInjectionConsts.ClassMatchType;
-import com.google.javascript.jscomp.CampInjectionConsts.JoinPointType;
 import com.google.javascript.jscomp.CampInjectionConsts.MethodMatchType;
 import com.google.javascript.jscomp.CampInjectionInfo.BindingInfo;
 import com.google.javascript.jscomp.CampInjectionInfo.ClassInfo;
@@ -113,13 +113,16 @@ final class CampInjectionRewriter {
       .error("JSC_MSG_BIND_PROVIDER_FIRST_ARGUMENT_IS_NOT_VALID.",
           "The first argument of bindProvider must be a one of\n"
               + "  " + CampInjectionConsts.CLASS_MATCHER_IN_NAMESPACE + "\n"
+              + "  " + CampInjectionConsts.CLASS_MATCHER_SUB_NAMESPACE + "\n"
               + "  " + CampInjectionConsts.CLASS_MATCHER_SUBCLASS_OF + "\n"
-              + "  " + CampInjectionConsts.CLASS_MATCHER_INSTANCE_OF);
+              + "  " + CampInjectionConsts.CLASS_MATCHER_INSTANCE_OF + "\n"
+              + "  " + CampInjectionConsts.MATCHERS_ANY);
 
   private static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID = DiagnosticType
       .error("JSC_MSG_DEFINE_PROVIDER__SECOND_ARGUMENT_IS_NOT_VALID.",
           "The second argument of bindProvider must be a one of\n"
-              + " " + CampInjectionConsts.METHOD_MATCHER_LIKE);
+              + "  " + CampInjectionConsts.METHOD_MATCHER_LIKE + "\n"
+              + "  " + CampInjectionConsts.MATCHERS_ANY);
 
   private static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_THIRD_ARGUMENT_IS_INVALID = DiagnosticType
       .error(
@@ -159,6 +162,11 @@ final class CampInjectionRewriter {
           "JSC_MSG_MATCHER_IN_NAMESPACE_ARGUMENT_IS_INVALID.",
           "The first argument of camp.injections.Matcher.inNamespace must be a string expression of namespace.");
 
+  private static final DiagnosticType MESSAGE_MATCHER_IN_SUBNAMESPACE_ARGUMENT_IS_INVALID = DiagnosticType
+      .error(
+          "JSC_MSG_MATCHER_IN_SUBNAMESPACE_ARGUMENT_IS_INVALID.",
+          "The first argument of camp.injections.Matcher.inSubnamespace must be a string expression of namespace.");
+
   private static final DiagnosticType MESSAGE_MATCHER_INSTANCE_OF_ARGUMENT_IS_INVALID = DiagnosticType
       .error(
           "JSC_MSG_MATCHER_INSTANCE_OF_ARGUMENT_IS_INVALID.",
@@ -168,6 +176,11 @@ final class CampInjectionRewriter {
       .error(
           "JSC_MSG_MATCHER_SUBCLASS_OF_ARGUMENT_IS_INVALID.",
           "The first argument of camp.injections.Matcher.subclassOf must be a constructor function.");
+
+  private static final DiagnosticType MESSAGE_MATCHER_ANY_HAS_NO_ARGUMENT = DiagnosticType
+      .error(
+          "JSC_MSG_MATCHER_ANY_HAS_NO_ARGUMENT.",
+          "camp.injections.Matchers.any has no more than 0 arguments.");
 
   private static final DiagnosticType MESSAGE_MATCHER_LIKE_ARGUMENT_IS_INVALID = DiagnosticType
       .error(
@@ -248,32 +261,34 @@ final class CampInjectionRewriter {
     for (ModuleInfo moduleInfo : moduleInfoMap.values()) {
 
       Node function = moduleInfo.getModuleMethodNode();
-      Node binder = NodeUtil.getFunctionParameters(function).getFirstChild();
+      if (function != null) {
+        Node binder = NodeUtil.getFunctionParameters(function).getFirstChild();
 
-      if (binder != null) {
-        Node block = NodeUtil.getFunctionBody(function);
-        block.addChildToBack(new Node(Token.RETURN, new Node(Token.THIS)));
+        if (binder != null) {
+          Node block = NodeUtil.getFunctionBody(function);
+          block.addChildToBack(new Node(Token.RETURN, new Node(Token.THIS)));
 
-        // Traverse 'confgure' method's function body only.
-        NodeTraversal.traverseRoots(
-            this.compiler,
-            Lists.newArrayList(function),
-            new RewriteCallback(
-                binder,
-                new BindCallRewriter(moduleInfo.getModuleName(),
-                    moduleInfo.isInterceptorRewrited())));
+          // Traverse 'confgure' method's function body only.
+          NodeTraversal.traverseRoots(
+              this.compiler,
+              Lists.newArrayList(function),
+              new RewriteCallback(
+                  binder,
+                  new BindCallRewriter(moduleInfo.getModuleName(),
+                      moduleInfo.isInterceptorRewrited())));
 
-        // This rewriting process is cause the error or warning
-        // if the compiler option "--jscomp_error checkTypes",
-        // "--jscomp_warnings checkTypes"
-        // or "--warning_level VERBOSE" is specified
-        // because rewritten method is called with no arguments.
-        // So remove all parameters and jsdocs from this method.
-        CampInjectionProcessor.getFunctionParameter(function)
-            .detachChildren();
-        this.removeJSDocInfoFromBindingMethod(function);
+          // This rewriting process is cause the error or warning
+          // if the compiler option "--jscomp_error checkTypes",
+          // "--jscomp_warnings checkTypes"
+          // or "--warning_level VERBOSE" is specified
+          // because rewritten method is called with no arguments.
+          // So remove all parameters and jsdocs from this method.
+          CampInjectionProcessor.getFunctionParameter(function)
+              .detachChildren();
+          this.removeJSDocInfoFromBindingMethod(function);
 
-        moduleInfo.setInterceptorRewrited(true);
+          moduleInfo.setInterceptorRewrited(true);
+        }
       }
     }
   }
@@ -335,11 +350,13 @@ final class CampInjectionRewriter {
     Collections.reverse(copied);
 
     for (String config : copied) {
-      String varName = CampInjectionProcessor.toLowerCase(CampInjectionProcessor.getValidVarName(config));
+      String varName = CampInjectionProcessor.toLowerCase(CampInjectionProcessor
+          .getValidVarName(config));
       Node newCall = new Node(Token.NEW, NodeUtil.newQualifiedNameNode(convention, config));
-      Node configureCallNode = NodeUtil.newCallNode(new Node(Token.GETPROP, newCall, Node.newString(CampInjectionConsts.MODULE_SETUP_METHOD_NAME)));
+      Node configureCallNode = NodeUtil.newCallNode(new Node(Token.GETPROP, newCall, Node
+          .newString(CampInjectionConsts.MODULE_SETUP_METHOD_NAME)));
       Node var = NodeUtil.newVarNode(varName, configureCallNode);
-      
+
       block.addChildBefore(var, block.getFirstChild());
     }
   }
@@ -400,7 +417,7 @@ final class CampInjectionRewriter {
         if (bindNameNode.isString()) {
           bindName = bindNameNode.getString();
           bindingInfo = new BindingInfo();
-          bindingInfo.registeredAsProvider(true);
+          bindingInfo.registerAsProvider(true);
           bindingInfo.setName(bindNameNode.getString());
         }
       } else {
@@ -416,14 +433,18 @@ final class CampInjectionRewriter {
           if (classInfo != null) {
             Node provider = classNode.getNext();
             if (provider != null) {
+
               classInfo.setProviderNode(provider);
               if (bindingInfo != null) {
                 bindingInfo.setProvider(provider);
                 bindingInfo.setClassInfo(classInfo);
                 campInjectionInfo.putBindingInfo(this.className, bindingInfo);
               }
+
+              // Whether registered as provider or not,
+              // register BindingInfo for
               bindingInfo = new BindingInfo();
-              bindingInfo.registeredAsProvider(true);
+              bindingInfo.registerAsProvider(true);
               bindingInfo.setName(CampInjectionProcessor.toLowerCase(CampInjectionProcessor
                   .getValidVarName(classInfo.getClassName())));
               bindingInfo.setProvider(provider);
@@ -499,7 +520,7 @@ final class CampInjectionRewriter {
             t.report(node, MESSAGE_MATCHER_IN_NAMESPACE_ARGUMENT_IS_INVALID);
           }
         } else if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHER_SUBCLASS_OF)) {
-          if (node.isGetProp()) {
+          if (NodeUtil.isGet(node) || node.isName()) {
             String name = node.getQualifiedName();
             if (name != null) {
               interceptorInfo.setClassMatchType(ClassMatchType.SUBCLASS_OF);
@@ -510,8 +531,20 @@ final class CampInjectionRewriter {
           } else {
             t.report(node, MESSAGE_MATCHER_SUBCLASS_OF_ARGUMENT_IS_INVALID);
           }
+        } else if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHER_SUB_NAMESPACE)) {
+          if (node.isString()) {
+            String name = node.getString();
+            if (name != null) {
+              interceptorInfo.setClassMatchType(ClassMatchType.SUB_NAMESPACE);
+              interceptorInfo.setClassMatcher(name);
+            } else {
+              t.report(node, MESSAGE_MATCHER_IN_SUBNAMESPACE_ARGUMENT_IS_INVALID);
+            }
+          } else {
+            t.report(node, MESSAGE_MATCHER_IN_SUBNAMESPACE_ARGUMENT_IS_INVALID);
+          }
         } else if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHER_INSTANCE_OF)) {
-          if (node.isGetProp()) {
+          if (NodeUtil.isGet(node) || node.isName()) {
             String name = node.getQualifiedName();
             if (name != null) {
               interceptorInfo.setClassMatchType(ClassMatchType.INSTANCE_OF);
@@ -522,11 +555,17 @@ final class CampInjectionRewriter {
           } else {
             t.report(node, MESSAGE_MATCHER_INSTANCE_OF_ARGUMENT_IS_INVALID);
           }
+        } else if (matchTypeCallName.equals(CampInjectionConsts.MATCHERS_ANY)) {
+          t.report(classMatcher, MESSAGE_MATCHER_ANY_HAS_NO_ARGUMENT);
         } else {
           t.report(classMatcher, MESSAGE_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID);
         }
       } else {
-        t.report(classMatcher, MESSAGE_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID);
+        if (matchTypeCallName.equals(CampInjectionConsts.MATCHERS_ANY)) {
+          interceptorInfo.setClassMatchType(ClassMatchType.ANY);
+        } else {
+          t.report(classMatcher, MESSAGE_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID);
+        }
       }
     }
 
@@ -547,9 +586,13 @@ final class CampInjectionRewriter {
           } else {
             t.report(node, MESSAGE_MATCHER_LIKE_ARGUMENT_IS_INVALID);
           }
+        } else if (matchTypeCallName.equals(CampInjectionConsts.MATCHERS_ANY)) {
+          t.report(classMatcher, MESSAGE_MATCHER_ANY_HAS_NO_ARGUMENT);
         } else {
           t.report(node, MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID);
         }
+      } else if (matchTypeCallName.equals(CampInjectionConsts.MATCHERS_ANY)) {
+        interceptorInfo.setMethodMatchType(MethodMatchType.ANY);
       } else {
         t.report(node, MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID);
       }
@@ -897,7 +940,7 @@ final class CampInjectionRewriter {
                 ret = this.makeNewCall(info);
               }
             } else {
-              if (bindingInfo.getProviderNode() != null) {
+              if (bindingInfo.isRegisteredAsProvider()) {
                 ret = this.makeNewCallFromProvider(bindingInfo.getClassInfo(), new Node(Token.CALL,
                     NodeUtil.newQualifiedNameNode(convention, lowerClassName + "."
                         + bindingInfo.getName())));
@@ -918,32 +961,17 @@ final class CampInjectionRewriter {
 
     private void bindInterceptorInfo(ClassInfo classInfo) {
       if (!classInfo.hasInterceptorFlag()) {
-        for (List<InterceptorInfo> interceptorInfoList : this.interceptorMap.values()) {
-          for (InterceptorInfo interceptorInfo : interceptorInfoList) {
+        for (List<InterceptorInfo> interceptorInfoSet : this.interceptorMap.values()) {
+          for (InterceptorInfo interceptorInfo : interceptorInfoSet) {
 
             if (this.isMatchClass(interceptorInfo, classInfo)) {
               classInfo.setInterceptorFlag();
-              if (!classInfo.isConstructorExtended()) {
-                classInfo.setConstructorExtended(true);
-                classInfo.getParamList().add(CampInjectionConsts.INTERCEPTOR_DEF_SCOPE);
-                Node function = classInfo.getConstructorNode();
-                Node paramList = NodeUtil.getFunctionParameters(function);
-                Node block = NodeUtil.getFunctionBody(function);
-                Node interceptorDefScope = Node.newString(Token.NAME,
-                    CampInjectionConsts.INTERCEPTOR_DEF_SCOPE);
-                paramList.addChildToBack(interceptorDefScope);
-                block
-                    .addChildToFront(new Node(Token.EXPR_RESULT,
-                        new Node(Token.AND, interceptorDefScope.cloneNode(),
-                            new Node(Token.CALL, interceptorDefScope.cloneNode(), new Node(
-                                Token.THIS)))));
-              }
 
-              Map<String, PrototypeInfo> prototypeInfoMap = classInfo.getPrototypeInfoMap();
-              for (PrototypeInfo prototypeInfo : prototypeInfoMap.values()) {
-                if (this.isMatchMethod(prototypeInfo, interceptorInfo)) {
-                  prototypeInfo.addInterceptor(interceptorInfo);
-                }
+              boolean hasMatchedMethod = this.addInterceptorInfoToPrototypeIfMatched(classInfo,
+                  interceptorInfo);
+
+              if (!classInfo.isConstructorExtended() && hasMatchedMethod) {
+                this.extendsConstructorParameter(classInfo);
               }
 
             }
@@ -953,10 +981,53 @@ final class CampInjectionRewriter {
     }
 
 
+    private void extendsConstructorParameter(ClassInfo classInfo) {
+      classInfo.setConstructorExtended(true);
+      classInfo.getParamList().add(CampInjectionConsts.INTERCEPTOR_DEF_SCOPE);
+      Node function = classInfo.getConstructorNode();
+      Node paramList = NodeUtil.getFunctionParameters(function);
+      Node block = NodeUtil.getFunctionBody(function);
+      Node interceptorDefScope = Node.newString(Token.NAME,
+          CampInjectionConsts.INTERCEPTOR_DEF_SCOPE);
+      paramList.addChildToBack(interceptorDefScope);
+      block
+          .addChildToFront(new Node(Token.EXPR_RESULT,
+              new Node(Token.AND, interceptorDefScope.cloneNode(),
+                  new Node(Token.CALL, interceptorDefScope.cloneNode(), new Node(
+                      Token.THIS)))));
+    }
+
+
+    private boolean addInterceptorInfoToPrototypeIfMatched(ClassInfo classInfo,
+        InterceptorInfo interceptorInfo) {
+      boolean hasMatchedMethod = false;
+      Map<String, PrototypeInfo> prototypeInfoMap = classInfo.getPrototypeInfoMap();
+      for (PrototypeInfo prototypeInfo : prototypeInfoMap.values()) {
+        if (this.isMatchMethod(prototypeInfo, interceptorInfo)) {
+          if (!prototypeInfo.hasInterceptorInfo(interceptorInfo)) {
+            prototypeInfo.addInterceptor(interceptorInfo);
+            hasMatchedMethod = true;
+          }
+        }
+      }
+      return hasMatchedMethod;
+    }
+
+
     private boolean isMatchMethod(PrototypeInfo prototypeInfo, InterceptorInfo interceptorInfo) {
-      String methodMatcher = interceptorInfo.getMethodMatcher();
-      String methodMatcherReg = "^" + methodMatcher.replaceAll("\\*", ".*");
-      return prototypeInfo.getMethodName().matches(methodMatcherReg);
+      switch (interceptorInfo.getMethodMatchType()) {
+
+      case LIKE: {
+        String methodMatcher = interceptorInfo.getMethodMatcher();
+        String methodMatcherReg = "^" + methodMatcher.replaceAll("\\*", ".*");
+        return prototypeInfo.getMethodName().matches(methodMatcherReg);
+      }
+
+      case ANY:
+        return true;
+      }
+
+      return false;
     }
 
 
@@ -965,15 +1036,32 @@ final class CampInjectionRewriter {
       if (classMatchType != null) {
         String className = classInfo.getClassName();
         switch (classMatchType) {
-        case IN_NAMESPACE:
-          String reg = "^" + interceptorInfo.getClassMatcher().replaceAll("\\.", "\\.") + "\\..*";
+
+        case IN_NAMESPACE: {
+          String reg = "^" + interceptorInfo.getClassMatcher().replaceAll("\\.", "\\.") + "$";
+          int index = className.lastIndexOf('.');
+          if (index > -1) {
+            return className.substring(0, index).matches(reg);
+          }
           return className.matches(reg);
+        }
+
+        case SUB_NAMESPACE: {
+          String reg = "^" + interceptorInfo.getClassMatcher().replaceAll("\\.", "\\.") + ".*";
+          return className.matches(reg);
+        }
+
         case SUBCLASS_OF:
           return this.checkTypeHierarchy(classInfo, interceptorInfo);
+
         case INSTANCE_OF:
           return interceptorInfo.getClassMatcher().equals(className);
+
+        case ANY:
+          return true;
         }
       }
+
       return false;
     }
 
@@ -1157,14 +1245,14 @@ final class CampInjectionRewriter {
     private void writeEnhancedMethod(ClassInfo classInfo, Node block) {
       Map<String, PrototypeInfo> prototypeInfoMap = classInfo.getPrototypeInfoMap();
       for (PrototypeInfo prototypeInfo : prototypeInfoMap.values()) {
-        List<InterceptorInfo> interceptorInfoList = prototypeInfo.getInterceptorInfoList();
-        if (interceptorInfoList != null && interceptorInfoList.size() > 0) {
+        Set<InterceptorInfo> interceptorInfoSet = prototypeInfo.getInterceptorInfoSet();
+        if (interceptorInfoSet != null && interceptorInfoSet.size() > 0) {
           Node nameNode = NodeUtil.newQualifiedNameNode(convention,
               CampInjectionConsts.THIS_REFERENCE
                   + "."
                   + prototypeInfo.getMethodName());
           Node node = new Node(Token.ASSIGN, nameNode, this.createIntercetporCall(classInfo,
-              prototypeInfo, interceptorInfoList));
+              prototypeInfo, interceptorInfoSet));
           block.addChildToFront(new Node(Token.EXPR_RESULT, node));
         }
       }
@@ -1172,7 +1260,7 @@ final class CampInjectionRewriter {
 
 
     private Node createIntercetporCall(ClassInfo info, PrototypeInfo prototypeInfo,
-        List<InterceptorInfo> interceptorInfoList) {
+        Set<InterceptorInfo> interceptorInfoSet) {
 
       Node functionNode = new Node(Token.FUNCTION, Node.newString(Token.NAME, ""), new Node(
           Token.PARAM_LIST),
@@ -1181,16 +1269,15 @@ final class CampInjectionRewriter {
       Node interceptorCall;
       block.addChildToFront(this.createInterceptorArgumentsRefNode());
 
-      if (interceptorInfoList.size() == 1) {
+      if (interceptorInfoSet.size() == 1) {
         Node prototypeMethodAccessorNode = NodeUtil.newQualifiedNameNode(convention,
             String.format("%s.prototype.%s", info.getClassName(), prototypeInfo.getMethodName()));
 
         interceptorCall = createInterceptorCallNode(info, prototypeInfo,
-            interceptorInfoList.get(0), prototypeMethodAccessorNode);
+            interceptorInfoSet.iterator().next(), prototypeMethodAccessorNode);
       } else {
 
-        List<InterceptorInfo> copied = Lists.newArrayList();
-        copied.addAll(interceptorInfoList);
+        List<InterceptorInfo> copied = Lists.newArrayList(interceptorInfoSet);
         Collections.reverse(copied);
         String methodName = String.format("%s.prototype.%s", info.getClassName(),
             prototypeInfo.getMethodName());

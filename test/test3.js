@@ -3,7 +3,7 @@
 camp.module('camp.vm.interaction', function (exports) {
   var Injector = camp.using('camp.injections.Injector');
   var Module = camp.using('camp.injections.Module');
-  var Matcher = camp.using('camp.injections.Matcher');
+  var Matchers = camp.using('camp.injections.Matchers');
 
   /**
    * @constructor
@@ -241,8 +241,8 @@ camp.module('camp.vm.interaction', function (exports) {
 
   exports.DefaultModule.prototype.configure = function(binder) {
     binder.bindInterceptor(
-      Matcher.instanceOf(exports.Service),
-      Matcher.like("set*"),
+      Matchers.inNamespace('camp.vm.interaction'),
+      Matchers.like("set*"),
       function(methodInvocation) {
         window.console.log('call before ' + methodInvocation.getQualifiedName());
         return methodInvocation.proceed();
@@ -250,8 +250,18 @@ camp.module('camp.vm.interaction', function (exports) {
     );
 
     binder.bindInterceptor(
-      Matcher.subclassOf(exports.Base1),
-      Matcher.like("insert"),
+      Matchers.inNamespace('camp.vm.interaction'),
+      Matchers.like("set*"),
+      function(methodInvocation) {
+        var ret = methodInvocation.proceed();
+        window.console.log('call after ' + methodInvocation.getQualifiedName());
+        return ret;
+      }
+    );
+
+    binder.bindInterceptor(
+      Matchers.subclassOf(exports.Base1),
+      Matchers.like("insert"),
       function(methodInvocation) {
         var ret = methodInvocation.proceed();
         window.console.log('ok !' + ret);

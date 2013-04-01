@@ -336,17 +336,13 @@ final class CampInjectionInfoCollector {
 
     private void collectPrototype(Node lvalue, Node rvalue) {
       String qualifiedName = lvalue.getQualifiedName();
-
       if (qualifiedName != null) {
-        String[] nameArr = qualifiedName.split("\\.");
-
-        if (nameArr.length > 1 && qualifiedName.indexOf("." + CampInjectionConsts.PROTOTYPE) > -1) {
-          String className = qualifiedName.substring(0,
-              qualifiedName.indexOf("." + CampInjectionConsts.PROTOTYPE));
+        if (qualifiedName.indexOf("." + CampInjectionConsts.PROTOTYPE) > -1) {
+          String className = NodeUtil.getPrototypeClassName(lvalue).getQualifiedName();
 
           // foo.prototype.bar = function() {...
           if (rvalue.isFunction() && qualifiedName.matches(CampInjectionConsts.PROTOTYPE_REGEX)) {
-            String methodName = nameArr[nameArr.length - 1];
+            String methodName = NodeUtil.getPrototypePropertyName(lvalue);
             this.addPrototypeMember(className, methodName, rvalue);
 
           } else if (qualifiedName.endsWith("." + CampInjectionConsts.PROTOTYPE)

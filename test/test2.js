@@ -126,7 +126,7 @@ camp.module('camp.injections', function (exports) {
     exports.modules = {
       init : function() {}
     };
-    exports.Matcher = function(){};
+    exports.Matchers = function(){};
     exports.JointPoint = function(){};
   }
 });

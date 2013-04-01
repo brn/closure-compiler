@@ -4,19 +4,16 @@ public class CampInjectionConsts {
 
   enum ClassMatchType {
     IN_NAMESPACE,
+    SUB_NAMESPACE,
     SUBCLASS_OF,
-    INSTANCE_OF
+    INSTANCE_OF,
+    ANY
   }
 
 
   enum MethodMatchType {
-    LIKE
-  }
-
-
-  enum JoinPointType {
-    AFTER,
-    BEFORE
+    LIKE,
+    ANY
   }
 
   public static final String INJECTOR = "camp.injections.Injector";
@@ -28,12 +25,12 @@ public class CampInjectionConsts {
   static final String METHOD_INVOCATION_GET_ARGUMENTS = "getArguments";
   static final String METHOD_INVOCATION_PROCEED = "proceed";
   static final String METHOD_INVOCATION_GET_THIS = "getThis";
-  static final String CLASS_MATCHER_IN_NAMESPACE = "camp.injections.Matcher.inNamespace";
-  static final String CLASS_MATCHER_SUBCLASS_OF = "camp.injections.Matcher.subclassOf";
-  static final String CLASS_MATCHER_INSTANCE_OF = "camp.injections.Matcher.instanceOf";
-  static final String METHOD_MATCHER_LIKE = "camp.injections.Matcher.like";
-  static final String POINT_CUTS_AFTER = "camp.injections.Matcher.PointCuts.AFTER";
-  static final String POINT_CUTS_BEFORE = "camp.injections.Matcher.PointCuts.BEFORE";
+  static final String CLASS_MATCHER_IN_NAMESPACE = "camp.injections.Matchers.inNamespace";
+  static final String CLASS_MATCHER_SUB_NAMESPACE = "camp.injections.Matchers.inSubnamespace";
+  static final String CLASS_MATCHER_SUBCLASS_OF = "camp.injections.Matchers.subclassOf";
+  static final String CLASS_MATCHER_INSTANCE_OF = "camp.injections.Matchers.instanceOf";
+  static final String MATCHERS_ANY = "camp.injections.Matchers.any";
+  static final String METHOD_MATCHER_LIKE = "camp.injections.Matchers.like";
   static final String INTERCEPTOR_RESULT = "jscomp$interceptor$result";
   static final String INTERCEPTOR_NAME = "jscomp$interceptor$";
   static final String GET_INJECTIED_INSTANCE = "jscomp$getInjectedInstance$";
