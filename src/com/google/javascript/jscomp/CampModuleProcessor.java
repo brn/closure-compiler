@@ -19,7 +19,6 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo;
-import com.google.javascript.jscomp.InjectionProcessor;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -55,6 +54,8 @@ public final class CampModuleProcessor implements CompilerPass {
 
   private final AbstractCompiler compiler;
 
+  private CodingConvention convention = null;
+
   private final String EXPORTS = "exports";
 
   private final String CAMP_USING_CALL = "camp.using";
@@ -66,6 +67,11 @@ public final class CampModuleProcessor implements CompilerPass {
   private final HashMap<String, ExportsAliasInfo> exportsAliasMap = new HashMap<String, ExportsAliasInfo>();
 
   private final HashMap<String, CampModuleTransformInfo> campModuleTransformInfoMap = new HashMap<String, CampModuleTransformInfo>();
+
+
+  public CampModuleProcessor(AbstractCompiler compiler) {
+    this.compiler = compiler;
+  }
 
   private final class ExportsAliasInfo {
     private String className;
@@ -127,7 +133,7 @@ public final class CampModuleProcessor implements CompilerPass {
         if (name != null && !name.equals("prototype")) {
           String className = this.getQualifiedName(t, name);
           if (className != null) {
-            Node nameNode = createModuleQualifiedName(className.split("\\."));
+            Node nameNode = NodeUtil.newQualifiedNameNode(convention, className);
             if (parent.isAssign()) {
               parent.replaceChild(n, nameNode);
             } else if (parent.isVar()) {
@@ -456,7 +462,7 @@ public final class CampModuleProcessor implements CompilerPass {
 
         if (tmp != null) {
           String fqn = tmp.getFirstChild().getNext().getString();
-          getprop = createModuleQualifiedName(fqn.split("\\."));
+          getprop = NodeUtil.newQualifiedNameNode(convention, fqn);
           tmp.getParent().replaceChild(tmp, getprop);
           getprop = cloned;
         } else {
@@ -464,7 +470,7 @@ public final class CampModuleProcessor implements CompilerPass {
         }
       } else {
         String fqn = usingCall.getFirstChild().getNext().getString();
-        getprop = createModuleQualifiedName(fqn.split("\\."));
+        getprop = NodeUtil.newQualifiedNameNode(convention, fqn);
       }
 
       if (getprop != null) {
@@ -560,15 +566,12 @@ public final class CampModuleProcessor implements CompilerPass {
 
     private String moduleName;
 
-    private String[] modulePathComponentList;
-
 
     public Processor(CampModuleTransformInfo campModuleTransformInfo, Node scriptBody,
-        String moduleName, String[] modulePathComponentList) {
+        String moduleName) {
       this.campModuleTransformInfo = campModuleTransformInfo;
       this.scriptBody = scriptBody;
       this.moduleName = moduleName;
-      this.modulePathComponentList = modulePathComponentList;
     }
 
 
@@ -746,7 +749,7 @@ public final class CampModuleProcessor implements CompilerPass {
       List<Node> exportsList = this.campModuleTransformInfo.getExportsList();
       List<CampModuleTransformInfo.JSDocAndScopeInfo> jsdocInfoList = this.campModuleTransformInfo
           .getJsDocInfoList();
-      Node module = createModuleQualifiedName(this.modulePathComponentList);
+      Node module = NodeUtil.newQualifiedNameNode(convention, this.moduleName);
 
       for (Node exports : exportsList) {
         this.convertExportsToFqn(exports, module);
@@ -807,31 +810,6 @@ public final class CampModuleProcessor implements CompilerPass {
         fixTypeNode(child, moduleName, scope, depth);
       }
     }
-  }
-
-
-  public CampModuleProcessor(AbstractCompiler compiler) {
-    this.compiler = compiler;
-  }
-
-
-  /**
-   * 完全修飾名を生成する。
-   * 
-   * @param moduleNames
-   *          モジュール名をドットで区切った配列
-   * @return GETPROPノード
-   */
-  private Node createModuleQualifiedName(String[] moduleNames) {
-    Node prop = null;
-    for (String moduleName : moduleNames) {
-      if (prop == null) {
-        prop = Node.newString(Token.NAME, moduleName);
-      } else {
-        prop = new Node(Token.GETPROP, prop, Node.newString(moduleName));
-      }
-    }
-    return prop;
   }
 
 
@@ -910,7 +888,7 @@ public final class CampModuleProcessor implements CompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-
+    this.convention = compiler.getCodingConvention();
     NodeTraversal.traverse(compiler, root, new ModuleResolver());
     compiler.reportCodeChange();
     NodeTraversal.traverse(compiler, root, new ExportsAliasRewriter());
@@ -925,9 +903,7 @@ public final class CampModuleProcessor implements CompilerPass {
       if (moduleCalls.size() > 0) {
         Node scriptBody = rootHolder.get(key);
         String moduleName = moduleCalls.get(0).getFirstChild().getNext().getString();
-        String[] modulePathComponentList = moduleName.split("\\.", 0);
-        Processor processor = new Processor(campModuleTransformInfo, scriptBody, moduleName,
-            modulePathComponentList);
+        Processor processor = new Processor(campModuleTransformInfo, scriptBody, moduleName);
         processor.processModules();
       }
     }

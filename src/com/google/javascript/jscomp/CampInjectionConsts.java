@@ -53,5 +53,5 @@ public class CampInjectionConsts {
   static final String INTERCEPTOR_ARGUMENTS = "jscomp$interceptor$args";
   static final String SLICE = "Array.prototype.slice.call";
   static final String THIS_REFERENCE = "jscomp$interceptor$this";
-
+  static final String INTERCEPTOR_DEF_SCOPE = "jscomp$intercepto$defScope";
 }

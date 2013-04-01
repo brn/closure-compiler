@@ -11,6 +11,8 @@ import com.google.javascript.rhino.Token;
  */
 public class CampInjectionProcessor {
 
+  private AbstractCompiler compiler;
+  
   public void process(Node extern, Node root) {
     CampInjectionInfoCollector campInjectionInfoCollector = new CampInjectionInfoCollector(compiler);
     campInjectionInfoCollector.collectInfo(root);
@@ -21,22 +23,6 @@ public class CampInjectionProcessor {
 
   public CampInjectionProcessor(AbstractCompiler compiler) {
     this.compiler = compiler;
-  }
-
-  AbstractCompiler compiler;
-
-
-  static Node createQualifiedNameNode(String name) {
-    String[] moduleNames = name.split("\\.");
-    Node prop = null;
-    for (String moduleName : moduleNames) {
-      if (prop == null) {
-        prop = makeNameNodeOrKeyWord(moduleName, true);
-      } else {
-        prop = new Node(Token.GETPROP, prop, makeNameNodeOrKeyWord(moduleName, false));
-      }
-    }
-    return prop;
   }
 
 
@@ -82,38 +68,21 @@ public class CampInjectionProcessor {
     Preconditions.checkNotNull(newChild);
     child.getParent().replaceChild(child, newChild);
   }
-
-
-  static Node makeVar(Node nameNode) {
-    Preconditions.checkNotNull(nameNode);
-    return new Node(Token.VAR, nameNode);
-  }
-
-
-  static Node makeVar(String name) {
-    return makeVar(Node.newString(Token.NAME, name));
-  }
-
-
-  static Node makeVar(Node nameNode, Node initialValue) {
-    nameNode.addChildToBack(initialValue);
-    return makeVar(nameNode);
-  }
-
-
-  static Node makeVar(String name, Node initialValue) {
-    Node nameNode = Node.newString(Token.NAME, name);
-    nameNode.addChildToBack(initialValue);
-    return makeVar(nameNode);
-  }
-
-
-  static Node makeUndefined() {
-    return new Node(Token.CALL, new Node(Token.VOID), Node.newNumber(0));
-  }
-
-
-  static Node makeNameNodeOrKeyWord(String name, boolean isFirst) {
+  
+  static Node newQualifiedNameNode(String name) {
+    String[] moduleNames = name.split("\\.");
+    Node prop = null;
+    for (String moduleName : moduleNames) {
+      if (prop == null) {
+        prop = newNameNodeOrKeyWord(moduleName, true);
+      } else {
+        prop = new Node(Token.GETPROP, prop, newNameNodeOrKeyWord(moduleName, false));
+      }
+    }
+    return prop;
+  } 
+  
+   static Node newNameNodeOrKeyWord(String name, boolean isFirst) {
     if (name.equals("this")) {
       return new Node(Token.THIS);
     } else {

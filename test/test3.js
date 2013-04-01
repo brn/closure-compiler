@@ -241,8 +241,8 @@ camp.module('camp.vm.interaction', function (exports) {
 
   exports.DefaultModule.prototype.configure = function(binder) {
     binder.bindInterceptor(
-      Matcher.inNamespace('camp.vm.interaction'),
-      Matcher.like("ech*"),
+      Matcher.instanceOf(exports.Service),
+      Matcher.like("set*"),
       function(methodInvocation) {
         window.console.log('call before ' + methodInvocation.getQualifiedName());
         return methodInvocation.proceed();

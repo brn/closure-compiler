@@ -390,6 +390,8 @@ final class CampInjectionInfo {
     private Map<String, Node> injectedSingletonCallMap = Maps.newHashMap();
 
     private JSDocInfo jsDocInfo;
+    
+    private boolean constructorExtended = false;
 
 
     public ClassInfo(String className) {
@@ -541,6 +543,22 @@ final class CampInjectionInfo {
 
     public Map<String, Node> getInjectedSingletonCallMap() {
       return this.injectedSingletonCallMap;
+    }
+
+
+    /**
+     * @return the constructorExtended
+     */
+    public boolean isConstructorExtended() {
+      return constructorExtended;
+    }
+
+
+    /**
+     * @param constructorExtended the constructorExtended to set
+     */
+    public void setConstructorExtended(boolean constructorExtended) {
+      this.constructorExtended = constructorExtended;
     }
   }
 
