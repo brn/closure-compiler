@@ -112,10 +112,10 @@ final class CampInjectionRewriter {
   private static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID = DiagnosticType
       .error("JSC_MSG_BIND_PROVIDER_FIRST_ARGUMENT_IS_NOT_VALID.",
           "The first argument of bindProvider must be a one of\n"
-              + "  " + CampInjectionConsts.CLASS_MATCHER_IN_NAMESPACE + "\n"
-              + "  " + CampInjectionConsts.CLASS_MATCHER_SUB_NAMESPACE + "\n"
-              + "  " + CampInjectionConsts.CLASS_MATCHER_SUBCLASS_OF + "\n"
-              + "  " + CampInjectionConsts.CLASS_MATCHER_INSTANCE_OF + "\n"
+              + "  " + CampInjectionConsts.CLASS_MATCHERS_IN_NAMESPACE + "\n"
+              + "  " + CampInjectionConsts.CLASS_MATCHERS_IN_SUBNAMESPACE + "\n"
+              + "  " + CampInjectionConsts.CLASS_MATCHERS_SUBCLASS_OF + "\n"
+              + "  " + CampInjectionConsts.CLASS_MATCHERS_INSTANCE_OF + "\n"
               + "  " + CampInjectionConsts.MATCHERS_ANY);
 
   private static final DiagnosticType MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID = DiagnosticType
@@ -362,6 +362,96 @@ final class CampInjectionRewriter {
   }
 
 
+  private abstract class AbstractNodeRewriter {
+
+    private ImmutableSet<String> methodList;
+
+    private String firstArgumentClassName;
+
+
+    protected AbstractNodeRewriter(String firstArgumentClassName,
+        ImmutableSet<String> methodList) {
+      this.firstArgumentClassName = firstArgumentClassName;
+      this.methodList = methodList;
+    }
+
+
+    public abstract void rewrite(NodeTraversal t, Node n, Node firstArguments);
+
+
+    public boolean isFirstArgument(NodeTraversal t, Node n, Node firstChild) {
+      Scope scope = t.getScope();
+      if (n.isName()) {
+        String name = n.getString();
+        Var var = scope.getVar(name);
+        if (var != null) {
+          Node nameNode = var.getNameNode();
+          return firstChild.equals(nameNode);
+        }
+      }
+      return false;
+    }
+
+
+    public void checkUsage(NodeTraversal t, Node n, Node firstArgument) {
+      this.checkInvalidAccessToEntity(t, n, firstArgument);
+      this.checkInvalidAccessToMethod(t, n, firstArgument);
+    }
+
+
+    private String createMethodNameListMessage() {
+      String ret = "";
+      for (String methodName : this.methodList) {
+        ret += "  " + methodName + "\n";
+      }
+      return ret;
+    }
+
+
+    private void checkInvalidAccessToEntity(NodeTraversal t, Node n, Node firstArgument) {
+      Node parent = n.getParent();
+      if (n.isName() && !parent.isGetProp() && !parent.isParamList()) {
+        if (this.isFirstArgument(t, n, firstArgument)) {
+          t.report(n, MESSAGE_INVALID_ACCESS_TO_ENTITY, this.firstArgumentClassName);
+        }
+      }
+    }
+
+
+    private void checkInvalidAccessToMethod(NodeTraversal t, Node n, Node firstArgument) {
+      Node parent = n.getParent();
+      if (n.isGetProp()) {
+
+        if (parent.isCall()) {
+          if (parent.getFirstChild().equals(n)) {
+            return;
+          }
+        }
+
+        Node firstChild = n.getFirstChild();
+        if (firstChild.isName() && this.isFirstArgument(t, firstChild, firstArgument)) {
+          Node methodNode = firstChild.getNext();
+          if (methodNode.isString()) {
+            boolean isContains = methodList.contains(methodNode.getString());
+            if (isContains) {
+              t.report(methodNode,
+                  MESSAGE_ACCESSED_TO_VIRTUAL_METHODS,
+                  this.firstArgumentClassName);
+            } else {
+              t.report(methodNode, MESSAGE_HAS_NO_SUCH_METHOD,
+                  this.firstArgumentClassName,
+                  methodNode.getString(),
+                  this.createMethodNameListMessage());
+            }
+          } else {
+            t.report(methodNode, MESSAGE_ACCESSED_TO_VIRTUAL_METHODS, this.firstArgumentClassName);
+          }
+        }
+      }
+    }
+  }
+
+
   private final class BindCallRewriter extends AbstractNodeRewriter {
     String className;
 
@@ -507,7 +597,7 @@ final class CampInjectionRewriter {
         InterceptorInfo interceptorInfo) {
       Node node = classMatcher.getNext();
       if (node != null) {
-        if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHER_IN_NAMESPACE)) {
+        if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHERS_IN_NAMESPACE)) {
           if (node.isString()) {
             String name = node.getString();
             if (!Strings.isNullOrEmpty(name)) {
@@ -519,7 +609,7 @@ final class CampInjectionRewriter {
           } else {
             t.report(node, MESSAGE_MATCHER_IN_NAMESPACE_ARGUMENT_IS_INVALID);
           }
-        } else if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHER_SUBCLASS_OF)) {
+        } else if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHERS_SUBCLASS_OF)) {
           if (NodeUtil.isGet(node) || node.isName()) {
             String name = node.getQualifiedName();
             if (name != null) {
@@ -531,7 +621,7 @@ final class CampInjectionRewriter {
           } else {
             t.report(node, MESSAGE_MATCHER_SUBCLASS_OF_ARGUMENT_IS_INVALID);
           }
-        } else if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHER_SUB_NAMESPACE)) {
+        } else if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHERS_IN_SUBNAMESPACE)) {
           if (node.isString()) {
             String name = node.getString();
             if (name != null) {
@@ -543,7 +633,7 @@ final class CampInjectionRewriter {
           } else {
             t.report(node, MESSAGE_MATCHER_IN_SUBNAMESPACE_ARGUMENT_IS_INVALID);
           }
-        } else if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHER_INSTANCE_OF)) {
+        } else if (matchTypeCallName.equals(CampInjectionConsts.CLASS_MATCHERS_INSTANCE_OF)) {
           if (NodeUtil.isGet(node) || node.isName()) {
             String name = node.getQualifiedName();
             if (name != null) {
@@ -1259,7 +1349,9 @@ final class CampInjectionRewriter {
     }
 
 
-    private Node createIntercetporCall(ClassInfo info, PrototypeInfo prototypeInfo,
+    private Node createIntercetporCall(
+        ClassInfo info,
+        PrototypeInfo prototypeInfo,
         Set<InterceptorInfo> interceptorInfoSet) {
 
       Node functionNode = new Node(Token.FUNCTION, Node.newString(Token.NAME, ""), new Node(
@@ -1312,8 +1404,11 @@ final class CampInjectionRewriter {
     }
 
 
-    private Node createInterceptorCallNode(ClassInfo info, PrototypeInfo prototypeInfo,
-        InterceptorInfo interceptorInfo, Node innerCallNode) {
+    private Node createInterceptorCallNode(
+        ClassInfo info,
+        PrototypeInfo prototypeInfo,
+        InterceptorInfo interceptorInfo,
+        Node innerCallNode) {
 
       Node interceptorName = NodeUtil.newQualifiedNameNode(convention,
           interceptorInfo.getModuleName() + "." + interceptorInfo.getName());
@@ -1330,96 +1425,6 @@ final class CampInjectionRewriter {
       ret.addChildToBack(innerCallNode);
 
       return ret;
-    }
-  }
-
-
-  private abstract class AbstractNodeRewriter {
-
-    private ImmutableSet<String> methodList;
-
-    private String firstArgumentClassName;
-
-
-    protected AbstractNodeRewriter(String firstArgumentClassName,
-        ImmutableSet<String> methodList) {
-      this.firstArgumentClassName = firstArgumentClassName;
-      this.methodList = methodList;
-    }
-
-
-    public abstract void rewrite(NodeTraversal t, Node n, Node firstArguments);
-
-
-    public boolean isFirstArgument(NodeTraversal t, Node n, Node firstChild) {
-      Scope scope = t.getScope();
-      if (n.isName()) {
-        String name = n.getString();
-        Var var = scope.getVar(name);
-        if (var != null) {
-          Node nameNode = var.getNameNode();
-          return firstChild.equals(nameNode);
-        }
-      }
-      return false;
-    }
-
-
-    public void checkUsage(NodeTraversal t, Node n, Node firstArgument) {
-      this.checkInvalidAccessToEntity(t, n, firstArgument);
-      this.checkInvalidAccessToMethod(t, n, firstArgument);
-    }
-
-
-    private String createMethodNameListMessage() {
-      String ret = "";
-      for (String methodName : this.methodList) {
-        ret += "  " + methodName + "\n";
-      }
-      return ret;
-    }
-
-
-    private void checkInvalidAccessToEntity(NodeTraversal t, Node n, Node firstArgument) {
-      Node parent = n.getParent();
-      if (n.isName() && !parent.isGetProp() && !parent.isParamList()) {
-        if (this.isFirstArgument(t, n, firstArgument)) {
-          t.report(n, MESSAGE_INVALID_ACCESS_TO_ENTITY, this.firstArgumentClassName);
-        }
-      }
-    }
-
-
-    private void checkInvalidAccessToMethod(NodeTraversal t, Node n, Node firstArgument) {
-      Node parent = n.getParent();
-      if (n.isGetProp()) {
-
-        if (parent.isCall()) {
-          if (parent.getFirstChild().equals(n)) {
-            return;
-          }
-        }
-
-        Node firstChild = n.getFirstChild();
-        if (firstChild.isName() && this.isFirstArgument(t, firstChild, firstArgument)) {
-          Node methodNode = firstChild.getNext();
-          if (methodNode.isString()) {
-            boolean isContains = methodList.contains(methodNode.getString());
-            if (isContains) {
-              t.report(methodNode,
-                  MESSAGE_ACCESSED_TO_VIRTUAL_METHODS,
-                  this.firstArgumentClassName);
-            } else {
-              t.report(methodNode, MESSAGE_HAS_NO_SUCH_METHOD,
-                  this.firstArgumentClassName,
-                  methodNode.getString(),
-                  this.createMethodNameListMessage());
-            }
-          } else {
-            t.report(methodNode, MESSAGE_ACCESSED_TO_VIRTUAL_METHODS, this.firstArgumentClassName);
-          }
-        }
-      }
     }
   }
 

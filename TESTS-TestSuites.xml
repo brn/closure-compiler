@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites>
+  <testsuite errors="0" failures="1" hostname="PC-3914.local" id="0" name="CampModuleProcessorTest" package="com.google.javascript.jscomp" tests="1" time="0.52" timestamp="2013-04-02T09:12:37">
+      <properties>
+          <property name="java.vendor" value="Apple Inc." />
+
+          <property name="ant.file.closure-compiler" value="/Users/aono_taketoshi/github/closure-compiler/build.xml" />
+
+          <property name="compiler.dir" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler" />
+
+          <property name="sun.java.launcher" value="SUN_STANDARD" />
+
+          <property name="jikes.class.path" value=":/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/alt-rt.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/alt-string.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/charsets.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/classes.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/dt.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jce.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jconsole.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jsse.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/management-agent.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/ui.jar" />
+
+          <property name="sun.management.compiler" value="HotSpot 64-Bit Server Compiler" />
+
+          <property name="os.name" value="Mac OS X" />
+
+          <property name="sun.boot.class.path" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsfd.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/classes.jar:/System/Library/Frameworks/JavaVM.framework/Frameworks/JavaRuntimeSupport.framework/Resources/Java/JavaRuntimeSupport.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/ui.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/laf.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/sunrsasign.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsse.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jce.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/charsets.jar" />
+
+          <property name="java.vm.specification.vendor" value="Sun Microsystems Inc." />
+
+          <property name="ant.home" value="/usr/share/ant" />
+
+          <property name="java.runtime.version" value="1.6.0_24-b07-334" />
+
+          <property name="user.name" value="aono_taketoshi" />
+
+          <property name="awt.nativeDoubleBuffering" value="true" />
+
+          <property name="build.dir" value="/Users/aono_taketoshi/github/closure-compiler/build" />
+
+          <property name="user.language" value="ja" />
+
+          <property name="sun.boot.library.path" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Libraries" />
+
+          <property name="ant.project.default-target" value="all" />
+
+          <property name="ant.file.type.closure-compiler" value="file" />
+
+          <property name="ant.project.name" value="closure-compiler" />
+
+          <property name="java.version" value="1.6.0_24" />
+
+          <property name="user.timezone" value="" />
+
+          <property name="sun.arch.data.model" value="64" />
+
+          <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+
+          <property name="java.endorsed.dirs" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/lib/endorsed" />
+
+          <property name="sun.cpu.isalist" value="" />
+
+          <property name="sun.jnu.encoding" value="SJIS" />
+
+          <property name="file.encoding.pkg" value="sun.io" />
+
+          <property name="file.separator" value="/" />
+
+          <property name="java.specification.name" value="Java Platform API Specification" />
+
+          <property name="classes.dir" value="/Users/aono_taketoshi/github/closure-compiler/build/classes" />
+
+          <property name="java.class.version" value="50.0" />
+
+          <property name="testClasses.dir" value="/Users/aono_taketoshi/github/closure-compiler/build/testClasses" />
+
+          <property name="user.country" value="JP" />
+
+          <property name="java.home" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home" />
+
+          <property name="java.vm.info" value="mixed mode" />
+
+          <property name="ant.file" value="/Users/aono_taketoshi/github/closure-compiler/build.xml" />
+
+          <property name="os.version" value="10.6.7" />
+
+          <property name="path.separator" value=":" />
+
+          <property name="java.vm.version" value="19.1-b02-334" />
+
+          <property name="ant.library.dir" value="/usr/share/ant/lib" />
+
+          <property name="java.awt.printerjob" value="apple.awt.CPrinterJob" />
+
+          <property name="sun.io.unicode.encoding" value="UnicodeLittle" />
+
+          <property name="test.fork" value="true" />
+
+          <property name="awt.toolkit" value="apple.awt.CToolkit" />
+
+          <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+
+          <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+
+          <property name="user.home" value="/Users/aono_taketoshi" />
+
+          <property name="java.specification.vendor" value="Sun Microsystems Inc." />
+
+          <property name="test.dir" value="/Users/aono_taketoshi/github/closure-compiler/test" />
+
+          <property name="java.library.path" value=".:/Users/aono_taketoshi/Library/Java/Extensions:/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java" />
+
+          <property name="java.vendor.url" value="http://www.apple.com/" />
+
+          <property name="java.vm.vendor" value="Apple Inc." />
+
+          <property name="gopherProxySet" value="false" />
+
+          <property name="java.runtime.name" value="Java(TM) SE Runtime Environment" />
+
+          <property name="java.class.path" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/test:/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/compiler.jar:/Users/aono_taketoshi/github/closure-compiler/build/testClasses:/usr/share/java/ant-1.8.2/lib/ant-launcher.jar:/usr/share/ant/lib/ant.jar:/usr/share/ant/lib/ant-junit.jar:/usr/share/ant/lib/ant-junit4.jar" />
+
+          <property name="ant.version" value="Apache Ant(TM) version 1.8.2 compiled on March 4 2011" />
+
+          <property name="test.class" value="*Test" />
+
+          <property name="java.vm.specification.name" value="Java Virtual Machine Specification" />
+
+          <property name="ant.file.type" value="file" />
+
+          <property name="java.vm.specification.version" value="1.0" />
+
+          <property name="sun.cpu.endian" value="little" />
+
+          <property name="sun.os.patch.level" value="unknown" />
+
+          <property name="java.io.tmpdir" value="/var/folders/Aj/AjTM-FN0HB0nsoRQzKLkq++++TU/-Tmp-/" />
+
+          <property name="java.vendor.url.bug" value="http://bugreport.apple.com/" />
+
+          <property name="os.arch" value="x86_64" />
+
+          <property name="java.awt.graphicsenv" value="apple.awt.CGraphicsEnvironment" />
+
+          <property name="java.ext.dirs" value="/Users/aono_taketoshi/Library/Java/Extensions:/Library/Java/Extensions:/System/Library/Java/Extensions:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/lib/ext" />
+
+          <property name="mrj.version" value="1060.1.6.0_24-334" />
+
+          <property name="user.dir" value="/Users/aono_taketoshi/github/closure-compiler" />
+
+          <property name="line.separator" value="&#xa;" />
+
+          <property name="java.vm.name" value="Java HotSpot(TM) 64-Bit Server VM" />
+
+          <property name="basedir" value="/Users/aono_taketoshi/github/closure-compiler" />
+
+          <property name="closure-compiler.jar" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/compiler.jar" />
+
+          <property name="ant.java.version" value="1.6" />
+
+          <property name="ant.core.lib" value="/usr/share/ant/lib/ant.jar" />
+
+          <property name="file.encoding" value="SJIS" />
+
+          <property name="java.specification.version" value="1.6" />
+
+          <property name="src.dir" value="/Users/aono_taketoshi/github/closure-compiler/src" />
+
+          <property name="ant.project.invoked-targets" value="all" />
+
+      </properties>
+
+      <testcase classname="com.google.javascript.jscomp.CampModuleProcessorTest" name="testSimpleModule" time="0.487">
+          <failure message="Unexpected error(s): JSC_MISSING_LINE_INFO. No source location information associated with CALL&#xa;    GETPROP&#xa;        NAME goog&#xa;        STRING provide&#xa;    STRING test.foo.bar.baz.Test&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with EXPR_RESULT&#xa;    CALL&#xa;        GETPROP&#xa;            NAME goog&#xa;            STRING provide&#xa;        STRING test.foo.bar.baz.Test&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with GETPROP&#xa;    NAME goog&#xa;    STRING provide&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with NAME goog&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with STRING provide&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with STRING test.foo.bar.baz.Test&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column) expected:&lt;0&gt; but was:&lt;6&gt;" type="junit.framework.AssertionFailedError">junit.framework.AssertionFailedError: Unexpected error(s): JSC_MISSING_LINE_INFO. No source location information associated with CALL
+    GETPROP
+        NAME goog
+        STRING provide
+    STRING test.foo.bar.baz.Test
+.
+Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)
+JSC_MISSING_LINE_INFO. No source location information associated with EXPR_RESULT
+    CALL
+        GETPROP
+            NAME goog
+            STRING provide
+        STRING test.foo.bar.baz.Test
+.
+Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)
+JSC_MISSING_LINE_INFO. No source location information associated with GETPROP
+    NAME goog
+    STRING provide
+.
+Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)
+JSC_MISSING_LINE_INFO. No source location information associated with NAME goog
+.
+Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)
+JSC_MISSING_LINE_INFO. No source location information associated with STRING provide
+.
+Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)
+JSC_MISSING_LINE_INFO. No source location information associated with STRING test.foo.bar.baz.Test
+.
+Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column) expected:&lt;0&gt; but was:&lt;6&gt;
+	at com.google.javascript.jscomp.CompilerTestCase.test(CompilerTestCase.java:825)
+	at com.google.javascript.jscomp.CompilerTestCase.test(CompilerTestCase.java:447)
+	at com.google.javascript.jscomp.CompilerTestCase.test(CompilerTestCase.java:373)
+	at com.google.javascript.jscomp.CompilerTestCase.test(CompilerTestCase.java:342)
+	at com.google.javascript.jscomp.CompilerTestCase.test(CompilerTestCase.java:330)
+	at com.google.javascript.jscomp.CampModuleProcessorTest.doTest(CampModuleProcessorTest.java:16)
+	at com.google.javascript.jscomp.CampModuleProcessorTest.testSimpleModule(CampModuleProcessorTest.java:20)
+</failure>
+
+      </testcase>
+
+      <system-out><![CDATA[]]></system-out>
+
+      <system-err><![CDATA[]]></system-err>
+
+  </testsuite>
+  <testsuite errors="0" failures="0" hostname="PC-3914.local" id="1" name="ScopedAliases2Test" package="com.google.javascript.jscomp" tests="1" time="0.038" timestamp="2013-04-02T09:12:37">
+      <properties>
+          <property name="java.vendor" value="Apple Inc." />
+
+          <property name="ant.file.closure-compiler" value="/Users/aono_taketoshi/github/closure-compiler/build.xml" />
+
+          <property name="compiler.dir" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler" />
+
+          <property name="sun.java.launcher" value="SUN_STANDARD" />
+
+          <property name="jikes.class.path" value=":/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/alt-rt.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/alt-string.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/charsets.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/classes.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/dt.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jce.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jconsole.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jsse.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/management-agent.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/ui.jar" />
+
+          <property name="sun.management.compiler" value="HotSpot 64-Bit Server Compiler" />
+
+          <property name="os.name" value="Mac OS X" />
+
+          <property name="sun.boot.class.path" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsfd.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/classes.jar:/System/Library/Frameworks/JavaVM.framework/Frameworks/JavaRuntimeSupport.framework/Resources/Java/JavaRuntimeSupport.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/ui.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/laf.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/sunrsasign.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsse.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jce.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/charsets.jar" />
+
+          <property name="java.vm.specification.vendor" value="Sun Microsystems Inc." />
+
+          <property name="ant.home" value="/usr/share/ant" />
+
+          <property name="java.runtime.version" value="1.6.0_24-b07-334" />
+
+          <property name="user.name" value="aono_taketoshi" />
+
+          <property name="awt.nativeDoubleBuffering" value="true" />
+
+          <property name="build.dir" value="/Users/aono_taketoshi/github/closure-compiler/build" />
+
+          <property name="user.language" value="ja" />
+
+          <property name="sun.boot.library.path" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Libraries" />
+
+          <property name="ant.project.default-target" value="all" />
+
+          <property name="ant.file.type.closure-compiler" value="file" />
+
+          <property name="ant.project.name" value="closure-compiler" />
+
+          <property name="java.version" value="1.6.0_24" />
+
+          <property name="user.timezone" value="" />
+
+          <property name="sun.arch.data.model" value="64" />
+
+          <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+
+          <property name="java.endorsed.dirs" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/lib/endorsed" />
+
+          <property name="sun.cpu.isalist" value="" />
+
+          <property name="sun.jnu.encoding" value="SJIS" />
+
+          <property name="file.encoding.pkg" value="sun.io" />
+
+          <property name="file.separator" value="/" />
+
+          <property name="java.specification.name" value="Java Platform API Specification" />
+
+          <property name="classes.dir" value="/Users/aono_taketoshi/github/closure-compiler/build/classes" />
+
+          <property name="java.class.version" value="50.0" />
+
+          <property name="testClasses.dir" value="/Users/aono_taketoshi/github/closure-compiler/build/testClasses" />
+
+          <property name="user.country" value="JP" />
+
+          <property name="java.home" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home" />
+
+          <property name="java.vm.info" value="mixed mode" />
+
+          <property name="ant.file" value="/Users/aono_taketoshi/github/closure-compiler/build.xml" />
+
+          <property name="os.version" value="10.6.7" />
+
+          <property name="path.separator" value=":" />
+
+          <property name="java.vm.version" value="19.1-b02-334" />
+
+          <property name="ant.library.dir" value="/usr/share/ant/lib" />
+
+          <property name="java.awt.printerjob" value="apple.awt.CPrinterJob" />
+
+          <property name="sun.io.unicode.encoding" value="UnicodeLittle" />
+
+          <property name="test.fork" value="true" />
+
+          <property name="awt.toolkit" value="apple.awt.CToolkit" />
+
+          <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+
+          <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+
+          <property name="user.home" value="/Users/aono_taketoshi" />
+
+          <property name="java.specification.vendor" value="Sun Microsystems Inc." />
+
+          <property name="test.dir" value="/Users/aono_taketoshi/github/closure-compiler/test" />
+
+          <property name="java.library.path" value=".:/Users/aono_taketoshi/Library/Java/Extensions:/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java" />
+
+          <property name="java.vendor.url" value="http://www.apple.com/" />
+
+          <property name="java.vm.vendor" value="Apple Inc." />
+
+          <property name="gopherProxySet" value="false" />
+
+          <property name="java.runtime.name" value="Java(TM) SE Runtime Environment" />
+
+          <property name="java.class.path" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/test:/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/compiler.jar:/Users/aono_taketoshi/github/closure-compiler/build/testClasses:/usr/share/java/ant-1.8.2/lib/ant-launcher.jar:/usr/share/ant/lib/ant.jar:/usr/share/ant/lib/ant-junit.jar:/usr/share/ant/lib/ant-junit4.jar" />
+
+          <property name="ant.version" value="Apache Ant(TM) version 1.8.2 compiled on March 4 2011" />
+
+          <property name="test.class" value="*Test" />
+
+          <property name="java.vm.specification.name" value="Java Virtual Machine Specification" />
+
+          <property name="ant.file.type" value="file" />
+
+          <property name="java.vm.specification.version" value="1.0" />
+
+          <property name="sun.cpu.endian" value="little" />
+
+          <property name="sun.os.patch.level" value="unknown" />
+
+          <property name="java.io.tmpdir" value="/var/folders/Aj/AjTM-FN0HB0nsoRQzKLkq++++TU/-Tmp-/" />
+
+          <property name="java.vendor.url.bug" value="http://bugreport.apple.com/" />
+
+          <property name="os.arch" value="x86_64" />
+
+          <property name="java.awt.graphicsenv" value="apple.awt.CGraphicsEnvironment" />
+
+          <property name="java.ext.dirs" value="/Users/aono_taketoshi/Library/Java/Extensions:/Library/Java/Extensions:/System/Library/Java/Extensions:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/lib/ext" />
+
+          <property name="mrj.version" value="1060.1.6.0_24-334" />
+
+          <property name="user.dir" value="/Users/aono_taketoshi/github/closure-compiler" />
+
+          <property name="line.separator" value="&#xa;" />
+
+          <property name="java.vm.name" value="Java HotSpot(TM) 64-Bit Server VM" />
+
+          <property name="basedir" value="/Users/aono_taketoshi/github/closure-compiler" />
+
+          <property name="closure-compiler.jar" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/compiler.jar" />
+
+          <property name="ant.java.version" value="1.6" />
+
+          <property name="ant.core.lib" value="/usr/share/ant/lib/ant.jar" />
+
+          <property name="file.encoding" value="SJIS" />
+
+          <property name="java.specification.version" value="1.6" />
+
+          <property name="src.dir" value="/Users/aono_taketoshi/github/closure-compiler/src" />
+
+          <property name="ant.project.invoked-targets" value="all" />
+
+      </properties>
+
+      <testcase classname="com.google.javascript.jscomp.ScopedAliases2Test" name="testOneLevel" time="0.028" />
+
+      <system-out><![CDATA[]]></system-out>
+
+      <system-err><![CDATA[]]></system-err>
+
+  </testsuite>
+</testsuites>

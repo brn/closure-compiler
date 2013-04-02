@@ -25,10 +25,10 @@ public class CampInjectionConsts {
   static final String METHOD_INVOCATION_GET_ARGUMENTS = "getArguments";
   static final String METHOD_INVOCATION_PROCEED = "proceed";
   static final String METHOD_INVOCATION_GET_THIS = "getThis";
-  static final String CLASS_MATCHER_IN_NAMESPACE = "camp.injections.Matchers.inNamespace";
-  static final String CLASS_MATCHER_SUB_NAMESPACE = "camp.injections.Matchers.inSubnamespace";
-  static final String CLASS_MATCHER_SUBCLASS_OF = "camp.injections.Matchers.subclassOf";
-  static final String CLASS_MATCHER_INSTANCE_OF = "camp.injections.Matchers.instanceOf";
+  static final String CLASS_MATCHERS_IN_NAMESPACE = "camp.injections.Matchers.inNamespace";
+  static final String CLASS_MATCHERS_IN_SUBNAMESPACE = "camp.injections.Matchers.inSubnamespace";
+  static final String CLASS_MATCHERS_SUBCLASS_OF = "camp.injections.Matchers.subclassOf";
+  static final String CLASS_MATCHERS_INSTANCE_OF = "camp.injections.Matchers.instanceOf";
   static final String MATCHERS_ANY = "camp.injections.Matchers.any";
   static final String METHOD_MATCHER_LIKE = "camp.injections.Matchers.like";
   static final String INTERCEPTOR_RESULT = "jscomp$interceptor$result";
