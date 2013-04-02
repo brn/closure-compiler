@@ -9,13 +9,12 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.JSDocInfo;
 
 public final class CampModuleTransformInfo {
-	private static int id = 0;
 	private List<Node> usingCallList = Lists.newArrayList();
 	private List<Node> exportsList = Lists.newArrayList();
 	private List<Node> moduleCallList = Lists.newArrayList();
 	private List<CampModuleTransformInfo.JSDocAndScopeInfo> jsdocInfoList = Lists.newArrayList();
 	private Map<String, Node> aliasMap = new HashMap<String, Node>();
-	private int moduleId = id++;
+	private String moduleId;
 	private Map<String, String> varRenameMap = new HashMap<String, String>();
 	
 	public List<Node> getUsingCallList() {
@@ -25,11 +24,19 @@ public final class CampModuleTransformInfo {
 	public List<Node> getExportsList() {
 		return exportsList;
 	}
-
+	
 	public List<Node> getModuleCallList() {
 		return moduleCallList;
 	}
 
+	public void setModuleId(String moduleName) {
+	  this.moduleId = moduleName;
+	}
+	
+	public String getModuleId() {
+	  return this.moduleId;
+	}
+	
 	public List<CampModuleTransformInfo.JSDocAndScopeInfo> getJsDocInfoList() {
 		return jsdocInfoList;
 	}
@@ -42,10 +49,6 @@ public final class CampModuleTransformInfo {
 		this.aliasMap.put(name, node);
 	}
 	
-	public int getModuleId() {
-		return this.moduleId;
-	}
-	
 	public Map<String,String> getRenameMap() {
 		return varRenameMap;
 	}
@@ -55,11 +58,11 @@ public final class CampModuleTransformInfo {
 		
 		private int depth;
 		
-		private int moduleId;
+		private String moduleId;
 		
 		private JSDocInfo jsDocInfo;
 		
-		public JSDocAndScopeInfo(JSDocInfo jsDocInfo, Scope scope, int depth, int moduleId) {
+		public JSDocAndScopeInfo(JSDocInfo jsDocInfo, Scope scope, int depth, String moduleId) {
 			this.jsDocInfo = jsDocInfo;
 			this.scope = scope;
 			this.depth = depth;
@@ -78,7 +81,7 @@ public final class CampModuleTransformInfo {
 			return jsDocInfo;
 		}
 		
-		public int getModuleId() {
+		public String getModuleId() {
 			return moduleId;
 		}
 	}

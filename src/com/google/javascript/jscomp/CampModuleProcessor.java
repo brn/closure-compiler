@@ -19,6 +19,7 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -33,6 +34,11 @@ public final class CampModuleProcessor implements CompilerPass {
       "JSC_MSG_MAIN_ALREADY_FOUNDED.",
       "The function main allowed only one declaration per file. First defined {0}");
 
+  static final DiagnosticType MESSAGE_MODULE_CAN_NOT_ACCESS = DiagnosticType.error(
+      "JSC_MSG_MODULE_CAN_NOT_ACCESS.",
+      "The function camp.module can not use as the function object and can not access to method itself.\n"
+              + "This function only virtual method because it's inlined by compiler.");
+  
   static final DiagnosticType MESSAGE_MODULE_FIRST_ARGUMENT_NOT_VALID = DiagnosticType.error(
       "JSC_MSG_MODULE_FIRST_ARGUMENT_NOT_VALID.",
       "The first argument of the camp.module must be a string expression of a module name.");
@@ -137,19 +143,25 @@ public final class CampModuleProcessor implements CompilerPass {
           if (className != null) {
             Node nameNode = NodeUtil.newQualifiedNameNode(convention, className);
             if (parent.isAssign()) {
+              
               parent.replaceChild(n, nameNode);
+              
             } else if (parent.isVar()) {
+              
               Node newChild = new Node(Token.EXPR_RESULT, new Node(Token.ASSIGN, nameNode, n
                   .getFirstChild().cloneTree()));
               parent.getParent().replaceChild(parent, newChild);
               newChild.copyInformationFromForTree(parent);
               newChild.getFirstChild().setJSDocInfo(parent.getJSDocInfo());
+              
             } else if (parent.isFunction()) {
-              Node newChild = new Node(Token.EXPR_RESULT, new Node(Token.ASSIGN, nameNode,
-                  parent.cloneTree()));
+              
+              Node assignNode = new Node(Token.ASSIGN, nameNode, parent.cloneTree());
+              Node newChild = NodeUtil.newExpr(assignNode);              
               parent.getParent().replaceChild(parent, newChild);
               newChild.copyInformationFromForTree(parent);
-              newChild.setJSDocInfo(parent.getJSDocInfo());
+              assignNode.setJSDocInfo(parent.getJSDocInfo());
+              
             } else {
               n.getParent().replaceChild(n, nameNode);
             }
@@ -256,9 +268,9 @@ public final class CampModuleProcessor implements CompilerPass {
      */
     private boolean checkModuleCallIsValid(Node n, NodeTraversal t) {
       Node firstArg = n.getFirstChild().getNext();
-      if (firstArg.getType() == Token.STRING) {
+      if (firstArg != null && firstArg.getType() == Token.STRING) {
         Node secondArg = firstArg.getNext();
-        if (secondArg.getType() == Token.FUNCTION) {
+        if (secondArg != null && secondArg.getType() == Token.FUNCTION) {
           if (secondArg.getChildCount() == 3
               && secondArg.getFirstChild().getNext().getType() == Token.PARAM_LIST
               && secondArg.getFirstChild().getNext().getChildCount() == 1
@@ -286,7 +298,7 @@ public final class CampModuleProcessor implements CompilerPass {
      * @param usingCalls
      */
     private void collectModuleAndUsing(Node n, NodeTraversal t, List<Node> moduleCalls,
-        List<Node> usingCalls, Map<String, Node> aliasMap) {
+        List<Node> usingCalls, Map<String, Node> aliasMap, CampModuleTransformInfo campModuleTransformInfo) {
       Node firstChild = n.getFirstChild();
       if (firstChild.getType() == Token.GETPROP) {
         if (firstChild.getFirstChild().getType() == Token.NAME) {
@@ -294,6 +306,7 @@ public final class CampModuleProcessor implements CompilerPass {
           if (fnName.equals(CAMP_MODULE_CALL)) {
             if (checkModuleCallIsValid(n, t)) {
               moduleCalls.add(n);
+              campModuleTransformInfo.setModuleId(firstChild.getNext().getString().replaceAll("\\.", "_"));
             }
           } else if (fnName.equals(CAMP_USING_CALL)) {
             Node maybeNameNode = n.getParent();
@@ -401,7 +414,12 @@ public final class CampModuleProcessor implements CompilerPass {
       Map<String, Node> aliasMap = campModuleTransformInfo.getAliasMap();
 
       if (n.getType() == Token.CALL) {
-        collectModuleAndUsing(n, t, moduleCalls, usingCalls, aliasMap);
+        collectModuleAndUsing(n, t, moduleCalls, usingCalls, aliasMap, campModuleTransformInfo);
+      } else if (n.isGetProp() &&
+          !parent.isCall() &&
+          n.getQualifiedName() != null &&
+          n.getQualifiedName().equals(CAMP_MODULE_CALL)) {
+        t.report(n, MESSAGE_MODULE_CAN_NOT_ACCESS);
       } else {
         collectMainAndExports(n, t, exportsList);
       }
@@ -412,7 +430,6 @@ public final class CampModuleProcessor implements CompilerPass {
   private class AliasResolver extends AbstractScopedCallback {
 
     private int scopeDepth = 0;
-
 
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
@@ -430,7 +447,7 @@ public final class CampModuleProcessor implements CompilerPass {
             jsDocInfo, scope, this.scopeDepth, campModuleTransformInfo.getModuleId());
         jsdocInfoList.add(jsDocAndScopeInfo);
       }
-
+      
       if (isRewritableNode(n)) {
         String name = n.getString();
         if (isAlias(name, scope, campModuleTransformInfo, this.scopeDepth)) {
@@ -537,7 +554,7 @@ public final class CampModuleProcessor implements CompilerPass {
               String newName = varRenameMap.get(name);
 
               if (newName == null) {
-                newName = name + campModuleTransformInfo.getModuleId();
+                newName = campModuleTransformInfo.getModuleId() + "_" + name;
                 varRenameMap.put(name, newName);
               } else if (name.equals(newName)) {
                 continue;
@@ -643,10 +660,9 @@ public final class CampModuleProcessor implements CompilerPass {
       Node ns = Node.newString(namespace);
       Node name = Node.newString(Token.NAME, "goog");
       Node require = new Node(Token.GETPROP, name, Node.newString("require"));
-      Node call = new Node(Token.CALL, require, ns);
-      Node expResult = new Node(Token.EXPR_RESULT, call);
-      informationHolder.copyInformationFromForTree(call);
-      return expResult;
+      Node exprResult = NodeUtil.newExpr(NodeUtil.newCallNode(require, ns));
+      exprResult.copyInformationFromForTree(informationHolder);
+      return exprResult;
     }
 
 
@@ -719,12 +735,11 @@ public final class CampModuleProcessor implements CompilerPass {
     private void createGoogProvideFromExported(String modulePath, String className,
         Node informationHolder) {
       Node ns = Node.newString(modulePath + "." + className);
-      Node name = Node.newString(Token.NAME, "goog");
-      Node require = new Node(Token.GETPROP, name, Node.newString("provide"));
-      Node call = new Node(Token.CALL, require, ns);
-      Node expResult = new Node(Token.EXPR_RESULT, call);
-      informationHolder.copyInformationFromForTree(call);
-      this.scriptBody.addChildToFront(expResult);
+      Node require = NodeUtil.newQualifiedNameNode(convention, "goog.provide");
+      Node exprResult = NodeUtil.newExpr(NodeUtil.newCallNode(require, ns));
+      exprResult.copyInformationFromForTree(informationHolder);
+      this.scriptBody.addChildToFront(exprResult);
+      compiler.reportCodeChange();
     }
 
 
@@ -842,7 +857,7 @@ public final class CampModuleProcessor implements CompilerPass {
 
 
   private void renameVar(Node target, String name, Scope scope, Map<String, String> varRenameMap,
-      int depth, int moduleId) {
+      int depth, String moduleId) {
     if (scope != null) {
       Var var = getVarFromScope(name, scope);
       if (var != null && depth == 2 && isRewritableScope(scope)) {
@@ -850,7 +865,7 @@ public final class CampModuleProcessor implements CompilerPass {
         if (varRenameMap.containsKey(name)) {
           newName = varRenameMap.get(name);
         } else {
-          newName = name + moduleId;
+          newName = moduleId + "_" + name;
           varRenameMap.put(name, newName);
         }
         target.setString(newName);

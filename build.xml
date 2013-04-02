@@ -2,6 +2,8 @@
 <project name="closure-compiler" default="all">
 
 		<property name="compiler.dir" value="${basedir}/lib/google-closure-compiler" />
+		<property name="compiler.classes.dir" value="${compiler.dir}/build/classes" />
+		<property name="compiler.test.classes.dir" value="${compiler.dir}/build/test" />
 		<property name="src.dir" value="${basedir}/src" />
 		<property name="test.dir" value="${basedir}/test" />
 		<property name="build.dir" value="${basedir}/build" />
@@ -13,7 +15,10 @@
 
 		<path id="test.classpath.path">
 				<pathelement location="${classes.dir}" />
-				<pathelement location="${compiler.dir}/build/test" />
+				<pathelement location="${compiler.test.classes.dir}" />
+				<fileset dir="${compiler.dir}/lib">
+						<include name="*.jar"/>
+				</fileset>
 				<fileset dir="${compiler.dir}/build">
 						<include name="compiler.jar"/>
 				</fileset>
@@ -23,16 +28,17 @@
 				<ant antfile="build.xml"
 						 dir="${compiler.dir}"
 						 inheritAll="false"/>
-				<ant antfile="build.xml"
-						 dir="${compiler.dir}"
-						 target="compile-tests"
-						 inheritAll="false"/>
     </target>
 
 		<target name="compile" depends="compiler">
 				<mkdir dir="${classes.dir}" />
 				<javac srcdir="${src.dir}"
 							 debug="true"
+							 classpath="${closure-compiler.jar}"
+							 destdir="${classes.dir}"/>
+				<javac srcdir="${src.dir}"
+							 debug="true"
+							 target="compile-tests"
 							 classpath="${closure-compiler.jar}"
 							 destdir="${classes.dir}"/>
 		</target>
@@ -42,12 +48,7 @@
 						depends="compile"
 						description="compile the JUnit tests">
 				<mkdir dir="${testClasses.dir}" />
-				<javac srcdir="${src.dir}"
-							 destdir="${testClasses.dir}"
-							 debug="on">
-						<classpath refid="test.classpath.path" />
-				</javac>
-				<javac srcdir="${test.dir}"
+				<javac srcdir="${src.dir};${test.dir}"
 							 destdir="${testClasses.dir}"
 							 debug="on">
 						<classpath refid="test.classpath.path" />
@@ -57,7 +58,6 @@
 		<target name="test"
 						depends="compile-tests"
 						description="Compile and execute the JUnit tests.">
-				<mkdir dir="build/testoutput"/>
 				<junit printsummary="on" fork="${test.fork}"
 							 forkmode="once" showoutput="true"
 							 failureproperty="junit.failure">
@@ -73,12 +73,6 @@
 								</fileset>
 						</batchtest>
 				</junit>
-				<junitreport>
-						<fileset dir="build/testoutput" includes="*.xml"/>
-						<report todir="build/testoutput"/>
-				</junitreport>
-				<fail if="junit.failure"
-							message="Unit tests failed. See build/testoutput/index.html" />
 		</target>
 
 		<target name="camp-command-line-runner" depends="test">

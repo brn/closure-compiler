@@ -1,38 +1,38 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <testsuites>
-  <testsuite errors="0" failures="1" hostname="PC-3914.local" id="0" name="CampModuleProcessorTest" package="com.google.javascript.jscomp" tests="1" time="0.52" timestamp="2013-04-02T09:12:37">
+  <testsuite errors="0" failures="1" hostname="brn-PC" id="0" name="CampModuleProcessorTest" package="com.google.javascript.jscomp" tests="1" time="0.393" timestamp="2013-04-02T11:49:54">
       <properties>
-          <property name="java.vendor" value="Apple Inc." />
+          <property name="java.vendor" value="Oracle Corporation" />
 
-          <property name="ant.file.closure-compiler" value="/Users/aono_taketoshi/github/closure-compiler/build.xml" />
+          <property name="ant.file.closure-compiler" value="C:\Users\brn\github\closure-compiler\build.xml" />
 
-          <property name="compiler.dir" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler" />
+          <property name="compiler.dir" value="C:\Users\brn\github\closure-compiler/lib/google-closure-compiler" />
 
           <property name="sun.java.launcher" value="SUN_STANDARD" />
 
-          <property name="jikes.class.path" value=":/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/alt-rt.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/alt-string.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/charsets.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/classes.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/dt.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jce.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jconsole.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jsse.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/management-agent.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/ui.jar" />
+          <property name="eclipse.pdebuild.templates" value="/C:/Program Files/eclipse/plugins/org.eclipse.pde.build_3.8.1.v20120725-202643/templates/" />
 
-          <property name="sun.management.compiler" value="HotSpot 64-Bit Server Compiler" />
+          <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers" />
 
-          <property name="os.name" value="Mac OS X" />
+          <property name="os.name" value="Windows 7" />
 
-          <property name="sun.boot.class.path" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsfd.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/classes.jar:/System/Library/Frameworks/JavaVM.framework/Frameworks/JavaRuntimeSupport.framework/Resources/Java/JavaRuntimeSupport.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/ui.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/laf.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/sunrsasign.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsse.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jce.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/charsets.jar" />
+          <property name="sun.boot.class.path" value="C:\Program Files\Java\jre7\lib\resources.jar;C:\Program Files\Java\jre7\lib\rt.jar;C:\Program Files\Java\jre7\lib\sunrsasign.jar;C:\Program Files\Java\jre7\lib\jsse.jar;C:\Program Files\Java\jre7\lib\jce.jar;C:\Program Files\Java\jre7\lib\charsets.jar;C:\Program Files\Java\jre7\lib\jfr.jar;C:\Program Files\Java\jre7\classes" />
 
-          <property name="java.vm.specification.vendor" value="Sun Microsystems Inc." />
+          <property name="sun.desktop" value="windows" />
 
-          <property name="ant.home" value="/usr/share/ant" />
+          <property name="java.vm.specification.vendor" value="Oracle Corporation" />
 
-          <property name="java.runtime.version" value="1.6.0_24-b07-334" />
+          <property name="ant.home" value="C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730" />
 
-          <property name="user.name" value="aono_taketoshi" />
+          <property name="java.runtime.version" value="1.7.0_09-b05" />
 
-          <property name="awt.nativeDoubleBuffering" value="true" />
+          <property name="user.name" value="brn" />
 
-          <property name="build.dir" value="/Users/aono_taketoshi/github/closure-compiler/build" />
+          <property name="build.dir" value="C:\Users\brn\github\closure-compiler/build" />
 
           <property name="user.language" value="ja" />
 
-          <property name="sun.boot.library.path" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Libraries" />
+          <property name="sun.boot.library.path" value="C:\Program Files\Java\jre7\bin" />
 
           <property name="ant.project.default-target" value="all" />
 
@@ -40,129 +40,131 @@
 
           <property name="ant.project.name" value="closure-compiler" />
 
-          <property name="java.version" value="1.6.0_24" />
+          <property name="java.version" value="1.7.0_09" />
 
           <property name="user.timezone" value="" />
 
           <property name="sun.arch.data.model" value="64" />
 
-          <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+          <property name="java.endorsed.dirs" value="C:\Program Files\Java\jre7\lib\endorsed" />
 
-          <property name="java.endorsed.dirs" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/lib/endorsed" />
+          <property name="sun.cpu.isalist" value="amd64" />
 
-          <property name="sun.cpu.isalist" value="" />
-
-          <property name="sun.jnu.encoding" value="SJIS" />
+          <property name="sun.jnu.encoding" value="MS932" />
 
           <property name="file.encoding.pkg" value="sun.io" />
 
-          <property name="file.separator" value="/" />
+          <property name="file.separator" value="\" />
 
           <property name="java.specification.name" value="Java Platform API Specification" />
 
-          <property name="classes.dir" value="/Users/aono_taketoshi/github/closure-compiler/build/classes" />
+          <property name="classes.dir" value="C:\Users\brn\github\closure-compiler/build/classes" />
 
-          <property name="java.class.version" value="50.0" />
+          <property name="java.class.version" value="51.0" />
 
-          <property name="testClasses.dir" value="/Users/aono_taketoshi/github/closure-compiler/build/testClasses" />
+          <property name="testClasses.dir" value="C:\Users\brn\github\closure-compiler/build/testClasses" />
 
           <property name="user.country" value="JP" />
 
-          <property name="java.home" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home" />
+          <property name="java.home" value="C:\Program Files\Java\jre7" />
 
           <property name="java.vm.info" value="mixed mode" />
 
-          <property name="ant.file" value="/Users/aono_taketoshi/github/closure-compiler/build.xml" />
+          <property name="ant.file" value="C:\Users\brn\github\closure-compiler\build.xml" />
 
-          <property name="os.version" value="10.6.7" />
+          <property name="os.version" value="6.1" />
 
-          <property name="path.separator" value=":" />
+          <property name="path.separator" value=";" />
 
-          <property name="java.vm.version" value="19.1-b02-334" />
+          <property name="java.vm.version" value="23.5-b02" />
 
-          <property name="ant.library.dir" value="/usr/share/ant/lib" />
+          <property name="user.variant" value="" />
 
-          <property name="java.awt.printerjob" value="apple.awt.CPrinterJob" />
+          <property name="ant.library.dir" value="C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib" />
+
+          <property name="java.awt.printerjob" value="sun.awt.windows.WPrinterJob" />
 
           <property name="sun.io.unicode.encoding" value="UnicodeLittle" />
 
           <property name="test.fork" value="true" />
 
-          <property name="awt.toolkit" value="apple.awt.CToolkit" />
+          <property name="awt.toolkit" value="sun.awt.windows.WToolkit" />
 
-          <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+          <property name="user.script" value="" />
 
-          <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+          <property name="eclipse.pdebuild.scripts" value="/C:/Program Files/eclipse/plugins/org.eclipse.pde.build_3.8.1.v20120725-202643/scripts/" />
 
-          <property name="user.home" value="/Users/aono_taketoshi" />
+          <property name="user.home" value="C:\Users\brn" />
 
-          <property name="java.specification.vendor" value="Sun Microsystems Inc." />
+          <property name="java.specification.vendor" value="Oracle Corporation" />
 
-          <property name="test.dir" value="/Users/aono_taketoshi/github/closure-compiler/test" />
+          <property name="test.dir" value="C:\Users\brn\github\closure-compiler/test" />
 
-          <property name="java.library.path" value=".:/Users/aono_taketoshi/Library/Java/Extensions:/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java" />
+          <property name="java.library.path" value="C:\Program Files\Java\jre7\bin;C:\Windows\Sun\Java\bin;C:\Windows\system32;C:\Windows;C:\Program Files\Common Files\Microsoft Shared\Windows Live;C:\Program Files (x86)\AMD APP\bin\x86_64;C:\Program Files (x86)\AMD APP\bin\x86;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program Files (x86)\ATI Technologies\ATI.ACE\Core-Static;C:\Program Files\Microsoft Windows Performance Toolkit\;C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Common7\IDE;C:\Python27;C:\Program Files\TortoiseSVN\bin;C:\Program Files\SlikSvn\bin;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC;C:\Program Files (x86)\boost\boost_1_47;C:\Program Files (x86)\Gauche\bin;C:\Program Files (x86)\Gauche\bin;C:\Program Files (x86)\Git\bin;C:\Python27\Scripts;C:\Program Files (x86)\nodejs\C:\Program Files\Java\jre7\bin;C:\Program Files (x86)\nodejs;C:\Users\brn\AppData\Roaming\npm\node_modules;C:\Program Files (x86)\phantomjs-1.8.1-windows\phantomjs-1.8.1-windows;C:\Program Files\Java\jre7\bin;C:\Program Files (x86)\apache-ant-1.8.4\bin;C:\Program Files\Java\jdk1.7.0_09\bin;C:\Ruby193\bin;C:\Program Files (x86)\Core Services\IETester;C:\Program Files (x86)\gnupack_basic-10.02\app\emacs\emacs\bin;C:\Program Files (x86)\GnuWin32\bin;C:\Program Files\Common Files\Microsoft Shared\Windows Live;C:\Users\brn\AppData\Roaming\npm\;C:\Program Files (x86)\MacType;." />
 
-          <property name="java.vendor.url" value="http://www.apple.com/" />
+          <property name="java.vendor.url" value="http://java.oracle.com/" />
 
-          <property name="java.vm.vendor" value="Apple Inc." />
-
-          <property name="gopherProxySet" value="false" />
+          <property name="java.vm.vendor" value="Oracle Corporation" />
 
           <property name="java.runtime.name" value="Java(TM) SE Runtime Environment" />
 
-          <property name="java.class.path" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/test:/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/compiler.jar:/Users/aono_taketoshi/github/closure-compiler/build/testClasses:/usr/share/java/ant-1.8.2/lib/ant-launcher.jar:/usr/share/ant/lib/ant.jar:/usr/share/ant/lib/ant-junit.jar:/usr/share/ant/lib/ant-junit4.jar" />
+          <property name="sun.java.command" value="org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner testsfile=C:\Users\brn\github\closure-compiler\junittestcases8002203223474973156.properties filtertrace=true haltOnError=false haltOnFailure=false formatter=org.apache.tools.ant.taskdefs.optional.junit.SummaryJUnitResultFormatter showoutput=true outputtoformatters=true logfailedtests=true logtestlistenerevents=false formatter=org.apache.tools.ant.taskdefs.optional.junit.BriefJUnitResultFormatter formatter=org.apache.tools.ant.taskdefs.optional.junit.XMLJUnitResultFormatter,C:\Users\brn\github\closure-compiler\build\testoutput\IGNORETHIS.xml crashfile=C:\Users\brn\github\closure-compiler\junitvmwatcher6060629991902663588.properties propsfile=C:\Users\brn\github\closure-compiler\junit4798090205392059393.properties" />
 
-          <property name="ant.version" value="Apache Ant(TM) version 1.8.2 compiled on March 4 2011" />
+          <property name="java.class.path" value="C:\Users\brn\github\closure-compiler\build\classes;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\build\test;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\ant-launcher.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\ant.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\args4j.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\caja-r4314.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\guava.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\jarjar.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\json.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\jsr305.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\junit.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\protobuf-java.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\build\compiler.jar;C:\Users\brn\github\closure-compiler\build\testClasses;C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant-launcher.jar;C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant.jar;C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant-junit.jar;C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant-junit4.jar" />
+
+          <property name="ant.version" value="Apache Ant(TM) version 1.8.3 compiled on February 26 2012" />
 
           <property name="test.class" value="*Test" />
 
           <property name="java.vm.specification.name" value="Java Virtual Machine Specification" />
 
-          <property name="ant.file.type" value="file" />
-
-          <property name="java.vm.specification.version" value="1.0" />
+          <property name="java.vm.specification.version" value="1.7" />
 
           <property name="sun.cpu.endian" value="little" />
 
-          <property name="sun.os.patch.level" value="unknown" />
+          <property name="sun.os.patch.level" value="Service Pack 1" />
 
-          <property name="java.io.tmpdir" value="/var/folders/Aj/AjTM-FN0HB0nsoRQzKLkq++++TU/-Tmp-/" />
+          <property name="eclipse.pdebuild.home" value="/C:/Program Files/eclipse/plugins/org.eclipse.pde.build_3.8.1.v20120725-202643/./" />
 
-          <property name="java.vendor.url.bug" value="http://bugreport.apple.com/" />
+          <property name="java.io.tmpdir" value="C:\Users\brn\AppData\Local\Temp\" />
 
-          <property name="os.arch" value="x86_64" />
+          <property name="java.vendor.url.bug" value="http://bugreport.sun.com/bugreport/" />
 
-          <property name="java.awt.graphicsenv" value="apple.awt.CGraphicsEnvironment" />
+          <property name="os.arch" value="amd64" />
 
-          <property name="java.ext.dirs" value="/Users/aono_taketoshi/Library/Java/Extensions:/Library/Java/Extensions:/System/Library/Java/Extensions:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/lib/ext" />
+          <property name="java.awt.graphicsenv" value="sun.awt.Win32GraphicsEnvironment" />
 
-          <property name="mrj.version" value="1060.1.6.0_24-334" />
+          <property name="java.ext.dirs" value="C:\Program Files\Java\jre7\lib\ext;C:\Windows\Sun\Java\lib\ext" />
 
-          <property name="user.dir" value="/Users/aono_taketoshi/github/closure-compiler" />
+          <property name="user.dir" value="C:\Users\brn\github\closure-compiler" />
 
-          <property name="line.separator" value="&#xa;" />
+          <property name="line.separator" value="&#xd;&#xa;" />
+
+          <property name="compiler.classes.dir" value="C:\Users\brn\github\closure-compiler/lib/google-closure-compiler/build/classes" />
 
           <property name="java.vm.name" value="Java HotSpot(TM) 64-Bit Server VM" />
 
-          <property name="basedir" value="/Users/aono_taketoshi/github/closure-compiler" />
+          <property name="basedir" value="C:\Users\brn\github\closure-compiler" />
 
-          <property name="closure-compiler.jar" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/compiler.jar" />
+          <property name="closure-compiler.jar" value="C:\Users\brn\github\closure-compiler/lib/google-closure-compiler/build/compiler.jar" />
 
-          <property name="ant.java.version" value="1.6" />
+          <property name="ant.java.version" value="1.7" />
 
-          <property name="ant.core.lib" value="/usr/share/ant/lib/ant.jar" />
+          <property name="ant.core.lib" value="C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant.jar" />
 
-          <property name="file.encoding" value="SJIS" />
+          <property name="file.encoding" value="MS932" />
 
-          <property name="java.specification.version" value="1.6" />
+          <property name="java.specification.version" value="1.7" />
 
-          <property name="src.dir" value="/Users/aono_taketoshi/github/closure-compiler/src" />
+          <property name="src.dir" value="C:\Users\brn\github\closure-compiler/src" />
 
           <property name="ant.project.invoked-targets" value="all" />
 
+          <property name="compiler.test.classes.dir" value="C:\Users\brn\github\closure-compiler/lib/google-closure-compiler/build/test" />
+
       </properties>
 
-      <testcase classname="com.google.javascript.jscomp.CampModuleProcessorTest" name="testSimpleModule" time="0.487">
+      <testcase classname="com.google.javascript.jscomp.CampModuleProcessorTest" name="testSimpleModule" time="0.355">
           <failure message="Unexpected error(s): JSC_MISSING_LINE_INFO. No source location information associated with CALL&#xa;    GETPROP&#xa;        NAME goog&#xa;        STRING provide&#xa;    STRING test.foo.bar.baz.Test&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with EXPR_RESULT&#xa;    CALL&#xa;        GETPROP&#xa;            NAME goog&#xa;            STRING provide&#xa;        STRING test.foo.bar.baz.Test&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with GETPROP&#xa;    NAME goog&#xa;    STRING provide&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with NAME goog&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with STRING provide&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column)&#xa;JSC_MISSING_LINE_INFO. No source location information associated with STRING test.foo.bar.baz.Test&#xa;.&#xa;Most likely a Node has been created with settings the source file and line/column location.  Usually this is done using Node.copyInformationFrom and supplying a Node from the source AST. at (unknown source) line (unknown line) : (unknown column) expected:&lt;0&gt; but was:&lt;6&gt;" type="junit.framework.AssertionFailedError">junit.framework.AssertionFailedError: Unexpected error(s): JSC_MISSING_LINE_INFO. No source location information associated with CALL
     GETPROP
         NAME goog
@@ -208,39 +210,39 @@ Most likely a Node has been created with settings the source file and line/colum
       <system-err><![CDATA[]]></system-err>
 
   </testsuite>
-  <testsuite errors="0" failures="0" hostname="PC-3914.local" id="1" name="ScopedAliases2Test" package="com.google.javascript.jscomp" tests="1" time="0.038" timestamp="2013-04-02T09:12:37">
+  <testsuite errors="0" failures="0" hostname="brn-PC" id="1" name="ScopedAliases2Test" package="com.google.javascript.jscomp" tests="1" time="0.021" timestamp="2013-04-02T11:49:54">
       <properties>
-          <property name="java.vendor" value="Apple Inc." />
+          <property name="java.vendor" value="Oracle Corporation" />
 
-          <property name="ant.file.closure-compiler" value="/Users/aono_taketoshi/github/closure-compiler/build.xml" />
+          <property name="ant.file.closure-compiler" value="C:\Users\brn\github\closure-compiler\build.xml" />
 
-          <property name="compiler.dir" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler" />
+          <property name="compiler.dir" value="C:\Users\brn\github\closure-compiler/lib/google-closure-compiler" />
 
           <property name="sun.java.launcher" value="SUN_STANDARD" />
 
-          <property name="jikes.class.path" value=":/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/alt-rt.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/alt-string.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/charsets.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/classes.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/dt.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jce.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jconsole.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/jsse.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/management-agent.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/../Classes/ui.jar" />
+          <property name="eclipse.pdebuild.templates" value="/C:/Program Files/eclipse/plugins/org.eclipse.pde.build_3.8.1.v20120725-202643/templates/" />
 
-          <property name="sun.management.compiler" value="HotSpot 64-Bit Server Compiler" />
+          <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers" />
 
-          <property name="os.name" value="Mac OS X" />
+          <property name="os.name" value="Windows 7" />
 
-          <property name="sun.boot.class.path" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsfd.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/classes.jar:/System/Library/Frameworks/JavaVM.framework/Frameworks/JavaRuntimeSupport.framework/Resources/Java/JavaRuntimeSupport.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/ui.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/laf.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/sunrsasign.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsse.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jce.jar:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/charsets.jar" />
+          <property name="sun.boot.class.path" value="C:\Program Files\Java\jre7\lib\resources.jar;C:\Program Files\Java\jre7\lib\rt.jar;C:\Program Files\Java\jre7\lib\sunrsasign.jar;C:\Program Files\Java\jre7\lib\jsse.jar;C:\Program Files\Java\jre7\lib\jce.jar;C:\Program Files\Java\jre7\lib\charsets.jar;C:\Program Files\Java\jre7\lib\jfr.jar;C:\Program Files\Java\jre7\classes" />
 
-          <property name="java.vm.specification.vendor" value="Sun Microsystems Inc." />
+          <property name="sun.desktop" value="windows" />
 
-          <property name="ant.home" value="/usr/share/ant" />
+          <property name="java.vm.specification.vendor" value="Oracle Corporation" />
 
-          <property name="java.runtime.version" value="1.6.0_24-b07-334" />
+          <property name="ant.home" value="C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730" />
 
-          <property name="user.name" value="aono_taketoshi" />
+          <property name="java.runtime.version" value="1.7.0_09-b05" />
 
-          <property name="awt.nativeDoubleBuffering" value="true" />
+          <property name="user.name" value="brn" />
 
-          <property name="build.dir" value="/Users/aono_taketoshi/github/closure-compiler/build" />
+          <property name="build.dir" value="C:\Users\brn\github\closure-compiler/build" />
 
           <property name="user.language" value="ja" />
 
-          <property name="sun.boot.library.path" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Libraries" />
+          <property name="sun.boot.library.path" value="C:\Program Files\Java\jre7\bin" />
 
           <property name="ant.project.default-target" value="all" />
 
@@ -248,129 +250,131 @@ Most likely a Node has been created with settings the source file and line/colum
 
           <property name="ant.project.name" value="closure-compiler" />
 
-          <property name="java.version" value="1.6.0_24" />
+          <property name="java.version" value="1.7.0_09" />
 
           <property name="user.timezone" value="" />
 
           <property name="sun.arch.data.model" value="64" />
 
-          <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+          <property name="java.endorsed.dirs" value="C:\Program Files\Java\jre7\lib\endorsed" />
 
-          <property name="java.endorsed.dirs" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/lib/endorsed" />
+          <property name="sun.cpu.isalist" value="amd64" />
 
-          <property name="sun.cpu.isalist" value="" />
-
-          <property name="sun.jnu.encoding" value="SJIS" />
+          <property name="sun.jnu.encoding" value="MS932" />
 
           <property name="file.encoding.pkg" value="sun.io" />
 
-          <property name="file.separator" value="/" />
+          <property name="file.separator" value="\" />
 
           <property name="java.specification.name" value="Java Platform API Specification" />
 
-          <property name="classes.dir" value="/Users/aono_taketoshi/github/closure-compiler/build/classes" />
+          <property name="classes.dir" value="C:\Users\brn\github\closure-compiler/build/classes" />
 
-          <property name="java.class.version" value="50.0" />
+          <property name="java.class.version" value="51.0" />
 
-          <property name="testClasses.dir" value="/Users/aono_taketoshi/github/closure-compiler/build/testClasses" />
+          <property name="testClasses.dir" value="C:\Users\brn\github\closure-compiler/build/testClasses" />
 
           <property name="user.country" value="JP" />
 
-          <property name="java.home" value="/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home" />
+          <property name="java.home" value="C:\Program Files\Java\jre7" />
 
           <property name="java.vm.info" value="mixed mode" />
 
-          <property name="ant.file" value="/Users/aono_taketoshi/github/closure-compiler/build.xml" />
+          <property name="ant.file" value="C:\Users\brn\github\closure-compiler\build.xml" />
 
-          <property name="os.version" value="10.6.7" />
+          <property name="os.version" value="6.1" />
 
-          <property name="path.separator" value=":" />
+          <property name="path.separator" value=";" />
 
-          <property name="java.vm.version" value="19.1-b02-334" />
+          <property name="java.vm.version" value="23.5-b02" />
 
-          <property name="ant.library.dir" value="/usr/share/ant/lib" />
+          <property name="user.variant" value="" />
 
-          <property name="java.awt.printerjob" value="apple.awt.CPrinterJob" />
+          <property name="ant.library.dir" value="C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib" />
+
+          <property name="java.awt.printerjob" value="sun.awt.windows.WPrinterJob" />
 
           <property name="sun.io.unicode.encoding" value="UnicodeLittle" />
 
           <property name="test.fork" value="true" />
 
-          <property name="awt.toolkit" value="apple.awt.CToolkit" />
+          <property name="awt.toolkit" value="sun.awt.windows.WToolkit" />
 
-          <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+          <property name="user.script" value="" />
 
-          <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16" />
+          <property name="eclipse.pdebuild.scripts" value="/C:/Program Files/eclipse/plugins/org.eclipse.pde.build_3.8.1.v20120725-202643/scripts/" />
 
-          <property name="user.home" value="/Users/aono_taketoshi" />
+          <property name="user.home" value="C:\Users\brn" />
 
-          <property name="java.specification.vendor" value="Sun Microsystems Inc." />
+          <property name="java.specification.vendor" value="Oracle Corporation" />
 
-          <property name="test.dir" value="/Users/aono_taketoshi/github/closure-compiler/test" />
+          <property name="test.dir" value="C:\Users\brn\github\closure-compiler/test" />
 
-          <property name="java.library.path" value=".:/Users/aono_taketoshi/Library/Java/Extensions:/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java" />
+          <property name="java.library.path" value="C:\Program Files\Java\jre7\bin;C:\Windows\Sun\Java\bin;C:\Windows\system32;C:\Windows;C:\Program Files\Common Files\Microsoft Shared\Windows Live;C:\Program Files (x86)\AMD APP\bin\x86_64;C:\Program Files (x86)\AMD APP\bin\x86;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program Files (x86)\ATI Technologies\ATI.ACE\Core-Static;C:\Program Files\Microsoft Windows Performance Toolkit\;C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Common7\IDE;C:\Python27;C:\Program Files\TortoiseSVN\bin;C:\Program Files\SlikSvn\bin;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC;C:\Program Files (x86)\boost\boost_1_47;C:\Program Files (x86)\Gauche\bin;C:\Program Files (x86)\Gauche\bin;C:\Program Files (x86)\Git\bin;C:\Python27\Scripts;C:\Program Files (x86)\nodejs\C:\Program Files\Java\jre7\bin;C:\Program Files (x86)\nodejs;C:\Users\brn\AppData\Roaming\npm\node_modules;C:\Program Files (x86)\phantomjs-1.8.1-windows\phantomjs-1.8.1-windows;C:\Program Files\Java\jre7\bin;C:\Program Files (x86)\apache-ant-1.8.4\bin;C:\Program Files\Java\jdk1.7.0_09\bin;C:\Ruby193\bin;C:\Program Files (x86)\Core Services\IETester;C:\Program Files (x86)\gnupack_basic-10.02\app\emacs\emacs\bin;C:\Program Files (x86)\GnuWin32\bin;C:\Program Files\Common Files\Microsoft Shared\Windows Live;C:\Users\brn\AppData\Roaming\npm\;C:\Program Files (x86)\MacType;." />
 
-          <property name="java.vendor.url" value="http://www.apple.com/" />
+          <property name="java.vendor.url" value="http://java.oracle.com/" />
 
-          <property name="java.vm.vendor" value="Apple Inc." />
-
-          <property name="gopherProxySet" value="false" />
+          <property name="java.vm.vendor" value="Oracle Corporation" />
 
           <property name="java.runtime.name" value="Java(TM) SE Runtime Environment" />
 
-          <property name="java.class.path" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/test:/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/compiler.jar:/Users/aono_taketoshi/github/closure-compiler/build/testClasses:/usr/share/java/ant-1.8.2/lib/ant-launcher.jar:/usr/share/ant/lib/ant.jar:/usr/share/ant/lib/ant-junit.jar:/usr/share/ant/lib/ant-junit4.jar" />
+          <property name="sun.java.command" value="org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner testsfile=C:\Users\brn\github\closure-compiler\junittestcases8002203223474973156.properties filtertrace=true haltOnError=false haltOnFailure=false formatter=org.apache.tools.ant.taskdefs.optional.junit.SummaryJUnitResultFormatter showoutput=true outputtoformatters=true logfailedtests=true logtestlistenerevents=false formatter=org.apache.tools.ant.taskdefs.optional.junit.BriefJUnitResultFormatter formatter=org.apache.tools.ant.taskdefs.optional.junit.XMLJUnitResultFormatter,C:\Users\brn\github\closure-compiler\build\testoutput\IGNORETHIS.xml crashfile=C:\Users\brn\github\closure-compiler\junitvmwatcher6060629991902663588.properties propsfile=C:\Users\brn\github\closure-compiler\junit4798090205392059393.properties" />
 
-          <property name="ant.version" value="Apache Ant(TM) version 1.8.2 compiled on March 4 2011" />
+          <property name="java.class.path" value="C:\Users\brn\github\closure-compiler\build\classes;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\build\test;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\ant-launcher.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\ant.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\args4j.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\caja-r4314.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\guava.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\jarjar.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\json.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\jsr305.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\junit.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\lib\protobuf-java.jar;C:\Users\brn\github\closure-compiler\lib\google-closure-compiler\build\compiler.jar;C:\Users\brn\github\closure-compiler\build\testClasses;C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant-launcher.jar;C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant.jar;C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant-junit.jar;C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant-junit4.jar" />
+
+          <property name="ant.version" value="Apache Ant(TM) version 1.8.3 compiled on February 26 2012" />
 
           <property name="test.class" value="*Test" />
 
           <property name="java.vm.specification.name" value="Java Virtual Machine Specification" />
 
-          <property name="ant.file.type" value="file" />
-
-          <property name="java.vm.specification.version" value="1.0" />
+          <property name="java.vm.specification.version" value="1.7" />
 
           <property name="sun.cpu.endian" value="little" />
 
-          <property name="sun.os.patch.level" value="unknown" />
+          <property name="sun.os.patch.level" value="Service Pack 1" />
 
-          <property name="java.io.tmpdir" value="/var/folders/Aj/AjTM-FN0HB0nsoRQzKLkq++++TU/-Tmp-/" />
+          <property name="eclipse.pdebuild.home" value="/C:/Program Files/eclipse/plugins/org.eclipse.pde.build_3.8.1.v20120725-202643/./" />
 
-          <property name="java.vendor.url.bug" value="http://bugreport.apple.com/" />
+          <property name="java.io.tmpdir" value="C:\Users\brn\AppData\Local\Temp\" />
 
-          <property name="os.arch" value="x86_64" />
+          <property name="java.vendor.url.bug" value="http://bugreport.sun.com/bugreport/" />
 
-          <property name="java.awt.graphicsenv" value="apple.awt.CGraphicsEnvironment" />
+          <property name="os.arch" value="amd64" />
 
-          <property name="java.ext.dirs" value="/Users/aono_taketoshi/Library/Java/Extensions:/Library/Java/Extensions:/System/Library/Java/Extensions:/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/lib/ext" />
+          <property name="java.awt.graphicsenv" value="sun.awt.Win32GraphicsEnvironment" />
 
-          <property name="mrj.version" value="1060.1.6.0_24-334" />
+          <property name="java.ext.dirs" value="C:\Program Files\Java\jre7\lib\ext;C:\Windows\Sun\Java\lib\ext" />
 
-          <property name="user.dir" value="/Users/aono_taketoshi/github/closure-compiler" />
+          <property name="user.dir" value="C:\Users\brn\github\closure-compiler" />
 
-          <property name="line.separator" value="&#xa;" />
+          <property name="line.separator" value="&#xd;&#xa;" />
+
+          <property name="compiler.classes.dir" value="C:\Users\brn\github\closure-compiler/lib/google-closure-compiler/build/classes" />
 
           <property name="java.vm.name" value="Java HotSpot(TM) 64-Bit Server VM" />
 
-          <property name="basedir" value="/Users/aono_taketoshi/github/closure-compiler" />
+          <property name="basedir" value="C:\Users\brn\github\closure-compiler" />
 
-          <property name="closure-compiler.jar" value="/Users/aono_taketoshi/github/closure-compiler/lib/google-closure-compiler/build/compiler.jar" />
+          <property name="closure-compiler.jar" value="C:\Users\brn\github\closure-compiler/lib/google-closure-compiler/build/compiler.jar" />
 
-          <property name="ant.java.version" value="1.6" />
+          <property name="ant.java.version" value="1.7" />
 
-          <property name="ant.core.lib" value="/usr/share/ant/lib/ant.jar" />
+          <property name="ant.core.lib" value="C:\Program Files\eclipse\plugins\org.apache.ant_1.8.3.v20120321-1730\lib\ant.jar" />
 
-          <property name="file.encoding" value="SJIS" />
+          <property name="file.encoding" value="MS932" />
 
-          <property name="java.specification.version" value="1.6" />
+          <property name="java.specification.version" value="1.7" />
 
-          <property name="src.dir" value="/Users/aono_taketoshi/github/closure-compiler/src" />
+          <property name="src.dir" value="C:\Users\brn\github\closure-compiler/src" />
 
           <property name="ant.project.invoked-targets" value="all" />
 
+          <property name="compiler.test.classes.dir" value="C:\Users\brn\github\closure-compiler/lib/google-closure-compiler/build/test" />
+
       </properties>
 
-      <testcase classname="com.google.javascript.jscomp.ScopedAliases2Test" name="testOneLevel" time="0.028" />
+      <testcase classname="com.google.javascript.jscomp.ScopedAliases2Test" name="testOneLevel" time="0.017" />
 
       <system-out><![CDATA[]]></system-out>
 
