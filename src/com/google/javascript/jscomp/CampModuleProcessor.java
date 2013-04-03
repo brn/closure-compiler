@@ -1,13 +1,12 @@
 package com.google.javascript.jscomp;
 
-import java.util.Collections;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.List;
 
 import com.google.javascript.jscomp.AbstractCompiler;
-import com.google.javascript.jscomp.CompilerPass;
 import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.NodeTraversal.AbstractScopedCallback;
@@ -24,7 +23,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-public final class CampModuleProcessor implements CompilerPass {
+public final class CampModuleProcessor implements HotSwapCompilerPass {
 
   static final DiagnosticType MESSAGE_MAIN_NOT_FUNCTION = DiagnosticType.error(
       "JSC_MSG_MODULE_EXPORTS_Main must be a function.",
@@ -34,11 +33,16 @@ public final class CampModuleProcessor implements CompilerPass {
       "JSC_MSG_MAIN_ALREADY_FOUNDED.",
       "The function main allowed only one declaration per file. First defined {0}");
 
-  static final DiagnosticType MESSAGE_MODULE_CAN_NOT_ACCESS = DiagnosticType.error(
-      "JSC_MSG_MODULE_CAN_NOT_ACCESS.",
-      "The function camp.module can not use as the function object and can not access to method itself.\n"
+  static final DiagnosticType MESSAGE_MODULE_NOT_ALLOWED_IN_CLOSURE = DiagnosticType.error(
+      "JSC_MSG_MODULE_NOT_ALLOWED_IN_CLOSURE.",
+      "The function 'camp.module' is only allowed in global scope.");
+
+  static final DiagnosticType MESSAGE_METHOD_CAN_NOT_ACCESS = DiagnosticType
+      .error(
+          "JSC_MSG_MODULE_CAN_NOT_ACCESS.",
+          "The function {0} can not use as the function object and can not access to method itself.\n"
               + "This function only virtual method because it's inlined by compiler.");
-  
+
   static final DiagnosticType MESSAGE_MODULE_FIRST_ARGUMENT_NOT_VALID = DiagnosticType.error(
       "JSC_MSG_MODULE_FIRST_ARGUMENT_NOT_VALID.",
       "The first argument of the camp.module must be a string expression of a module name.");
@@ -51,12 +55,21 @@ public final class CampModuleProcessor implements CompilerPass {
   static final DiagnosticType MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_NAME = DiagnosticType.error(
       "JSC_MSG_EXPORTS_ALIAS_ONLY_ALLOWED_NAME",
       "Assignment of exports must be a simple variable name or immediate value.");
+  
+  static final DiagnosticType MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_IN_MODULE = DiagnosticType.error(
+      "JSC_MSG_EXPORTS_ALIAS_ONLY_ALLOWED_IN_MODULE",
+      "Assignment of exports must be a simple variable which declared in 'camp.module'.");
 
   static final DiagnosticType MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_ONCE = DiagnosticType.error(
       "JSC_MSG_EXPORTS_ALIAS_ONLY_ALLOWED_ONCE", "Assignment of exports only allowed once.");
 
   static final DiagnosticType MESSAGE_ILLEGAL_USING_CALL = DiagnosticType.error(
       "JSC_MSG_ILLEGAL_USING_CALL.", "Illegal camp.using call.");
+
+  static final DiagnosticType MESSAGE_ILLEGAL_EXPORTS_USE = DiagnosticType
+      .error(
+          "JSC_MSG_ILLEGAL_EXPORTS_USE.",
+          "In the function 'camp.module', the variable 'exports' is treated as keywords by compiler. So should not using as normal variable.");
 
   private final AbstractCompiler compiler;
 
@@ -79,7 +92,12 @@ public final class CampModuleProcessor implements CompilerPass {
     this.compiler = compiler;
   }
 
-
+  @Override
+  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
+    this.compiler.process(this);
+  }
+  
+  
   private final class ExportsAliasInfo {
     private String className;
 
@@ -143,25 +161,25 @@ public final class CampModuleProcessor implements CompilerPass {
           if (className != null) {
             Node nameNode = NodeUtil.newQualifiedNameNode(convention, className);
             if (parent.isAssign()) {
-              
+
               parent.replaceChild(n, nameNode);
-              
+
             } else if (parent.isVar()) {
-              
+
               Node newChild = new Node(Token.EXPR_RESULT, new Node(Token.ASSIGN, nameNode, n
                   .getFirstChild().cloneTree()));
               parent.getParent().replaceChild(parent, newChild);
               newChild.copyInformationFromForTree(parent);
               newChild.getFirstChild().setJSDocInfo(parent.getJSDocInfo());
-              
+
             } else if (parent.isFunction()) {
-              
+
               Node assignNode = new Node(Token.ASSIGN, nameNode, parent.cloneTree());
-              Node newChild = NodeUtil.newExpr(assignNode);              
+              Node newChild = NodeUtil.newExpr(assignNode);
               parent.getParent().replaceChild(parent, newChild);
               newChild.copyInformationFromForTree(parent);
               assignNode.setJSDocInfo(parent.getJSDocInfo());
-              
+
             } else {
               n.getParent().replaceChild(n, nameNode);
             }
@@ -267,6 +285,21 @@ public final class CampModuleProcessor implements CompilerPass {
      * @return 正否
      */
     private boolean checkModuleCallIsValid(Node n, NodeTraversal t) {
+      if (!n.getParent().isExprResult()) {
+        t.report(n, MESSAGE_MODULE_NOT_ALLOWED_IN_CLOSURE);
+        return false;
+      }
+      
+      Node parent = n.getParent().getParent();
+      
+      while (parent != null) {
+        if (!NodeUtil.isStatementBlock(parent)) {
+          t.report(n, MESSAGE_MODULE_NOT_ALLOWED_IN_CLOSURE);
+          return false;
+        }
+        parent = parent.getParent();
+      }
+      
       Node firstArg = n.getFirstChild().getNext();
       if (firstArg != null && firstArg.getType() == Token.STRING) {
         Node secondArg = firstArg.getNext();
@@ -297,102 +330,56 @@ public final class CampModuleProcessor implements CompilerPass {
      * @param moduleCalls
      * @param usingCalls
      */
-    private void collectModuleAndUsing(Node n, NodeTraversal t, List<Node> moduleCalls,
-        List<Node> usingCalls, Map<String, Node> aliasMap, CampModuleTransformInfo campModuleTransformInfo) {
+    private void collectModuleAndUsing(Node n, NodeTraversal t, List<Node> exportsList,
+        List<Node> moduleCalls,
+        List<Node> usingCalls, Map<String, Node> aliasMap,
+        CampModuleTransformInfo campModuleTransformInfo) {
       Node firstChild = n.getFirstChild();
       if (firstChild.getType() == Token.GETPROP) {
         if (firstChild.getFirstChild().getType() == Token.NAME) {
           String fnName = firstChild.getQualifiedName();
           if (fnName.equals(CAMP_MODULE_CALL)) {
             if (checkModuleCallIsValid(n, t)) {
+              Node closure = n.getLastChild();
+              Node param = NodeUtil.getFunctionParameters(closure);
+
+              NodeTraversal.traverseRoots(compiler, Lists.newArrayList(closure),
+                  new ExportsCollectCallback(param.getFirstChild(), exportsList));
+
               moduleCalls.add(n);
-              campModuleTransformInfo.setModuleId(firstChild.getNext().getString().replaceAll("\\.", "_"));
+              campModuleTransformInfo.setModuleId(firstChild.getNext().getString()
+                  .replaceAll("\\.", "_"));
             }
           } else if (fnName.equals(CAMP_USING_CALL)) {
-            Node maybeNameNode = n.getParent();
-            Node call = n;
-            if (maybeNameNode.isGetProp() || maybeNameNode.isGetElem()) {
-              Node tmp = maybeNameNode.getParent();
-              while (tmp.isGetElem() || tmp.isGetProp()) {
-                tmp = tmp.getParent();
-              }
-
-              if (!tmp.isName()) {
-                return;
-              }
-              maybeNameNode = tmp;
-              n = maybeNameNode.getFirstChild();
-            }
-            usingCalls.add(call);
-            // var Baz = camp.using('foo.bar.Baz');
-            // 変数に束縛されているusing宣言を記録
-            if (maybeNameNode.isName()) {
-              Node maybeVar = maybeNameNode.getParent();
-              if (maybeVar.isVar()) {
-                aliasMap.put(maybeNameNode.getString(), n);
-              }
-            }
+            processUsing(n, usingCalls, aliasMap);
           }
         }
       }
     }
 
 
-    /**
-     * <code>exports.~</code> のノードをリストにまとめる。
-     * 
-     * @param n
-     * @param t
-     * @param exportsList
-     * @return
-     */
-    private void collectMainAndExports(Node n, NodeTraversal t, List<Node> exportsList) {
-      if (n.getType() == Token.GETPROP || n.getType() == Token.GETELEM) {
-        Node firstChild = n.getFirstChild();
-        if (firstChild.getType() == Token.NAME) {
-          String propName = firstChild.getString();
-          if (propName.equals(EXPORTS)) {
-            if (firstChild.getNext().getString().equals("main")) {
-              if (n.getNext().getType() != Token.FUNCTION) {
-                t.report(n, MESSAGE_MAIN_NOT_FUNCTION, "");
-              }
-              if (isMainAlreadyFounded) {
-                t.report(n, MESSAGE_MAIN_ALREADY_FOUNDED, firstDefined);
-              }
-              isMainAlreadyFounded = true;
-              firstDefined = n.getSourceFileName() + " : " + n.getLineno();
-              exportsList.add(n);
-            } else if (n.getParent().isAssign() && n.getNext() != null) {
-              Node next = n.getNext();
-              if (next.isName() && !Strings.isNullOrEmpty(next.getString())) {
-                Var var = t.getScope().getVar(n.getNext().getString());
-                if (var != null) {
-                  Node initial = var.getInitialValue();
-                  if (initial != null && !initial.getParent().isParamList()) {
-                    if (exportsAliasMap.containsKey(var.getName())) {
-                      t.report(n, MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_ONCE);
-                    }
-                    ExportsAliasInfo exportsAliasInfo = new ExportsAliasInfo(n.getQualifiedName(),
-                        initial, n.getParent());
-                    exportsAliasMap.put(var.getName(), exportsAliasInfo);
-                    while (!NodeUtil.isStatement(n)) {
-                      n = n.getParent();
-                    }
-                    n.detachFromParent();
-                  }
-                } else {
-                  t.report(n, MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_NAME);
-                }
-              } else if (next.isGetElem() || next.isGetProp()) {
-                t.report(n, MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_NAME);
-              } else {
-                exportsList.add(n);
-              }
-            } else {
-              exportsList.add(n);
-            }
+    private void processUsing(Node n, List<Node> usingCalls, Map<String, Node> aliasMap) {
+      Node maybeNameNode = n.getParent();
+      Node call = n;
+      if (NodeUtil.isGet(maybeNameNode)) {
+        Node tmp = maybeNameNode.getParent();
+        while (NodeUtil.isGet(tmp)) {
+          tmp = tmp.getParent();
+        }
 
-          }
+        if (!tmp.isName()) {
+          return;
+        }
+        maybeNameNode = tmp;
+        n = maybeNameNode.getFirstChild();
+      }
+      usingCalls.add(call);
+      // var Baz = camp.using('foo.bar.Baz');
+      // 変数に束縛されているusing宣言を記録
+      if (maybeNameNode.isName()) {
+        Node maybeVar = maybeNameNode.getParent();
+        if (maybeVar.isVar()) {
+          aliasMap.put(maybeNameNode.getString(), n);
         }
       }
     }
@@ -414,14 +401,121 @@ public final class CampModuleProcessor implements CompilerPass {
       Map<String, Node> aliasMap = campModuleTransformInfo.getAliasMap();
 
       if (n.getType() == Token.CALL) {
-        collectModuleAndUsing(n, t, moduleCalls, usingCalls, aliasMap, campModuleTransformInfo);
+        collectModuleAndUsing(n, t, exportsList, moduleCalls, usingCalls, aliasMap,
+            campModuleTransformInfo);
       } else if (n.isGetProp() &&
           !parent.isCall() &&
           n.getQualifiedName() != null &&
-          n.getQualifiedName().equals(CAMP_MODULE_CALL)) {
-        t.report(n, MESSAGE_MODULE_CAN_NOT_ACCESS);
-      } else {
-        collectMainAndExports(n, t, exportsList);
+          (n.getQualifiedName().equals(CAMP_MODULE_CALL) ||
+          n.getQualifiedName().equals(CAMP_USING_CALL))) {
+        if (!n.getParent().isAssign() || !n.getParent().getFirstChild().equals(n)) {
+          t.report(n, MESSAGE_METHOD_CAN_NOT_ACCESS, n.getQualifiedName());
+        }
+      }
+    }
+
+
+    private final class ExportsCollectCallback extends AbstractPostOrderCallback {
+      private List<Node> exportsList;
+
+      private Node exports;
+
+
+      public ExportsCollectCallback(Node exports, List<Node> exportsList) {
+        this.exportsList = exportsList;
+        this.exports = exports;
+      }
+
+
+      public void visit(NodeTraversal t, Node n, Node parent) {
+        if (NodeUtil.isGet(n)) {
+          this.collectMainAndExports(n, t);
+        }
+      }
+
+
+      /**
+       * <code>exports.~</code> のノードをリストにまとめる。
+       * 
+       * @param n
+       * @param t
+       * @param exportsList
+       * @return
+       */
+      private void collectMainAndExports(Node n, NodeTraversal t) {
+        Node firstChild = n.getFirstChild();
+        if (firstChild.getType() == Token.NAME) {
+          String propName = firstChild.getString();
+          if (propName.equals(EXPORTS)) {
+            this.checkExportsUsage(t, propName);
+            if (firstChild.getNext().getString().equals("main")) {
+              this.processMain(n, t);
+            } else if (n.getParent().isAssign() && n.getNext() != null) {
+              this.processExports(n, t);
+            } else {
+              exportsList.add(n);
+            }
+
+          }
+        }
+      }
+
+
+      private void processExports(Node n, NodeTraversal t) {
+        Node next = n.getNext();
+        if (next.isName() && !Strings.isNullOrEmpty(next.getString())) {
+          Var var = t.getScope().getVar(n.getNext().getString());
+          if (var != null) {
+            Node initial = var.getInitialValue();
+            if (initial != null && !initial.getParent().isParamList()) {
+              if (exportsAliasMap.containsKey(var.getName())) {
+                t.report(n, MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_ONCE);
+              }
+              ExportsAliasInfo exportsAliasInfo = new ExportsAliasInfo(
+                  n.getQualifiedName(),
+                  initial, n.getParent());
+              exportsAliasMap.put(var.getName(), exportsAliasInfo);
+              while (!NodeUtil.isStatement(n)) {
+                n = n.getParent();
+              }
+              n.detachFromParent();
+            }
+          } else {
+            t.report(n, MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_IN_MODULE);
+          }
+        } else if (next.isGetElem() || next.isGetProp()) {
+          t.report(n, MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_NAME);
+        } else {
+          exportsList.add(n);
+        }
+      }
+
+
+      private void processMain(Node n, NodeTraversal t) {
+        if (n.getNext().getType() != Token.FUNCTION) {
+          t.report(n, MESSAGE_MAIN_NOT_FUNCTION, "");
+        }
+        if (isMainAlreadyFounded) {
+          t.report(n, MESSAGE_MAIN_ALREADY_FOUNDED, firstDefined);
+        }
+        isMainAlreadyFounded = true;
+        firstDefined = n.getSourceFileName() + " : " + n.getLineno();
+        exportsList.add(n);
+      }
+
+
+      private void checkExportsUsage(NodeTraversal t, String exports) {
+        Scope scope = t.getScope();
+        Var var = scope.getVar(exports);
+        if (var != null) {
+          Node nameNode = var.getNameNode();
+          if (nameNode != null) {
+            Node parent = nameNode.getParent();
+            if (!parent.isParamList() || !nameNode.equals(this.exports)) {
+              t.report(nameNode, MESSAGE_ILLEGAL_EXPORTS_USE);
+            }
+          }
+        }
       }
     }
   }
@@ -430,6 +524,7 @@ public final class CampModuleProcessor implements CompilerPass {
   private class AliasResolver extends AbstractScopedCallback {
 
     private int scopeDepth = 0;
+
 
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
@@ -447,7 +542,7 @@ public final class CampModuleProcessor implements CompilerPass {
             jsDocInfo, scope, this.scopeDepth, campModuleTransformInfo.getModuleId());
         jsdocInfoList.add(jsDocAndScopeInfo);
       }
-      
+
       if (isRewritableNode(n)) {
         String name = n.getString();
         if (isAlias(name, scope, campModuleTransformInfo, this.scopeDepth)) {
@@ -928,8 +1023,5 @@ public final class CampModuleProcessor implements CompilerPass {
       }
     }
     compiler.reportCodeChange();
-
-    CampInjectionProcessor campInjectionProcessor = new CampInjectionProcessor(this.compiler);
-    campInjectionProcessor.process(externs, root);
   }
 }

@@ -28,6 +28,11 @@ public class CampCommandLineRunner extends CommandLineRunner {
     return options;
   }
 
+  @Override
+  protected Compiler createCompiler() {
+    return new CampCompiler(getErrorPrintStream());
+  }
+  
   /** Runs the Compiler */
   public static void main(String[] args) {
     CampCommandLineRunner runner = new CampCommandLineRunner(args);

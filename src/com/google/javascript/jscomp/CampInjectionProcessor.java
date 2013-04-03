@@ -9,10 +9,11 @@ import com.google.javascript.rhino.Token;
  * 
  * @author brn
  */
-public class CampInjectionProcessor {
+public class CampInjectionProcessor implements HotSwapCompilerPass {
 
   private AbstractCompiler compiler;
   
+  @Override
   public void process(Node extern, Node root) {
     CampInjectionInfoCollector campInjectionInfoCollector = new CampInjectionInfoCollector(compiler);
     campInjectionInfoCollector.collectInfo(root);
@@ -20,6 +21,11 @@ public class CampInjectionProcessor {
     new CampInjectionRewriter(compiler).rewrite();
   }
 
+  @Override
+  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
+    this.compiler.process(this);
+
+  }
 
   public CampInjectionProcessor(AbstractCompiler compiler) {
     this.compiler = compiler;

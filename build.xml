@@ -67,7 +67,6 @@
 						</classpath>
 						<batchtest todir="build/testoutput">
 								<formatter type="brief" usefile="false" />
-								<formatter type="xml" />
 								<fileset dir="${testClasses.dir}">
 										<include name="**/${test.class}.class" />
 								</fileset>
