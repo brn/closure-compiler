@@ -50,6 +50,28 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   }
 
 
+  public void testLvalueAccessOfCampModule() {
+    test(
+        module(
+        "camp.module = {};"
+        ),
+        code(
+        "camp.module = {}"
+        ));
+  }
+
+
+  public void testLvalueAccessOfCampUsing() {
+    test(
+        module(
+        "camp.using = {};"
+        ),
+        code(
+        "camp.using = {}"
+        ));
+  }
+
+
   public void testSimpleAlias() {
     test(
         module(
@@ -121,15 +143,15 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         module(
             "exports.Test1 = function(){};",
             "exports.Test1.prototype.test = function(){};",
-            "function Test2(){};",
+            "function Test2(){}",
             "Test2.prototype.test = function(){};"
         ),
         code(
             "goog.provide('test.foo.bar.baz.Test1');",
-            "test.foo.bar.baz.Test1 = function(){};",
+            "test.foo.bar.baz.Test1 = function(){}",
             "test.foo.bar.baz.Test1.prototype.test = function(){};",
-            "function test_foo_bar_baz_Test2(){};",
-            "test_foo_bar_baz_Test2.prototype.test = function(){};"
+            "function test_foo_bar_baz_0_Test2(){}",
+            "test_foo_bar_baz_0_Test2.prototype.test = function(){};"
         ));
   }
 
@@ -143,8 +165,9 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         ),
         code(
             "goog.provide('test.foo.bar.baz.Test');",
-            "test.foo.bar.baz.Test = function Test(){};",
-            "test.foo.bar.baz.Test.prototype.test = function(){};"
+            "function test_foo_bar_baz_0_Test(){}",
+            "test_foo_bar_baz_0_Test.prototype.test = function(){};",
+            "test.foo.bar.baz.Test = test_foo_bar_baz_0_Test"
         ));
   }
 
@@ -160,10 +183,11 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         ),
         code(
             "goog.provide('test.foo.bar.baz.Test');",
-            "function test_foo_bar_baz_Test1(){}",
-            "test_foo_bar_baz_Test1.prototype.test = function(){};",
-            "test.foo.bar.baz.Test = function Test2(){};",
-            "test.foo.bar.baz.Test.prototype.test = function(){};"
+            "function test_foo_bar_baz_0_Test1(){}",
+            "test_foo_bar_baz_0_Test1.prototype.test = function(){};",
+            "function test_foo_bar_baz_0_Test2(){}",
+            "test_foo_bar_baz_0_Test2.prototype.test = function(){};",
+            "test.foo.bar.baz.Test = test_foo_bar_baz_0_Test2"
         ));
   }
 
@@ -179,12 +203,53 @@ public class CampModuleProcessorTest extends CompilerTestCase {
                 "exports.Test = Test2;"
             ),
         code(
-            "goog.provide('test.foo.bar.baz.Test');",
             "function Test2(){}",
-            "function test_foo_bar_baz_Test1(){}",
-            "test_foo_bar_baz_Test1.prototype.test = function(){};",
-            "test.foo.bar.baz.Test = function Test2(){};",
-            "test.foo.bar.baz.Test.prototype.test = function(){};"
+            "goog.provide('test.foo.bar.baz.Test');",
+            "function test_foo_bar_baz_0_Test1(){}",
+            "test_foo_bar_baz_0_Test1.prototype.test = function(){};",
+            "function test_foo_bar_baz_0_Test2(){}",
+            "test_foo_bar_baz_0_Test2.prototype.test = function(){};",
+            "test.foo.bar.baz.Test = test_foo_bar_baz_0_Test2;"
+        ));
+  }
+
+
+  public void testExportsMain() {
+    test(
+        module(
+        "exports.main = function(){};"
+        ),
+        code(
+        "(function(){})();"
+        ));
+  }
+
+
+  public void testExportsMainVariable() {
+    test(
+        module(
+            "var hoge = function(){};",
+            "exports.main = hoge"
+        ),
+        code(
+            "var test_foo_bar_baz_0_hoge = function(){};",
+            "test_foo_bar_baz_0_hoge();"
+        ));
+  }
+
+
+  public void testExportsMainLocation() {
+    test(
+        module(
+            "var hoge = function(){};",
+            "exports.main = hoge;",
+            "exports.Test = function(){}"
+        ),
+        code(
+            "goog.provide('test.foo.bar.baz.Test');",
+            "var test_foo_bar_baz_0_hoge = function(){};",
+            "test.foo.bar.baz.Test = function(){};",
+            "test_foo_bar_baz_0_hoge();"
         ));
   }
 
@@ -208,6 +273,72 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         )
     };
     test(modules, expected);
+  }
+
+
+  public void testNoAliasUsingCall() {
+    test(
+        module(
+            "camp.using('test.foo.Using');",
+            "exports.A = function(){};"
+        ),
+        code(
+            "goog.provide('test.foo.bar.baz.A');",
+            "goog.require('test.foo.Using');",
+            "test.foo.bar.baz.A = function(){};"
+        ));
+  }
+
+
+  public void testUsingStatic() {
+    test(
+        module(
+            "var utils = camp.using('test.foo.Using').utils",
+            "utils.foo();"
+        ),
+        code(
+            "goog.require('test.foo.Using');",
+            "test.foo.Using.utils.foo();"
+        ));
+  }
+
+
+  public void testUsingStatic2Level() {
+    test(
+        module(
+            "var b = camp.using('test.foo.Using').a.b",
+            "b.foo();"
+        ),
+        code(
+            "goog.require('test.foo.Using');",
+            "test.foo.Using.a.b.foo();"
+        ));
+  }
+
+
+  public void testUsingStaticGetElem() {
+    test(
+        module(
+            "var a = camp.using('test.foo.Using')['a']",
+            "a.foo();"
+        ),
+        code(
+            "goog.require('test.foo.Using');",
+            "test.foo.Using['a'].foo();"
+        ));
+  }
+
+
+  public void testUsingStaticGetElem2Level() {
+    test(
+        module(
+            "var b = camp.using('test.foo.Using')['a']['b']",
+            "b.foo();"
+        ),
+        code(
+            "goog.require('test.foo.Using');",
+            "test.foo.Using['a']['b'].foo();"
+        ));
   }
 
 
@@ -239,12 +370,14 @@ public class CampModuleProcessorTest extends CompilerTestCase {
     testTypes(
         module(
             "exports.Test = function(){};",
-            String.format("/**@%s {%s} actual*/", tag, actual),
-            String.format("/**@%s {%s} expected*/", tag, expected)
+            String.format("/**@%s {%s} actual*/ var a = 0;", tag, actual),
+            String.format("/**@%s {%s} expected*/ var b = 0;", tag, expected)
         ),
         code(
             "goog.provide('test.foo.bar.baz.Test');",
-            "test.foo.bar.baz.Test = function(){};"
+            "test.foo.bar.baz.Test = function(){};",
+            "var test_foo_bar_baz_0_a = 0;",
+            "var test_foo_bar_baz_0_b = 0;"
         ));
   }
 
@@ -264,22 +397,25 @@ public class CampModuleProcessorTest extends CompilerTestCase {
     testTypes(
         module(
             "var Test = camp.using('test.foo.bar.baz.Test');",
-            String.format("/**@%s {%s} actual*/", tag, actual),
-            String.format("/**@%s {%s} expected*/", tag, expected)
+            String.format("/**@%s {%s} actual*/ var a = 0;", tag, actual),
+            String.format("/**@%s {%s} expected*/ var b = 0;", tag, expected)
         ),
         code(
-        "goog.require('test.foo.bar.baz.Test');"
+        "goog.require('test.foo.bar.baz.Test');",
+        "var test_foo_bar_baz_0_a = 0;",
+        "var test_foo_bar_baz_0_b = 0;"
         ));
   }
 
 
   private void testTypeForLocal(String tag) {
-    testTypeForLocal(tag, "Test", "test_foo_bar_baz_Test");
+    testTypeForLocal(tag, "Test", "test_foo_bar_baz_0_Test");
   }
 
 
   private void testTypeForLocal(String tag, String type) {
-    testTypeForLocal(tag, String.format(type, "Test"), String.format(type, "test_foo_bar_baz_Test"));
+    testTypeForLocal(tag, String.format(type, "Test"),
+        String.format(type, "test_foo_bar_baz_0_Test"));
   }
 
 
@@ -287,11 +423,13 @@ public class CampModuleProcessorTest extends CompilerTestCase {
     testTypes(
         module(
             "var Test = function(){}",
-            String.format("/**@%s {%s} actual*/", tag, actual),
-            String.format("/**@%s {%s} expected*/", tag, expected)
+            String.format("/**@%s {%s} actual*/ var a = 0;", tag, actual),
+            String.format("/**@%s {%s} expected*/ var b = 0;", tag, expected)
         ),
         code(
-        "var test_foo_bar_baz_Test = function(){};"
+        "var test_foo_bar_baz_0_Test = function(){};",
+        "var test_foo_bar_baz_0_a = 0;",
+        "var test_foo_bar_baz_0_b = 0;"
         ));
   }
 
@@ -357,12 +495,12 @@ public class CampModuleProcessorTest extends CompilerTestCase {
 
 
   public void testArrayType() {
-    testTypeForExports("type", "Array<%s>");
+    testTypeForExports("type", "Array.<%s>");
   }
 
 
   public void testObjectType() {
-    testTypeForExports("type", "Object<string, %s>");
+    testTypeForExports("type", "Object.<string, %s>");
   }
 
 
@@ -572,51 +710,80 @@ public class CampModuleProcessorTest extends CompilerTestCase {
 
 
   public void testModuleFirstArguments() {
-    testFailure("camp.module();", CampModuleProcessor.MESSAGE_MODULE_FIRST_ARGUMENT_NOT_VALID);
+    testFailure("camp.module();", CampModuleInfoCollector.MESSAGE_MODULE_FIRST_ARGUMENT_NOT_VALID);
   }
 
 
   public void testModuleSecondArguments() {
     testFailure("camp.module('test.test');",
-        CampModuleProcessor.MESSAGE_MODULE_SECOND_ARGUMENT_NOT_VALID);
+        CampModuleInfoCollector.MESSAGE_MODULE_SECOND_ARGUMENT_NOT_VALID);
   }
 
 
   public void testModuleClosureArguments() {
     testFailure("camp.module('test.test', function(){});",
-        CampModuleProcessor.MESSAGE_MODULE_SECOND_ARGUMENT_NOT_VALID);
+        CampModuleInfoCollector.MESSAGE_MODULE_SECOND_ARGUMENT_NOT_VALID);
   }
 
 
-  public void testModuleClosureArgumentsNotExports() {
-    testFailure("camp.module('test.test', function(hoge){});",
-        CampModuleProcessor.MESSAGE_MODULE_SECOND_ARGUMENT_NOT_VALID);
+  public void testModuleClosureArgumentsSize() {
+    testFailure("camp.module('test.test', function(a,b){});",
+        CampModuleInfoCollector.MESSAGE_MODULE_SECOND_ARGUMENT_NOT_VALID);
   }
 
 
   public void testModuleAccess() {
-    testFailure("var hoge = camp.module", CampModuleProcessor.MESSAGE_METHOD_CAN_NOT_ACCESS);
+    testFailure("var hoge = camp.module", CampModuleInfoCollector.MESSAGE_INVALID_ACCESS_TO_ENTITY);
   }
-  
-  
+
+
   public void testUsingAccess() {
-    testFailure("var hoge = camp.using", CampModuleProcessor.MESSAGE_METHOD_CAN_NOT_ACCESS);
+    testFailure("var hoge = camp.using", CampModuleInfoCollector.MESSAGE_INVALID_ACCESS_TO_ENTITY);
   }
 
 
-  public void testExternalLocalToExportsAlias() {
-    testFailure(
-        "function Test2(){}" +
-            module("exports.Test = Test2;"),
-        CampModuleProcessor.MESSAGE_EXPORTS_ALIAS_ONLY_ALLOWED_IN_MODULE);
+  public void testMainDuplicate() {
+    testFailure(module("exports.main = function(){};exports.main = function(){};"),
+        CampModuleInfoCollector.MESSAGE_MAIN_ALREADY_FOUNDED);
   }
-  
-  
+
+
   public void testModuleInClosure() {
     testFailure(
         "(function(){" +
             module("exports.Test = Test2;") + ";})();",
-        CampModuleProcessor.MESSAGE_MODULE_NOT_ALLOWED_IN_CLOSURE);
+        CampModuleInfoCollector.MESSAGE_MODULE_NOT_ALLOWED_IN_CLOSURE);
+  }
+
+
+  public void testUsingOutsideOfModule() {
+    testFailure("camp.using('test.foo.bar.baz.Test');",
+        CampModuleInfoCollector.MESSAGE_INVALID_USE_OF_USING);
+  }
+
+
+  public void testStaticUsingCall() {
+    testFailure(
+        module("var a = camp.using('test.Using').a()"),
+        CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
+  }
+  
+  public void testStaticUsingCallNotAlias() {
+    testFailure(
+        module("camp.using('test.Using').a()"),
+        CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
+  }
+  
+  public void testUsingDirectCall() {
+    testFailure(
+        module("var Using = camp.using('test.Using')()"),
+        CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
+  }
+  
+  public void testUsingDirectCallNotAlias() {
+    testFailure(
+        module("camp.using('test.Using')()"),
+        CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
 
 
