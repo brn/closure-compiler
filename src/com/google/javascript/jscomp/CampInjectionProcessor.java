@@ -15,10 +15,9 @@ public class CampInjectionProcessor implements HotSwapCompilerPass {
   
   @Override
   public void process(Node extern, Node root) {
-    CampInjectionInfoCollector campInjectionInfoCollector = new CampInjectionInfoCollector(compiler);
-    campInjectionInfoCollector.collectInfo(root);
-    campInjectionInfoCollector.integrateInfo();
-    new CampInjectionRewriter(compiler).rewrite();
+    CampInjectionInfo  campInjectionInfo = new CampInjectionInfo();
+    new CampInjectionInfoCollector(compiler, campInjectionInfo).collectInfo(root);
+    new CampInjectionRewriter(compiler, campInjectionInfo).rewrite();
   }
 
   @Override

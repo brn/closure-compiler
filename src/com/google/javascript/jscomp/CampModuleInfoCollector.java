@@ -6,7 +6,9 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.javascript.jscomp.CampModuleTransformInfo.LocalAliasInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo.ModuleInfo;
+import com.google.javascript.jscomp.CampModuleTransformInfo.TypeInfo;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.Scope.Var;
 import com.google.javascript.rhino.JSDocInfo;
@@ -154,12 +156,18 @@ final class CampModuleInfoCollector {
 
     private VariableProcessor variableProcessor;
 
+    private TypeInfoProcessor typeInfoProcessor;
+
+    private LocalAliasProcessor localAliasProcessor;
+
 
     public MarkerProcessorFactory(ModuleInfo moduleInfo) {
       this.moduleInfo = moduleInfo;
       this.usingMarkerProcessor = new UsingMarkerProcessor(moduleInfo);
       this.exportsMarkerProcessor = new ExportsMarkerProcessor(moduleInfo);
       this.variableProcessor = new VariableProcessor(moduleInfo);
+      this.typeInfoProcessor = new TypeInfoProcessor(moduleInfo);
+      this.localAliasProcessor = new LocalAliasProcessor(moduleInfo);
     }
 
 
@@ -190,6 +198,13 @@ final class CampModuleInfoCollector {
             return this.variableProcessor;
           }
         }
+      } else if (n.isFunction()) {
+        JSDocInfo info = NodeUtil.getBestJSDocInfo(n);
+        if (info != null && info.isConstructor()) {
+          return this.typeInfoProcessor;
+        }
+      } else if (n.isAssign() || n.isVar()) {
+        return this.localAliasProcessor;
       }
       return null;
     }
@@ -207,6 +222,7 @@ final class CampModuleInfoCollector {
     }
 
 
+    @Override
     public void processMarker(NodeTraversal t, Node n, Node parent) {
       Node stringNode = n.getFirstChild().getNext();
       if (stringNode == null ||
@@ -252,23 +268,12 @@ final class CampModuleInfoCollector {
     }
 
 
+    @Override
     public void processMarker(NodeTraversal t, Node n, Node parent) {
-      Node tmp = parent;
-      while (NodeUtil.isGet(tmp)) {
-        tmp = tmp.getParent();
-      }
-
-      if (NodeUtil.isGet(tmp.getFirstChild())) {
-        tmp = tmp.getFirstChild();
-      }
-
-      String qualifiedName = tmp.getQualifiedName();
-      String mainQualifiedName = moduleInfo.getNamespaceReferenceArgument().getString() + "."
-          + "main";
-      if (qualifiedName.equals(mainQualifiedName)) {
-        tmp = tmp.getParent();
-        if (tmp.isAssign() && tmp.getParent().isExprResult()) {
-          Node rvalue = tmp.getLastChild();
+      if (parent.isGetProp() && n.getNext().getString().equals("main")) {
+        Node maybeAssign = parent.getParent();
+        if (NodeUtil.isExprAssign(maybeAssign.getParent())) {
+          Node rvalue = maybeAssign.getLastChild();
           if (moduleInfo.getMain() == null) {
             if (rvalue.isName() || rvalue.isFunction() || NodeUtil.isGet(rvalue)) {
               moduleInfo.setMain(rvalue);
@@ -280,10 +285,82 @@ final class CampModuleInfoCollector {
                 String.valueOf(moduleInfo.getMain().getSourcePosition()));
           }
         } else {
-          t.report(tmp, MESSAGE_MAIN_ONLY_ALLOWED_IN_ASSIGNMENT);
+          t.report(parent, MESSAGE_MAIN_ONLY_ALLOWED_IN_ASSIGNMENT);
         }
-      } else if (!this.moduleInfo.hasExports(tmp)) {
-        this.moduleInfo.addExports(tmp);
+      } else if (!this.moduleInfo.hasExports(n)) {
+        this.moduleInfo.addExports(n);
+      }
+    }
+  }
+
+
+  private final class LocalAliasProcessor implements MarkerProcessor {
+    private ModuleInfo moduleInfo;
+
+
+    public LocalAliasProcessor(ModuleInfo moduleInfo) {
+      this.moduleInfo = moduleInfo;
+    }
+
+
+    @Override
+    public void processMarker(NodeTraversal t, Node n, Node parent) {
+      if (t.getScopeDepth() == 2) {
+        
+        Node lvalue = n.getFirstChild();
+        
+        if (n.isAssign()) {          
+          Node rvalue = lvalue.getNext();
+
+          if (rvalue.isName() || NodeUtil.isGet(rvalue)) {
+            addLocalAliasInfo(n, lvalue, rvalue);
+          }
+        } else if (n.isVar()) {
+          Node rvalue = lvalue.getFirstChild();
+
+          if (rvalue != null && (rvalue.isName() || NodeUtil.isGet(rvalue))) {
+            addLocalAliasInfo(n, lvalue, rvalue);
+          }
+        }
+      }
+    }
+
+
+    private void addLocalAliasInfo(Node n, Node lvalue, Node rvalue) {
+      LocalAliasInfo localAliasInfo = new LocalAliasInfo(n, lvalue.getQualifiedName(),
+          rvalue.getQualifiedName());
+      moduleInfo.addLocalAliasInfo(localAliasInfo);
+    }
+  }
+
+
+  private final class TypeInfoProcessor implements MarkerProcessor {
+    private ModuleInfo moduleInfo;
+
+
+    public TypeInfoProcessor(ModuleInfo moduleInfo) {
+      this.moduleInfo = moduleInfo;
+    }
+
+
+    @Override
+    public void processMarker(NodeTraversal t, Node n, Node parent) {
+      JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(n);
+      TypeInfo typeInfo = null;
+      if (NodeUtil.isFunctionDeclaration(n)) {
+        String name = n.getFirstChild().getString();
+        typeInfo = new TypeInfo(name, n, jsDocInfo);
+      } else {
+        if (parent.isAssign()) {
+          String name = parent.getFirstChild().getQualifiedName();
+          typeInfo = new TypeInfo(name, n, jsDocInfo);
+        } else if (NodeUtil.isVarDeclaration(parent)) {
+          typeInfo = new TypeInfo(parent.getString(), n, jsDocInfo);
+        }
+      }
+
+      if (typeInfo != null) {
+        moduleInfo.setTypeInfo(typeInfo);
       }
     }
   }
@@ -298,6 +375,7 @@ final class CampModuleInfoCollector {
     }
 
 
+    @Override
     public void processMarker(NodeTraversal t, Node n, Node parent) {
       String varName = n.getString();
       boolean isAlias = isAliasVar(t, varName);
@@ -495,10 +573,10 @@ final class CampModuleInfoCollector {
       }
       Var var = scope.getVar(type);
       if (var != null && isAliasVar(t, var.getName())) {
-        if (!moduleInfo.hasExportedType(typeNode)) {
+        if (!moduleInfo.hasAliasType(typeNode)) {
           moduleInfo.addAliasType(typeNode);
         }
-      } else {
+      } else if (var != null) {
         processLocalType(typeNode, type, scope, var);
       }
     }
@@ -538,6 +616,7 @@ final class CampModuleInfoCollector {
     private MarkerProcessorFactory markerProcessorFactory;
 
     private JSDocInfoCollector jsDocInfoCollector;
+
 
     public ModuleVisitor(ModuleInfo moduleInfo) {
       this.markerProcessorFactory = new MarkerProcessorFactory(moduleInfo);

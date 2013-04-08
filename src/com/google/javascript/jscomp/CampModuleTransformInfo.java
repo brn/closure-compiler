@@ -7,6 +7,7 @@ import java.util.Set;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 
 final class CampModuleTransformInfo {
@@ -44,7 +45,7 @@ final class CampModuleTransformInfo {
   }
 
 
-  private static final class VarRenamePair {
+  static final class VarRenamePair {
     private Node baseDeclaration;
 
     private Node targetNode;
@@ -66,7 +67,65 @@ final class CampModuleTransformInfo {
     }
   }
 
+  static final class TypeInfo {
+    private String name;
+    private Node constructor;
+    private JSDocInfo jsDocInfo;
+    
+    public TypeInfo(String name, Node constructor, JSDocInfo jsDocInfo) {
+      this.name = name;
+      this.constructor = constructor;
+      this.jsDocInfo = jsDocInfo;
+    }
+    
+    public String getName() {
+      return this.name;
+    }
+    
+    public Node getConstructorNode() {
+      return this.constructor;
+    }
+    
+    public JSDocInfo getJSDocInfo() {
+      return this.jsDocInfo;
+    }
+  }
 
+  static final class LocalAliasInfo {
+    private Node node;
+    private String lvalue;
+    private String rvalue;
+    
+    public LocalAliasInfo(Node node, String lvalue, String rvalue) {
+      this.node = node;
+      this.lvalue = lvalue;
+      this.rvalue = rvalue;
+    }
+
+    /**
+     * @return the node
+     */
+    public Node getNode() {
+      return node;
+    }
+
+    /**
+     * @return the lvalue
+     */
+    public String getLvalue() {
+      return lvalue;
+    }
+
+    /**
+     * @return the rvalue
+     */
+    public String getRvalue() {
+      return rvalue;
+    }
+    
+    
+  }
+  
   final class ModuleInfo {
     private Node moduleCallNode;
 
@@ -97,7 +156,10 @@ final class CampModuleTransformInfo {
     private List<Node> aliasVarList = Lists.newArrayList();
 
     private Set<Node> localTypeSet = Sets.newHashSet();
+    
+    private Map<String, TypeInfo> typeMap = Maps.newHashMap();
 
+    private List<LocalAliasInfo> localAliasInfoList = Lists.newArrayList();
 
     private ModuleInfo(String moduleName, String moduleId, Node moduleCallNode, Node nra) {
       this.moduleCallNode = moduleCallNode;
@@ -199,6 +261,11 @@ final class CampModuleTransformInfo {
     }
 
 
+    public boolean hasAliasType(Node aliasType) {
+      return this.aliasTypeSet.contains(aliasType);
+    }
+
+
     public Set<Node> getAliasTypeSet() {
       return this.aliasTypeSet;
     }
@@ -256,6 +323,22 @@ final class CampModuleTransformInfo {
 
     public boolean isRenameVarBaseDeclaration(Node base) {
       return this.renameVarBaseDeclaration.contains(base);
+    }
+    
+    public TypeInfo getTypeInfo(String name) {
+      return this.typeMap.get(name);
+    }
+    
+    public void setTypeInfo(TypeInfo typeInfo) {
+      this.typeMap.put(typeInfo.getName(), typeInfo);
+    }
+    
+    public void addLocalAliasInfo(LocalAliasInfo localAliasInfo) {
+      this.localAliasInfoList.add(localAliasInfo);
+    }
+    
+    public List<LocalAliasInfo> getLocalAliasInfoList() {
+      return this.localAliasInfoList;
     }
   }
 }

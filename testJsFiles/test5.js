@@ -1,24 +1,12 @@
-var goog = {
-      provide : function(name) {
-        document.write(name);
-      }
-    };
-goog.provide("goog.hoge.hoge.Hoge");
+camp.module("camp.foo.bar", function (exports) {
+  var Module = camp.using('camp.injections.Module');
 
-/**
- * @constructor
- */
-function Hoge() {
-  this.node = document.getElementById('id');
-}
+  /**
+   * @constructor
+   * @implements {Module}
+   */
+  exports.Module = function(){}
+  exports.Module.prototype.configure = function() {
 
-Hoge.prototype.setValue = function(value) {
-  this.node.innerHTML = value;
-};
-
-goog.hoge.hoge.Hoge = Hoge;
-
-(function() {
-  var item = new goog.hoge.hoge.Hoge();
-  item.setValue('hoge');
-})();
+  };
+});

@@ -30,24 +30,6 @@ final class CampInjectionInfo {
 
   private Map<String, List<String>> setterMap = Maps.newHashMap();
 
-  private static CampInjectionInfo instance = null;
-
-
-  private CampInjectionInfo() {
-  }
-
-
-  public static CampInjectionInfo getInstance() {
-    if (instance == null) {
-      synchronized (CampInjectionInfo.class) {
-        if (instance == null) {
-          instance = new CampInjectionInfo();
-        }
-      }
-    }
-    return instance;
-  }
-
 
   /**
    * @return the prototypeInfoMap

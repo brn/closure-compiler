@@ -18,72 +18,93 @@ import com.google.javascript.rhino.Token;
 
 final class CampInjectionInfoCollector {
 
-  private static final DiagnosticType MESSAGE_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID = DiagnosticType
+  static final DiagnosticType MESSAGE_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID = DiagnosticType
       .error(
           "JSC_MSG_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID.",
           "The first argument of camp.injections.modules.init must be a Array of camp.dependecies.Module implementation.");
 
-  private static final DiagnosticType MESSAGE_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_EMPTY = DiagnosticType
+  static final DiagnosticType MESSAGE_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_EMPTY = DiagnosticType
       .warning(
           "JSC_MSG_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_EMPTY.",
           "The first argument of camp.injections.modules.init is empty.");
 
-  private static final DiagnosticType MESSAGE_SECOND_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID = DiagnosticType
+  static final DiagnosticType MESSAGE_SECOND_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID = DiagnosticType
       .error(
           "JSC_MSG_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID.",
           "The second argument of camp.injections.modules.init must be a function expression.");
 
-  private static final DiagnosticType MESSAGE_FIRST_ARGUMENT_OF_INJECT_IS_INVALID = DiagnosticType
+  static final DiagnosticType MESSAGE_FIRST_ARGUMENT_OF_INJECT_IS_INVALID = DiagnosticType
       .error(
           "JSC_MSG_FIRST_ARGUMENT_OF_INJECT_IS_INVALID.",
           "The first argument of camp.injections.Injector.inject must be a constructor function.");
 
-  private static final DiagnosticType MESSAGE_SECOND_ARGUMENT_OF_INJECT_IS_INVALID = DiagnosticType
+  static final DiagnosticType MESSAGE_SECOND_ARGUMENT_OF_INJECT_IS_INVALID = DiagnosticType
       .error(
           "JSC_MSG_SECOND_ARGUMENT_OF_INJECT_IS_INVALID.",
           "The second argument and rest of camp.injections.Injector.inject must be a string expression which is method name of injection target.");
 
   private AbstractCompiler compiler;
 
-  private CampInjectionInfo campInjectionInfo = CampInjectionInfo.getInstance();
+  private CampInjectionInfo campInjectionInfo;
 
 
-  public CampInjectionInfoCollector(AbstractCompiler compiler) {
+  public CampInjectionInfoCollector(AbstractCompiler compiler, CampInjectionInfo campInjectionInfo) {
     this.compiler = compiler;
+    this.campInjectionInfo = campInjectionInfo;
   }
 
 
   private interface MarkerProcessor {
-    public void processMarker();
+    public void processMarker(NodeTraversal t, Node n, Node parent);
   }
 
 
   private final class MarkerProcessorFactory {
-    public MarkerProcessor create(NodeTraversal t, Node n) {
+    private PrototypeMarkerProcessor prototypeMarkerProcessor;
+
+    private ModuleOrConstructorMarkerProcessor moduleOrConstructorMarkerProcessor;
+
+    private ModuleInitializerMarkerProcessor moduleInitializerProcessor;
+
+    private SingletonMarkerProcessor singletonMarkerProcessor;
+
+    private InjectMarkerProcessor injectionMarkerProcessor;
+
+
+    public MarkerProcessorFactory() {
+      this.prototypeMarkerProcessor = new PrototypeMarkerProcessor();
+      this.moduleOrConstructorMarkerProcessor = new ModuleOrConstructorMarkerProcessor();
+      this.moduleInitializerProcessor = new ModuleInitializerMarkerProcessor();
+      this.singletonMarkerProcessor = new SingletonMarkerProcessor();
+      this.injectionMarkerProcessor = new InjectMarkerProcessor();
+    }
+
+
+    public MarkerProcessor getProperMarkerProcessor(NodeTraversal t, Node n) {
       if (n.isAssign()) {
         if (n.getFirstChild().isGetProp()) {
           String qualifiedName = n.getFirstChild().getQualifiedName();
           if (qualifiedName != null) {
             if (qualifiedName.indexOf("." + CampInjectionConsts.PROTOTYPE) > -1) {
-              return new PrototypeMarkerProcessor(t, n);
+              return this.prototypeMarkerProcessor;
             }
           }
         }
       } else if (n.isFunction()) {
         JSDocInfo info = NodeUtil.getBestJSDocInfo(n);
         if (info != null && info.isConstructor()) {
-          return new ModuleOrConstructorMarkerProcessor(t, n);
+          return this.moduleOrConstructorMarkerProcessor;
         }
       } else if (n.isCall()) {
         if (n.getFirstChild().isGetProp()) {
           String qualifiedName = n.getFirstChild().getQualifiedName();
           if (qualifiedName != null) {
             if (qualifiedName.equals(CampInjectionConsts.MODULE_INIT_CALL)) {
-              return new ModuleInitializerMarkerProcessor(t, n);
+              return this.moduleInitializerProcessor;
             } else if (qualifiedName.equals(CampInjectionConsts.SINGLETON_CALL)) {
-              return new SingletonMarkerProcessor(t, n);
+              return this.singletonMarkerProcessor;
             } else if (qualifiedName.equals(CampInjectionConsts.INJECT_CALL)) {
-              return new InjectMarkerProcessor(t, n);
+              return this.injectionMarkerProcessor;
             }
           }
         }
@@ -94,25 +115,18 @@ final class CampInjectionInfoCollector {
 
 
   private final class ModuleOrConstructorMarkerProcessor implements MarkerProcessor {
-    private Node node;
 
-
-    public ModuleOrConstructorMarkerProcessor(NodeTraversal t, Node n) {
-      this.node = n;
-    }
-
-
-    public void processMarker() {
-      if (this.isModule()) {
-        this.processModule();
+    public void processMarker(NodeTraversal t, Node n, Node parent) {
+      if (this.isModule(n)) {
+        this.processModule(t, n);
       } else {
-        this.processConstructor();
+        this.processConstructor(t, n);
       }
     }
 
 
-    private boolean isModule() {
-      JSDocInfo info = NodeUtil.getBestJSDocInfo(this.node);
+    private boolean isModule(Node n) {
+      JSDocInfo info = NodeUtil.getBestJSDocInfo(n);
       if (info != null && info.isConstructor() && info.getImplementedInterfaceCount() > 0) {
         List<JSTypeExpression> typeList = info.getImplementedInterfaces();
         for (JSTypeExpression jsType : typeList) {
@@ -130,15 +144,15 @@ final class CampInjectionInfoCollector {
     }
 
 
-    private void processModule() {
-      Node parent = this.node.getParent();
+    private void processModule(NodeTraversal t, Node n) {
+      Node parent = n.getParent();
       ModuleInfo moduleInfo = null;
       if (parent.isAssign()) {
         moduleInfo = new ModuleInfo();
         moduleInfo.setModuleName(parent.getFirstChild().getQualifiedName());
-      } else if (NodeUtil.isFunctionDeclaration(this.node)) {
+      } else if (NodeUtil.isFunctionDeclaration(n)) {
         moduleInfo = new ModuleInfo();
-        moduleInfo.setModuleName(this.node.getFirstChild().getString());
+        moduleInfo.setModuleName(n.getFirstChild().getString());
       } else if (NodeUtil.isVarDeclaration(parent)) {
         moduleInfo = new ModuleInfo();
         moduleInfo.setModuleName(parent.getString());
@@ -149,13 +163,13 @@ final class CampInjectionInfoCollector {
     }
 
 
-    private void processConstructor() {
+    private void processConstructor(NodeTraversal t, Node n) {
       ClassInfo classInfo = null;
-      if (NodeUtil.isFunctionDeclaration(this.node)) {
-        String name = this.node.getFirstChild().getString();
+      if (NodeUtil.isFunctionDeclaration(n)) {
+        String name = n.getFirstChild().getString();
         classInfo = new ClassInfo(name);
       } else {
-        Node parent = this.node.getParent();
+        Node parent = n.getParent();
         if (parent.isAssign()) {
           String name = parent.getFirstChild().getQualifiedName();
           classInfo = new ClassInfo(name);
@@ -165,9 +179,9 @@ final class CampInjectionInfoCollector {
       }
 
       if (classInfo != null) {
-        Node paramList = this.node.getFirstChild().getNext();
-        classInfo.setJSDocInfo(NodeUtil.getBestJSDocInfo(this.node));
-        classInfo.setConstructorNode(this.node);
+        Node paramList = n.getFirstChild().getNext();
+        classInfo.setJSDocInfo(NodeUtil.getBestJSDocInfo(n));
+        classInfo.setConstructorNode(n);
         for (Node param : paramList.children()) {
           classInfo.addParam(param.getString());
         }
@@ -178,19 +192,8 @@ final class CampInjectionInfoCollector {
 
 
   private final class ModuleInitializerMarkerProcessor implements MarkerProcessor {
-    private Node node;
-
-    private NodeTraversal nodeTraversal;
-
-
-    public ModuleInitializerMarkerProcessor(NodeTraversal t, Node n) {
-      this.node = n;
-      this.nodeTraversal = t;
-    }
-
-
-    public void processMarker() {
-      Node maybeConfig = this.node.getFirstChild().getNext();
+    public void processMarker(NodeTraversal t, Node n, Node parent) {
+      Node maybeConfig = n.getFirstChild().getNext();
 
       if (maybeConfig != null) {
         List<String> moduleList = Lists.newArrayList();
@@ -204,7 +207,7 @@ final class CampInjectionInfoCollector {
           }
 
           if (moduleList.isEmpty()) {
-            this.nodeTraversal.report(this.node,
+            t.report(n,
                 MESSAGE_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_EMPTY);
           }
 
@@ -216,16 +219,16 @@ final class CampInjectionInfoCollector {
             moduleInitializerInfo.setModuleInitCall(closure);
             campInjectionInfo.addModuleInitInfo(moduleInitializerInfo);
           } else {
-            this.nodeTraversal.report(this.node,
+            t.report(n,
                 MESSAGE_SECOND_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID);
           }
 
         } else {
-          this.nodeTraversal.report(this.node,
+          t.report(n,
               MESSAGE_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID);
         }
       } else {
-        this.nodeTraversal.report(this.node,
+        t.report(n,
             MESSAGE_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID);
       }
     }
@@ -233,19 +236,8 @@ final class CampInjectionInfoCollector {
 
 
   private final class InjectMarkerProcessor implements MarkerProcessor {
-    private Node node;
-
-    private NodeTraversal nodeTraversal;
-
-
-    public InjectMarkerProcessor(NodeTraversal t, Node n) {
-      this.node = n;
-      this.nodeTraversal = t;
-    }
-
-
-    public void processMarker() {
-      Node classNameNode = this.node.getFirstChild().getNext();
+    public void processMarker(NodeTraversal t, Node n, Node parent) {
+      Node classNameNode = n.getFirstChild().getNext();
       String setterName = this.getSetterName(classNameNode.getNext());
       String className = this.getClassName(classNameNode);
       if (className != null && setterName != null) {
@@ -260,13 +252,13 @@ final class CampInjectionInfoCollector {
             break;
           }
         }
-        CampInjectionProcessor.detachStatement(this.node);
+        CampInjectionProcessor.detachStatement(n);
       } else {
         if (className == null) {
-          this.nodeTraversal.report(this.node, MESSAGE_FIRST_ARGUMENT_OF_INJECT_IS_INVALID);
+          t.report(n, MESSAGE_FIRST_ARGUMENT_OF_INJECT_IS_INVALID);
         }
         if (setterName == null) {
-          this.nodeTraversal.report(this.node, MESSAGE_SECOND_ARGUMENT_OF_INJECT_IS_INVALID);
+          t.report(n, MESSAGE_SECOND_ARGUMENT_OF_INJECT_IS_INVALID);
         }
       }
     }
@@ -296,20 +288,12 @@ final class CampInjectionInfoCollector {
 
 
   private final class SingletonMarkerProcessor implements MarkerProcessor {
-    private Node node;
-
-
-    public SingletonMarkerProcessor(NodeTraversal t, Node n) {
-      this.node = n;
-    }
-
-
-    public void processMarker() {
-      Node arg = this.node.getFirstChild().getNext();
+    public void processMarker(NodeTraversal t, Node n, Node parent) {
+      Node arg = n.getFirstChild().getNext();
       if (arg != null) {
         String qualifiedName = arg.getQualifiedName();
         if (qualifiedName != null) {
-          campInjectionInfo.putSingleton(qualifiedName, this.node);
+          campInjectionInfo.putSingleton(qualifiedName, n);
         }
       }
     }
@@ -317,16 +301,8 @@ final class CampInjectionInfoCollector {
 
 
   private final class PrototypeMarkerProcessor implements MarkerProcessor {
-    private Node node;
-
-
-    public PrototypeMarkerProcessor(NodeTraversal t, Node n) {
-      this.node = n;
-    }
-
-
-    public void processMarker() {
-      Node lvalue = this.node.getFirstChild();
+    public void processMarker(NodeTraversal t, Node n, Node parent) {
+      Node lvalue = n.getFirstChild();
       Node rvalue = lvalue.getNext();
       if ((lvalue.isGetProp() || lvalue.isGetElem())) {
         this.collectPrototype(lvalue, rvalue);
@@ -487,11 +463,68 @@ final class CampInjectionInfoCollector {
 
   public void collectInfo(Node root) {
     NodeTraversal.traverse(compiler, root, new CollectCallback());
+    new InformationIntegrator().integrate();
+    NodeTraversal.traverse(compiler, root, new InjectionAliasFinder());
   }
 
 
-  public void integrateInfo() {
-    new InformationIntegrator().integrate();
+  private final class InjectionAliasFinder extends AbstractPostOrderCallback {
+    @Override
+    public void visit(NodeTraversal t, Node n, Node parent) {
+      switch (n.getType()) {
+      case Token.ASSIGN:
+        this.checkAssignment(t, n);
+        break;
+
+      case Token.VAR:
+        this.checkVar(t, n);
+      }
+    }
+
+
+    private void checkAssignment(NodeTraversal t, Node n) {
+      Node child = n.getFirstChild();
+      String qualifiedName = child.getQualifiedName();
+
+      if (qualifiedName != null) {
+
+        Node rvalue = child.getNext();
+        if (NodeUtil.isGet(rvalue) || rvalue.isName()) {
+          String name = rvalue.getQualifiedName();
+          ClassInfo info = campInjectionInfo.getClassInfo(name);
+          if (info != null) {
+            this.createAliasClassInfoFrom(info, qualifiedName);
+          }
+        }
+      }
+    }
+
+
+    private void createAliasClassInfoFrom(ClassInfo info, String name) {
+      if (campInjectionInfo.getClassInfo(name) == null) {
+        ClassInfo aliasInfo = new ClassInfo(name);
+        campInjectionInfo.putClassInfo(aliasInfo);
+        aliasInfo.setConstructorNode(info.getConstructorNode());
+        aliasInfo.setPrototypeInfoMap(info.getPrototypeInfoMap());
+        aliasInfo.setProviderNode(info.getProviderNode());
+        aliasInfo.setJSDocInfo(info.getJSDocInfo());
+        aliasInfo.setSetterList(info.getSetterList());
+        aliasInfo.setSingletonCallNode(info.getSingletonCallNode());
+      }
+    }
+
+
+    private void checkVar(NodeTraversal t, Node n) {
+      Node nameNode = n.getFirstChild();
+      Node rvalue = nameNode.getFirstChild();
+      if (rvalue != null && (rvalue.isName() || NodeUtil.isGet(rvalue))) {
+        String name = rvalue.getQualifiedName();
+        ClassInfo info = campInjectionInfo.getClassInfo(name);
+        if (info != null) {
+          this.createAliasClassInfoFrom(info, nameNode.getString());
+        }
+      }
+    }
   }
 
 
@@ -502,9 +535,9 @@ final class CampInjectionInfoCollector {
 
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
-      MarkerProcessor markerProcessor = factory.create(t, n);
+      MarkerProcessor markerProcessor = factory.getProperMarkerProcessor(t, n);
       if (markerProcessor != null) {
-        markerProcessor.processMarker();
+        markerProcessor.processMarker(t, n, parent);
       }
     }
   }

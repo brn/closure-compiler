@@ -383,12 +383,12 @@ public class CampModuleProcessorTest extends CompilerTestCase {
 
 
   private void testTypeForUsing(String tag) {
-    testTypeForUsing(tag, "exports.Test", "test.foo.bar.baz.Test");
+    testTypeForUsing(tag, "Test", "test.foo.bar.baz.Test");
   }
 
 
   private void testTypeForUsing(String tag, String type) {
-    testTypeForUsing(tag, String.format(type, "exports.Test"),
+    testTypeForUsing(tag, String.format(type, "Test"),
         String.format(type, "test.foo.bar.baz.Test"));
   }
 
