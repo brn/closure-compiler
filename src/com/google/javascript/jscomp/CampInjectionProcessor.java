@@ -1,5 +1,7 @@
 package com.google.javascript.jscomp;
 
+import java.util.List;
+
 import com.google.common.base.Preconditions;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -12,19 +14,22 @@ import com.google.javascript.rhino.Token;
 public class CampInjectionProcessor implements HotSwapCompilerPass {
 
   private AbstractCompiler compiler;
-  
+
+
   @Override
   public void process(Node extern, Node root) {
-    CampInjectionInfo  campInjectionInfo = new CampInjectionInfo();
+    CampInjectionInfo campInjectionInfo = new CampInjectionInfo();
     new CampInjectionInfoCollector(compiler, campInjectionInfo).collectInfo(root);
     new CampInjectionRewriter(compiler, campInjectionInfo).rewrite();
   }
+
 
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     this.compiler.process(this);
 
   }
+
 
   public CampInjectionProcessor(AbstractCompiler compiler) {
     this.compiler = compiler;
@@ -73,7 +78,8 @@ public class CampInjectionProcessor implements HotSwapCompilerPass {
     Preconditions.checkNotNull(newChild);
     child.getParent().replaceChild(child, newChild);
   }
-  
+
+
   static Node newQualifiedNameNode(String name) {
     String[] moduleNames = name.split("\\.");
     Node prop = null;
@@ -85,9 +91,10 @@ public class CampInjectionProcessor implements HotSwapCompilerPass {
       }
     }
     return prop;
-  } 
-  
-   static Node newNameNodeOrKeyWord(String name, boolean isFirst) {
+  }
+
+
+  static Node newNameNodeOrKeyWord(String name, boolean isFirst) {
     if (name.equals("this")) {
       return new Node(Token.THIS);
     } else {
@@ -97,5 +104,38 @@ public class CampInjectionProcessor implements HotSwapCompilerPass {
         return Node.newString(name);
       }
     }
+  }
+
+
+  static Node getStatementTopNode(Node n) {
+    while (n != null) {
+      switch (n.getType()) {
+      case Token.EXPR_RESULT:
+      case Token.VAR:
+      case Token.CONST:
+      case Token.THROW:
+        return n;
+
+      default:
+        if (NodeUtil.isFunctionDeclaration(n)) {
+          return n;
+        }
+        n = n.getParent();
+      }
+    }
+    
+    return null;
+  }
+  
+  static Node newCommaExpression(List<Node> nodeList) {
+    Node comma = null;
+    for (Node node : nodeList) {
+      if (comma == null) {
+        comma = node;
+      } else {
+        comma = new Node(Token.COMMA, comma, node);
+      }
+    }
+    return comma;
   }
 }

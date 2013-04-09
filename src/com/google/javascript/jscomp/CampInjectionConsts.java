@@ -51,4 +51,7 @@ public class CampInjectionConsts {
   static final String SLICE = "Array.prototype.slice.call";
   static final String THIS_REFERENCE = "jscomp$interceptor$this";
   static final String INTERCEPTOR_DEF_SCOPE = "jscomp$intercepto$defScope";
+  static final String ENHANCED_CONSTRUCTOR_FORMAT = "JSComp$enhanced$%s";
+  static final String GOOG_BASE = "goog.base";
+  static final String GOOG_INHERITS = "goog.inherits";
 }

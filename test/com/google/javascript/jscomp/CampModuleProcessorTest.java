@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.google.common.collect.Lists;
 import com.google.javascript.rhino.JSDocInfo;
+import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 
 public class CampModuleProcessorTest extends CompilerTestCase {
@@ -401,9 +402,9 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             String.format("/**@%s {%s} expected*/ var b = 0;", tag, expected)
         ),
         code(
-        "goog.require('test.foo.bar.baz.Test');",
-        "var test_foo_bar_baz_0_a = 0;",
-        "var test_foo_bar_baz_0_b = 0;"
+            "goog.require('test.foo.bar.baz.Test');",
+            "var test_foo_bar_baz_0_a = 0;",
+            "var test_foo_bar_baz_0_b = 0;"
         ));
   }
 
@@ -427,12 +428,23 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             String.format("/**@%s {%s} expected*/ var b = 0;", tag, expected)
         ),
         code(
-        "var test_foo_bar_baz_0_Test = function(){};",
-        "var test_foo_bar_baz_0_a = 0;",
-        "var test_foo_bar_baz_0_b = 0;"
+            "var test_foo_bar_baz_0_Test = function(){};",
+            "var test_foo_bar_baz_0_a = 0;",
+            "var test_foo_bar_baz_0_b = 0;"
         ));
   }
 
+  private void testLocalAliasType(String module, String code) {
+    test(module, code);
+    verifyLocalAliasType();
+  }
+
+
+  private void verifyLocalAliasType() {
+    Compiler lastCompiler = getLastCompiler();
+    new LocalAliasTypeVerifyingPass(lastCompiler).process(lastCompiler.externsRoot,
+        lastCompiler.jsRoot);
+  }
 
   public void testTypeType() {
     testTypeForExports("type");
@@ -703,6 +715,104 @@ public class CampModuleProcessorTest extends CompilerTestCase {
     testTypeForLocal("type", "function():%s");
   }
 
+  public void testSimpleLocalAlias() {
+    testLocalAliasType(
+        module(
+            "/**@constructor*/",
+            "function Type1() {}",
+            "/**@type {function(new:Type1):?}*/",
+            "var expected;",
+            "exports.Type = Type1;"
+            ),
+        code(
+            "goog.provide('test.foo.bar.baz.Type');",
+            "function test_foo_bar_baz_0_Type1() {}",
+            "var test_foo_bar_baz_0_expected;",
+            "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type1;"
+            )
+        );
+  }
+  
+  public void testMultiLevelLocalAlias() {
+    testLocalAliasType(
+        module(
+            "/**@constructor*/",
+            "function Type1() {}",
+            "/**@type {function(new:Type1):?}*/",
+            "var expected;",
+            "var Type2 = Type1;",
+            "/**@type {function(new:Type2):?}*/",
+            "var expected2;",
+            "exports.Type = Type2;"
+            ),
+        code(
+            "goog.provide('test.foo.bar.baz.Type');",
+            "function test_foo_bar_baz_0_Type1() {}",
+            "var test_foo_bar_baz_0_expected;",
+            "var test_foo_bar_baz_0_Type2 = test_foo_bar_baz_0_Type1;",
+            "var test_foo_bar_baz_0_expected2;",
+            "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type2;"
+            )
+        );
+  }
+  
+  public void testMultiLevelLocalAliasAndParamType() {
+    testLocalAliasType(
+        module(
+            "/**",
+            " * @constructor",
+            " * @param {string} a",
+            " * @param {number} b",
+            "*/",
+            "function Type1(a,b) {}",
+            "/**@type {function(new:Type1,string,number):?}*/",
+            "var expected;",
+            "var Type2 = Type1;",
+            "/**@type {function(new:Type2,string,number):?}*/",
+            "var expected2;",
+            "exports.Type = Type2;"
+            ),
+        code(
+            "goog.provide('test.foo.bar.baz.Type');",
+            "function test_foo_bar_baz_0_Type1(a,b) {}",
+            "var test_foo_bar_baz_0_expected;",
+            "var test_foo_bar_baz_0_Type2 = test_foo_bar_baz_0_Type1;",
+            "var test_foo_bar_baz_0_expected2;",
+            "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type2;"
+            )
+        );
+  }
+  
+  public void testMultiLevelLocalAliasUnattachable() {
+    testLocalAliasType(
+        module(
+            "var Xa = camp.using('a.Xa');",
+            "var Ma = Xa;",
+            "/**",
+            " * @constructor",
+            " * @param {string} a",
+            " * @param {number} b",
+            "*/",
+            "function Type1(a,b) {}",
+            "/**@type {function(new:Type1,string,number):?}*/",
+            "var expected;",
+            "var Type2 = Type1;",
+            "/**@type {function(new:Type2,string,number):?}*/",
+            "var expected2;",
+            "exports.Type = Type2;"
+            ),
+        code(
+            "goog.provide('test.foo.bar.baz.Type');",
+            "goog.require('a.Xa')",
+            "var test_foo_bar_baz_0_Ma = a.Xa;",
+            "function test_foo_bar_baz_0_Type1(a,b) {}",
+            "var test_foo_bar_baz_0_expected;",
+            "var test_foo_bar_baz_0_Type2 = test_foo_bar_baz_0_Type1;",
+            "var test_foo_bar_baz_0_expected2;",
+            "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type2;"
+            )
+        );
+  }
 
   private void testFailure(String code, DiagnosticType expectedError) {
     test(code, null, expectedError);
@@ -767,19 +877,22 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         module("var a = camp.using('test.Using').a()"),
         CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
-  
+
+
   public void testStaticUsingCallNotAlias() {
     testFailure(
         module("camp.using('test.Using').a()"),
         CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
-  
+
+
   public void testUsingDirectCall() {
     testFailure(
         module("var Using = camp.using('test.Using')()"),
         CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
-  
+
+
   public void testUsingDirectCallNotAlias() {
     testFailure(
         module("camp.using('test.Using')()"),
@@ -840,6 +953,49 @@ public class CampModuleProcessorTest extends CompilerTestCase {
               actualTypes.add(typeNode);
             }
           }
+        }
+      }
+    }
+  }
+
+
+  private static final class LocalAliasTypeVerifyingPass
+      implements CompilerPass, NodeTraversal.Callback {
+
+    private AbstractCompiler compiler;
+
+    private Node expected;
+
+
+    public LocalAliasTypeVerifyingPass(AbstractCompiler compiler) {
+      this.compiler = compiler;
+    }
+
+
+    @Override
+    public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+      return true;
+    }
+
+
+    @Override
+    public void process(Node externs, Node root) {
+      NodeTraversal.traverse(compiler, root, this);
+    }
+
+
+    @Override
+    public void visit(NodeTraversal t, Node n, Node parent) {
+      JSDocInfo info = n.getJSDocInfo();
+      if (info != null && !info.isConstructor()) {
+        JSTypeExpression type = info.getType();
+        if (this.expected == null) {
+          if (type != null) {
+            this.expected = type.getRoot();
+          }
+        } else {
+          assertNull(this.expected.checkTreeEquals(type.getRoot()));
+          this.expected = null;
         }
       }
     }

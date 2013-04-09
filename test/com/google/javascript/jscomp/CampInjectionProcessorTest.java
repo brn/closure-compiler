@@ -170,12 +170,8 @@ public class CampInjectionProcessorTest extends CompilerTestCase {
             "};",
             "(function(){",
             "  var module = (new Module).configure();",
-            "  var test = function() {",
-            "    var instance = new testNs.foo.bar.Test();",
-            "    instance.setBinding1(module.binding1);",
-            "    instance.setBinding2(module.binding2);",
-            "    return instance;",
-            "  }();",
+            "  var instance$0;",
+            "  var test = (instance$0 = new testNs.foo.bar.Test(), instance$0.setBinding1(module.binding1), instance$0.setBinding2(module.binding2), instance$0);",
             "})();"
         ));
   }

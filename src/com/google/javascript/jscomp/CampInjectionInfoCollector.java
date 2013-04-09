@@ -320,7 +320,6 @@ final class CampInjectionInfoCollector {
           if (rvalue.isFunction() && qualifiedName.matches(CampInjectionConsts.PROTOTYPE_REGEX)) {
             String methodName = NodeUtil.getPrototypePropertyName(lvalue);
             this.addPrototypeMember(className, methodName, rvalue);
-
           } else if (qualifiedName.endsWith("." + CampInjectionConsts.PROTOTYPE)
               && rvalue.isObjectLit()) {
             // foo.prototype = {...
@@ -395,9 +394,8 @@ final class CampInjectionInfoCollector {
 
 
     private void checkBaseType(ClassInfo classInfo) {
-      List<ClassInfo> classInfoList = this.getBaseTypeList(classInfo);
       Map<String, PrototypeInfo> prototypeInfoMap = classInfo.getPrototypeInfoMap();
-      for (ClassInfo baseTypeInfo : classInfoList) {
+      for (ClassInfo baseTypeInfo : this.getBaseTypeList(classInfo)) {
         Map<String, PrototypeInfo> basePrototypeInfoMap = baseTypeInfo.getPrototypeInfoMap();
         for (String baseMethodName : basePrototypeInfoMap.keySet()) {
           if (!prototypeInfoMap.containsKey(baseMethodName)) {
@@ -471,13 +469,15 @@ final class CampInjectionInfoCollector {
   private final class InjectionAliasFinder extends AbstractPostOrderCallback {
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
-      switch (n.getType()) {
-      case Token.ASSIGN:
-        this.checkAssignment(t, n);
-        break;
+      if (t.getScopeDepth() == 1) {
+        switch (n.getType()) {
+        case Token.ASSIGN:
+          this.checkAssignment(t, n);
+          break;
 
-      case Token.VAR:
-        this.checkVar(t, n);
+        case Token.VAR:
+          this.checkVar(t, n);
+        }
       }
     }
 
@@ -493,14 +493,14 @@ final class CampInjectionInfoCollector {
           String name = rvalue.getQualifiedName();
           ClassInfo info = campInjectionInfo.getClassInfo(name);
           if (info != null) {
-            this.createAliasClassInfoFrom(info, qualifiedName);
+            this.createAliasClassInfoFrom(n, info, qualifiedName);
           }
         }
       }
     }
 
 
-    private void createAliasClassInfoFrom(ClassInfo info, String name) {
+    private void createAliasClassInfoFrom(Node aliasPoint, ClassInfo info, String name) {
       if (campInjectionInfo.getClassInfo(name) == null) {
         ClassInfo aliasInfo = new ClassInfo(name);
         campInjectionInfo.putClassInfo(aliasInfo);
@@ -510,6 +510,7 @@ final class CampInjectionInfoCollector {
         aliasInfo.setJSDocInfo(info.getJSDocInfo());
         aliasInfo.setSetterList(info.getSetterList());
         aliasInfo.setSingletonCallNode(info.getSingletonCallNode());
+        aliasInfo.setAliasPoint(aliasPoint);
       }
     }
 
@@ -521,7 +522,7 @@ final class CampInjectionInfoCollector {
         String name = rvalue.getQualifiedName();
         ClassInfo info = campInjectionInfo.getClassInfo(name);
         if (info != null) {
-          this.createAliasClassInfoFrom(info, nameNode.getString());
+          this.createAliasClassInfoFrom(n, info, nameNode.getString());
         }
       }
     }

@@ -332,7 +332,7 @@ final class CampInjectionInfo {
   }
 
 
-  static final class ClassInfo {
+  static final class ClassInfo implements Cloneable {
     private String className;
 
     private List<String> paramList = Lists.newArrayList();
@@ -354,6 +354,8 @@ final class CampInjectionInfo {
     private JSDocInfo jsDocInfo;
 
     private boolean constructorExtended = false;
+    
+    private Node aliasPoint;
 
 
     public ClassInfo(String className) {
@@ -361,6 +363,10 @@ final class CampInjectionInfo {
     }
 
 
+    void rewriteClassName(String name) {
+      this.className = name;
+    }
+    
     public String getClassName() {
       return this.className;
     }
@@ -522,6 +528,31 @@ final class CampInjectionInfo {
      */
     public void setConstructorExtended(boolean constructorExtended) {
       this.constructorExtended = constructorExtended;
+    }
+
+
+    /**
+     * @return the aliasPoint
+     */
+    public Node getAliasPoint() {
+      return aliasPoint;
+    }
+
+
+    /**
+     * @param aliasPoint the aliasPoint to set
+     */
+    public void setAliasPoint(Node aliasPoint) {
+      this.aliasPoint = aliasPoint;
+    }
+    
+    @Override
+    public Object clone() {
+      try {
+        return super.clone();
+      } catch (CloneNotSupportedException e) {
+        throw new InternalError(e.toString());
+      }
     }
   }
 

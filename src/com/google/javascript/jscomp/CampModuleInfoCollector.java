@@ -306,30 +306,42 @@ final class CampModuleInfoCollector {
     @Override
     public void processMarker(NodeTraversal t, Node n, Node parent) {
       if (t.getScopeDepth() == 2) {
-        
+        Scope scope = t.getScope();
         Node lvalue = n.getFirstChild();
-        
-        if (n.isAssign()) {          
+
+        if (n.isAssign()) {
           Node rvalue = lvalue.getNext();
 
           if (rvalue.isName() || NodeUtil.isGet(rvalue)) {
-            addLocalAliasInfo(n, lvalue, rvalue);
+            addLocalAliasInfo(scope, n, lvalue, rvalue);
           }
         } else if (n.isVar()) {
           Node rvalue = lvalue.getFirstChild();
 
           if (rvalue != null && (rvalue.isName() || NodeUtil.isGet(rvalue))) {
-            addLocalAliasInfo(n, lvalue, rvalue);
+            addLocalAliasInfo(scope, n, lvalue, rvalue);
           }
         }
       }
     }
 
 
-    private void addLocalAliasInfo(Node n, Node lvalue, Node rvalue) {
-      LocalAliasInfo localAliasInfo = new LocalAliasInfo(n, lvalue.getQualifiedName(),
-          rvalue.getQualifiedName());
-      moduleInfo.addLocalAliasInfo(localAliasInfo);
+    private void addLocalAliasInfo(Scope scope, Node n, Node lvalue, Node rvalue) {
+      String rvalueName = rvalue.getQualifiedName();
+
+      if (rvalueName != null) {
+
+        int index = rvalueName.indexOf(".");
+        if (index > -1) {
+          rvalueName = rvalueName.substring(index);
+        }
+
+        if (scope.getOwnSlot(rvalueName) != null) {
+          LocalAliasInfo localAliasInfo = new LocalAliasInfo(n, lvalue.getQualifiedName(),
+              rvalue.getQualifiedName());
+          moduleInfo.addLocalAliasInfo(localAliasInfo);
+        }
+      }
     }
   }
 
@@ -345,22 +357,24 @@ final class CampModuleInfoCollector {
 
     @Override
     public void processMarker(NodeTraversal t, Node n, Node parent) {
-      JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(n);
-      TypeInfo typeInfo = null;
-      if (NodeUtil.isFunctionDeclaration(n)) {
-        String name = n.getFirstChild().getString();
-        typeInfo = new TypeInfo(name, n, jsDocInfo);
-      } else {
-        if (parent.isAssign()) {
-          String name = parent.getFirstChild().getQualifiedName();
+      if (t.getScopeDepth() == 2) {
+        JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(n);
+        TypeInfo typeInfo = null;
+        if (NodeUtil.isFunctionDeclaration(n)) {
+          String name = n.getFirstChild().getString();
           typeInfo = new TypeInfo(name, n, jsDocInfo);
-        } else if (NodeUtil.isVarDeclaration(parent)) {
-          typeInfo = new TypeInfo(parent.getString(), n, jsDocInfo);
+        } else {
+          if (parent.isAssign()) {
+            String name = parent.getFirstChild().getQualifiedName();
+            typeInfo = new TypeInfo(name, n, jsDocInfo);
+          } else if (NodeUtil.isVarDeclaration(parent)) {
+            typeInfo = new TypeInfo(parent.getString(), n, jsDocInfo);
+          }
         }
-      }
 
-      if (typeInfo != null) {
-        moduleInfo.setTypeInfo(typeInfo);
+        if (typeInfo != null) {
+          moduleInfo.setTypeInfo(typeInfo);
+        }
       }
     }
   }

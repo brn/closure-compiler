@@ -159,17 +159,6 @@ camp.module('camp.vm.interaction', function (exports) {
     return this._node;
   };
 
-  /**
-   * @constructor
-   */
-  exports.Hoge = function() {
-
-  };
-
-  exports.Hoge.prototype.fuga = function() {
-    return 100;
-  };
-
 
   /**
    * DataSourceをまとめて公開するためのユーティリティ
@@ -313,4 +302,40 @@ camp.module('camp.vm.interaction', function (exports) {
     binder.bind('name1', 'name1');
     binder.bind('name2', 'name2');
   };
+
+  /**
+   * @interface
+   */
+  function Aa() {
+  }
+
+  Aa.prototype.b = function(){};
+
+  /**
+   * @constructor
+   * @implements Aa
+   */
+  function Ba() {
+  }
+
+  Ba.prototype.b = function(){};
+
+  /**
+   * @constructor
+   * @extends {Ba}
+   */
+  function Ca() {
+  }
+  goog.inherits(Ca, Ba);
+
+
+
+  /**
+   * @param {Aa} a
+   */
+  function da(a) {
+    window.console.log(a);
+  }
+
+  da(new Ca());
 });
