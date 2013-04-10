@@ -66,8 +66,6 @@ final class CampInjectionInfoCollector {
 
     private ModuleInitializerMarkerProcessor moduleInitializerProcessor;
 
-    private SingletonMarkerProcessor singletonMarkerProcessor;
-
     private InjectMarkerProcessor injectionMarkerProcessor;
 
 
@@ -75,7 +73,6 @@ final class CampInjectionInfoCollector {
       this.prototypeMarkerProcessor = new PrototypeMarkerProcessor();
       this.moduleOrConstructorMarkerProcessor = new ModuleOrConstructorMarkerProcessor();
       this.moduleInitializerProcessor = new ModuleInitializerMarkerProcessor();
-      this.singletonMarkerProcessor = new SingletonMarkerProcessor();
       this.injectionMarkerProcessor = new InjectMarkerProcessor();
     }
 
@@ -101,8 +98,6 @@ final class CampInjectionInfoCollector {
           if (qualifiedName != null) {
             if (qualifiedName.equals(CampInjectionConsts.MODULE_INIT_CALL)) {
               return this.moduleInitializerProcessor;
-            } else if (qualifiedName.equals(CampInjectionConsts.SINGLETON_CALL)) {
-              return this.singletonMarkerProcessor;
             } else if (qualifiedName.equals(CampInjectionConsts.INJECT_CALL)) {
               return this.injectionMarkerProcessor;
             }
@@ -283,19 +278,6 @@ final class CampInjectionInfoCollector {
         }
       }
       return null;
-    }
-  }
-
-
-  private final class SingletonMarkerProcessor implements MarkerProcessor {
-    public void processMarker(NodeTraversal t, Node n, Node parent) {
-      Node arg = n.getFirstChild().getNext();
-      if (arg != null) {
-        String qualifiedName = arg.getQualifiedName();
-        if (qualifiedName != null) {
-          campInjectionInfo.putSingleton(qualifiedName, n);
-        }
-      }
     }
   }
 

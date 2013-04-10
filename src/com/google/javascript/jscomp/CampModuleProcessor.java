@@ -20,6 +20,7 @@ public final class CampModuleProcessor implements HotSwapCompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
+    System.out.println(root.toStringTree());
     CampModuleTransformInfo campModuleTransformInfo = new CampModuleTransformInfo();
     new CampModuleInfoCollector(compiler, campModuleTransformInfo).process(root);
     new CampModuleRewriter(compiler, campModuleTransformInfo).process();

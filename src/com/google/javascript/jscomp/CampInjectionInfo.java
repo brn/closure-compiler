@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -354,8 +355,10 @@ final class CampInjectionInfo {
     private JSDocInfo jsDocInfo;
 
     private boolean constructorExtended = false;
-    
+
     private Node aliasPoint;
+
+    private Node singletonVariable;
 
 
     public ClassInfo(String className) {
@@ -366,7 +369,8 @@ final class CampInjectionInfo {
     void rewriteClassName(String name) {
       this.className = name;
     }
-    
+
+
     public String getClassName() {
       return this.className;
     }
@@ -540,12 +544,31 @@ final class CampInjectionInfo {
 
 
     /**
-     * @param aliasPoint the aliasPoint to set
+     * @param aliasPoint
+     *          the aliasPoint to set
      */
     public void setAliasPoint(Node aliasPoint) {
       this.aliasPoint = aliasPoint;
     }
-    
+
+
+    /**
+     * @return the singletonVariable
+     */
+    public Node getSingletonVariable() {
+      return singletonVariable;
+    }
+
+
+    /**
+     * @param singletonVariable
+     *          the singletonVariable to set
+     */
+    public void setSingletonVariable(Node singletonVariable) {
+      this.singletonVariable = singletonVariable;
+    }
+
+
     @Override
     public Object clone() {
       try {
@@ -678,6 +701,34 @@ final class CampInjectionInfo {
   }
 
 
+  enum BindingType {
+    TO,
+    TO_INSTANCE,
+    TO_PROVIDER
+  }
+
+
+  enum ScopeType {
+    SINGLETON,
+    EAGER_SINGLETON,
+    PROTOTYPE
+  }
+
+  static final ImmutableMap<String, BindingType> bindingTypeMap =
+      new ImmutableMap.Builder<String, BindingType>()
+          .put("to", BindingType.TO)
+          .put("toInstance", BindingType.TO_INSTANCE)
+          .put("toProvider", BindingType.TO_PROVIDER)
+          .build();
+
+  static final ImmutableMap<String, ScopeType> scopeTypeMap =
+      new ImmutableMap.Builder<String, ScopeType>()
+          .put("camp.injections.Scopes.SINGLETON", ScopeType.SINGLETON)
+          .put("camp.injections.Scopes.EAGER_SINGLETON", ScopeType.EAGER_SINGLETON)
+          .put("camp.injections.Scopes.PROTOTYPE", ScopeType.PROTOTYPE)
+          .build();
+
+
   static final class BindingInfo {
     private boolean asProvider;
 
@@ -689,21 +740,21 @@ final class CampInjectionInfo {
 
     private ClassInfo classInfo;
 
+    private BindingType bindingType;
+
+    private ScopeType scopeType = ScopeType.PROTOTYPE;
+
+
+    public BindingInfo(String name) {
+      this.name = name;
+    }
+
 
     /**
      * @return the name
      */
     public String getName() {
       return name;
-    }
-
-
-    /**
-     * @param name
-     *          the name to set
-     */
-    public void setName(String name) {
-      this.name = name;
     }
 
 
@@ -762,6 +813,40 @@ final class CampInjectionInfo {
 
     public void setClassInfo(ClassInfo classInfo) {
       this.classInfo = classInfo;
+    }
+
+
+    /**
+     * @return the bindingType
+     */
+    public BindingType getBindingType() {
+      return bindingType;
+    }
+
+
+    /**
+     * @param bindingType
+     *          the bindingType to set
+     */
+    public void setBindingType(BindingType bindingType) {
+      this.bindingType = bindingType;
+    }
+
+
+    /**
+     * @return the scopeType
+     */
+    public ScopeType getScopeType() {
+      return scopeType;
+    }
+
+
+    /**
+     * @param scopeType
+     *          the scopeType to set
+     */
+    public void setScopeType(ScopeType scopeType) {
+      this.scopeType = scopeType;
     }
 
   }
