@@ -4,6 +4,7 @@ camp.module('camp.vm.interaction', function (exports) {
   var Injector = camp.using('camp.injections.Injector');
   var Module = camp.using('camp.injections.Module');
   var Matchers = camp.using('camp.injections.Matchers');
+  var Scopes = camp.using('camp.injections.Scopes');
 
   /**
    * @constructor
@@ -272,7 +273,7 @@ camp.module('camp.vm.interaction', function (exports) {
       return ret? ret : null;
     });*/
 
-    binder.bindProvider(null, exports.DataSourceManager, function() {
+    binder.bind('dataSourceManager').toProvider(function() {
       return new exports.DataSourceManager(new PubSub);
     });
     var m = {
@@ -281,11 +282,11 @@ camp.module('camp.vm.interaction', function (exports) {
           c : 3
         };
 
-    binder.bind('node', document.getElementById('id'));
-    binder.bind('service', exports.Service);
-    binder.bind('test2', exports.Test2);
+    binder.bind('node').toInstance(document.getElementById('id'));
+    binder.bind('service').to(exports.Service).as(Scopes.EAGER_SINGLETON);
+    binder.bind('test2').to(exports.Test2);
 
-    binder.bindProvider('test4', exports.Test4, function (name1, name2, test2) {
+    binder.bind('test4').toProvider(function (name1, name2, test2) {
       var a = new exports.Test4(name1, name2);
       a.setC(test2);
       return a;
@@ -299,8 +300,8 @@ camp.module('camp.vm.interaction', function (exports) {
   exports.DefaultModule2 = function() {};
 
   exports.DefaultModule2.prototype.configure = function(binder) {
-    binder.bind('name1', 'name1');
-    binder.bind('name2', 'name2');
+    binder.bind('name1').toInstance('name1');
+    binder.bind('name2').toInstance('name2');
   };
 
   /**

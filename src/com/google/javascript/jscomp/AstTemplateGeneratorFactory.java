@@ -88,7 +88,6 @@ public class AstTemplateGeneratorFactory {
       Node call = NodeUtil.newCallNode(
           NodeUtil.newQualifiedNameNode(convention, CampInjectionConsts.SINGLETON_CALL),
           Node.newString(Token.NAME, functionName));
-      classInfo.setSingletonCallNode(call);
       block.addChildToBack(NodeUtil.newExpr(call));
     }
 

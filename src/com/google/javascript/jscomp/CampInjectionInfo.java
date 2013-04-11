@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -344,7 +345,7 @@ final class CampInjectionInfo {
 
     private Node providerNode;
 
-    private Node singletonCallNode;
+    private ScopeType scopeType;
 
     private Node constructorNode;
 
@@ -393,28 +394,6 @@ final class CampInjectionInfo {
 
     public boolean hasInterceptorFlag() {
       return this.hasInterceptor;
-    }
-
-
-    /**
-     * @return the isSingleton
-     */
-    public Node getSingletonCallNode() {
-      return singletonCallNode;
-    }
-
-
-    public boolean isSingleton() {
-      return this.singletonCallNode != null;
-    }
-
-
-    /**
-     * @param isSingleton
-     *          the isSingleton to set
-     */
-    public void setSingletonCallNode(Node singletonCallNode) {
-      this.singletonCallNode = singletonCallNode;
     }
 
 
@@ -569,6 +548,22 @@ final class CampInjectionInfo {
     }
 
 
+    public void setScopeType(ScopeType scopeType) {
+      this.scopeType = scopeType;
+    }
+
+
+    public boolean isSingleton() {
+      return this.scopeType == ScopeType.SINGLETON ||
+          this.scopeType == ScopeType.EAGER_SINGLETON;
+    }
+
+
+    public boolean isEager() {
+      return this.scopeType == ScopeType.EAGER_SINGLETON;
+    }
+
+
     @Override
     public Object clone() {
       try {
@@ -701,6 +696,25 @@ final class CampInjectionInfo {
   }
 
 
+  public static String getBindingTypeString() {
+    return getMethodNameList(bindingTypeMap.keySet());
+  }
+
+
+  public static String getScopeTypeString() {
+    return getMethodNameList(scopeTypeMap.keySet());
+  }
+
+
+  private static String getMethodNameList(Set<String> keySet) {
+    StringBuilder builder = new StringBuilder();
+    for (String methodName : keySet) {
+      builder.append(methodName + "\n");
+    }
+    return builder.toString();
+  }
+
+
   enum BindingType {
     TO,
     TO_INSTANCE,
@@ -714,8 +728,8 @@ final class CampInjectionInfo {
     PROTOTYPE
   }
 
-  static final ImmutableMap<String, BindingType> bindingTypeMap =
-      new ImmutableMap.Builder<String, BindingType>()
+  static final ImmutableBiMap<String, BindingType> bindingTypeMap =
+      new ImmutableBiMap.Builder<String, BindingType>()
           .put("to", BindingType.TO)
           .put("toInstance", BindingType.TO_INSTANCE)
           .put("toProvider", BindingType.TO_PROVIDER)
@@ -849,6 +863,20 @@ final class CampInjectionInfo {
       this.scopeType = scopeType;
     }
 
+
+    public boolean isSingleton() {
+      return this.scopeType == ScopeType.SINGLETON ||
+          this.scopeType == ScopeType.EAGER_SINGLETON;
+    }
+
+
+    public boolean isProvider() {
+      return this.bindingType == BindingType.TO_PROVIDER;
+    }
+    
+    public boolean isEager() {
+      return this.scopeType == ScopeType.EAGER_SINGLETON;
+    }
   }
 
 

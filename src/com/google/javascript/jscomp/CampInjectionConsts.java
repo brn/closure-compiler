@@ -38,7 +38,8 @@ public class CampInjectionConsts {
   static final String BIND = "bind";
   static final String BIND_PROVIDER = "bindProvider";
   static final String BIND_INTERCEPTOR = "bindInterceptor";
-  static final String CREATE_INSTANCE = "createInstance";
+  static final String GET_INSTANCE = "getInstance";
+  static final String GET_INSTANCE_BY_NAME = "getInstanceByName";
   static final String THIS = "this";
   static final String PROTOTYPE = "prototype";
   static final String MODULE_INIT_CALL = "camp.injections.modules.init";

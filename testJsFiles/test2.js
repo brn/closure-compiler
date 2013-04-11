@@ -128,5 +128,10 @@ camp.module('camp.injections', function (exports) {
     };
     exports.Matchers = function(){};
     exports.JointPoint = function(){};
+
+    exports.Scopes = {
+      SINGLETON : 'singleton',
+      EAGER_SINGLETON : 'eagerSingleton'
+    };
   }
 });

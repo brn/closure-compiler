@@ -361,8 +361,6 @@ final class CampInjectionInfoCollector {
         if (campInjectionInfo.hasSetter(className)) {
           classInfo.setSetterList(campInjectionInfo.getSetterList(className));
         }
-
-        classInfo.setSingletonCallNode(campInjectionInfo.getSingleton(className));
       }
     }
 
@@ -488,10 +486,8 @@ final class CampInjectionInfoCollector {
         campInjectionInfo.putClassInfo(aliasInfo);
         aliasInfo.setConstructorNode(info.getConstructorNode());
         aliasInfo.setPrototypeInfoMap(info.getPrototypeInfoMap());
-        aliasInfo.setProviderNode(info.getProviderNode());
         aliasInfo.setJSDocInfo(info.getJSDocInfo());
         aliasInfo.setSetterList(info.getSetterList());
-        aliasInfo.setSingletonCallNode(info.getSingletonCallNode());
         aliasInfo.setAliasPoint(aliasPoint);
       }
     }

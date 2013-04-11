@@ -13,17 +13,17 @@ camp.module("camp.test.main", function (exports) {
 
   exports.main = function () {
     modules.init([DefaultModule, DefaultModule2], function (injector) {
-      var l = injector.createInstance(Test3);
-      var v = injector.createInstance(Test);
-      var o = injector.createInstance(DataSourceManager);
-      var x = injector.createInstance(Base3);
+      var l = injector.getInstance(Test3);
+      var v = injector.getInstance(Test);
+      var o = injector.getInstanceByName('dataSourceManager');
+      var x = injector.getInstance(Base3);
       o.echo(l.getName() + v.getName());
       window.localStorage['foo'] = l.getName() + v.getName();
-      window.console.log(injector.createInstance(Test4));
+      window.console.log(injector.getInstance(Test4));
       x.insert();
     });
     modules.init([DefaultModule], function (injector) {
-      var o = injector.createInstance(Service);
+      var o = injector.getInstance(Service);
       o.getNode().innerHTML = 'hogehoge';
     });
   };
