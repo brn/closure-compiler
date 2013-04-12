@@ -27,7 +27,6 @@ public class CampInjectionProcessor implements HotSwapCompilerPass {
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     this.compiler.process(this);
-
   }
 
 

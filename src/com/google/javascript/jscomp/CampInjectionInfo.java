@@ -168,6 +168,7 @@ final class CampInjectionInfo {
 
 
   static final class InterceptorInfo {
+
     private String classMatcher;
 
     private String methodMatcher;
@@ -178,11 +179,25 @@ final class CampInjectionInfo {
 
     private MethodMatchType methodMatchType;
 
+    private Node interceptorCallNode;
+
     private Node interceptorNode;
 
     private boolean classNameAccess = false;
 
     private boolean methodNameAccess = false;
+
+    private List<Node> proceedNodeList = Lists.newArrayList();
+
+    private List<Node> argumentsNodeList = Lists.newArrayList();
+
+    private List<Node> thisNodeList = Lists.newArrayList();
+
+    private List<Node> classNameNodeList = Lists.newArrayList();
+
+    private List<Node> methodNameNodeList = Lists.newArrayList();
+
+    private List<Node> qualifiedNameNodeList = Lists.newArrayList();
 
     private String moduleName;
 
@@ -273,6 +288,23 @@ final class CampInjectionInfo {
 
 
     /**
+     * @return the interceptorCallNode
+     */
+    public Node getInterceptorCallNode() {
+      return interceptorCallNode;
+    }
+
+
+    /**
+     * @param interceptorCallNode
+     *          the interceptorCallNode to set
+     */
+    public void setInterceptorCallNode(Node interceptorCallNode) {
+      this.interceptorCallNode = interceptorCallNode;
+    }
+
+
+    /**
      * @return the interceptor
      */
     public Node getInterceptorNode() {
@@ -301,7 +333,7 @@ final class CampInjectionInfo {
      * @param classNameAccess
      *          the classNameAccess to set
      */
-    public void setClassNameAccess(boolean classNameAccess) {
+    public void recordClassNameAccess(boolean classNameAccess) {
       this.classNameAccess = classNameAccess;
     }
 
@@ -318,7 +350,7 @@ final class CampInjectionInfo {
      * @param methodNameAccess
      *          the methodNameAccess to set
      */
-    public void setMethodNameAccess(boolean methodNameAccess) {
+    public void recordMethodNameAccess(boolean methodNameAccess) {
       this.methodNameAccess = methodNameAccess;
     }
 
@@ -330,6 +362,108 @@ final class CampInjectionInfo {
 
     public void setModuleName(String moduleName) {
       this.moduleName = moduleName;
+    }
+
+
+    /**
+     * @return the proceedNodeList
+     */
+    public List<Node> getProceedNodeList() {
+      return proceedNodeList;
+    }
+
+
+    /**
+     * @param proceedNode
+     *          the proceedNodeList to set
+     */
+    public void addProceedNode(Node proceedNode) {
+      this.proceedNodeList.add(proceedNode);
+    }
+
+
+    /**
+     * @return the argumentsNodeList
+     */
+    public List<Node> getArgumentsNodeList() {
+      return argumentsNodeList;
+    }
+
+
+    /**
+     * @param argumentsNode
+     *          the argumentsNodeList to set
+     */
+    public void addArgumentsNode(Node argumentsNode) {
+      this.argumentsNodeList.add(argumentsNode);
+    }
+
+
+    /**
+     * @return the thisNodeList
+     */
+    public List<Node> getThisNodeList() {
+      return thisNodeList;
+    }
+
+
+    /**
+     * @param thisNode
+     *          the thisNodeList to set
+     */
+    public void addThisNode(Node thisNode) {
+      this.thisNodeList.add(thisNode);
+    }
+
+
+    /**
+     * @return the classNameNodeList
+     */
+    public List<Node> getClassNameNodeList() {
+      return classNameNodeList;
+    }
+
+
+    /**
+     * @param classNameNode
+     *          the classNameNodeList to set
+     */
+    public void addClassNameNode(Node classNameNode) {
+      this.classNameNodeList.add(classNameNode);
+    }
+
+
+    /**
+     * @return the methodNameNodeList
+     */
+    public List<Node> getMethodNameNodeList() {
+      return methodNameNodeList;
+    }
+
+
+    /**
+     * @param methodNameNode
+     *          the methodNameNodeList to set
+     */
+    public void addMethodNameNode(Node methodNameNode) {
+      this.methodNameNodeList.add(methodNameNode);
+    }
+
+
+    /**
+     * @return the qualifiedNameNodeList
+     */
+    public List<Node> getQualifiedNameNodeList() {
+      return qualifiedNameNodeList;
+    }
+
+
+    /**
+     * @param qualifiedNameNode
+     *          the qualifiedNameNodeList to set
+     */
+    public void addQualifiedNameNode(Node qualifiedNameNode) {
+      this.qualifiedNameNodeList.add(qualifiedNameNode);
     }
   }
 
@@ -580,6 +714,7 @@ final class CampInjectionInfo {
 
     private Node moduleInitCall;
 
+    private List<InjectorInfo> injectorInfoList = Lists.newArrayList();
 
     /**
      * @return the configModuleList
@@ -614,17 +749,27 @@ final class CampInjectionInfo {
       this.moduleInitCall = moduleInitCall;
     }
 
+    public void addInjectorInfo(InjectorInfo injectorInfoList) {
+      this.injectorInfoList.add(injectorInfoList);
+    }
+    
+    public List<InjectorInfo> getInjectorInfoList() {
+      return this.injectorInfoList;
+    }
   }
 
 
   static final class ModuleInfo {
+
     private String moduleName;
 
     private Map<String, BindingInfo> bindingInfoMap = Maps.newHashMap();
 
+    private List<InterceptorInfo> interceptorInfoList = Lists.newArrayList();
+
     private Node moduleMethodNode;
 
-    private boolean interceptorRewrited;
+    private boolean isProcessed;
 
 
     /**
@@ -679,19 +824,36 @@ final class CampInjectionInfo {
 
 
     /**
-     * @return the interceptorRewrited
+     * @return the isProcessed
      */
-    public boolean isInterceptorRewrited() {
-      return interceptorRewrited;
+    public boolean isProcessed() {
+      return isProcessed;
     }
 
 
     /**
-     * @param interceptorRewrited
-     *          the interceptorRewrited to set
+     * @param isProcessed
+     *          the isProcessed to set
      */
-    public void setInterceptorRewrited(boolean interceptorRewrited) {
-      this.interceptorRewrited = interceptorRewrited;
+    public void setProcessed(boolean processed) {
+      this.isProcessed = processed;
+    }
+
+
+    /**
+     * @return the interceptorInfoList
+     */
+    public List<InterceptorInfo> getInterceptorInfoList() {
+      return interceptorInfoList;
+    }
+
+
+    /**
+     * @param interceptorInfoList
+     *          the interceptorInfoList to set
+     */
+    public void setInterceptorInfoList(List<InterceptorInfo> interceptorInfoList) {
+      this.interceptorInfoList = interceptorInfoList;
     }
   }
 
@@ -744,7 +906,7 @@ final class CampInjectionInfo {
 
 
   static final class BindingInfo {
-    private boolean asProvider;
+    private Node bindCallNode;
 
     private String name;
 
@@ -789,17 +951,13 @@ final class CampInjectionInfo {
     }
 
 
-    /**
-     * @param isProvider
-     *          the isProvider to set
-     */
-    public void registerAsProvider(boolean isProvider) {
-      this.asProvider = isProvider;
+    public void setBindCallNode(Node bindCallNode) {
+      this.bindCallNode = bindCallNode;
     }
 
 
-    public boolean isRegisteredAsProvider() {
-      return this.asProvider;
+    public Node getBindCallNode() {
+      return this.bindCallNode;
     }
 
 
@@ -873,9 +1031,60 @@ final class CampInjectionInfo {
     public boolean isProvider() {
       return this.bindingType == BindingType.TO_PROVIDER;
     }
-    
+
+
     public boolean isEager() {
       return this.scopeType == ScopeType.EAGER_SINGLETON;
+    }
+  }
+
+
+  static final class InjectorInfo {
+    private Node callNode;
+
+    private List<ModuleInfo> moduleInfoList;
+
+    private String classOrBindingName;
+    
+    private boolean isName = false;
+
+    public InjectorInfo(Node callNode, String classOrBindingName, boolean isName) {
+      this.callNode = callNode;
+      this.classOrBindingName = classOrBindingName;
+      this.isName = isName;
+    }
+
+
+    /**
+     * @return the callNode
+     */
+    public Node getCallNode() {
+      return callNode;
+    }
+
+
+    /**
+     * @return the moduleInfoList
+     */
+    public List<ModuleInfo> getModuleInfoList() {
+      return moduleInfoList;
+    }
+
+
+    /**
+     * @param moduleInfoList
+     *          the moduleInfoList to set
+     */
+    public void setModuleInfoList(List<ModuleInfo> moduleInfoList) {
+      this.moduleInfoList = moduleInfoList;
+    }
+
+    public boolean isName() {
+      return this.isName;
+    }
+    
+    public String getName() {
+      return classOrBindingName;
     }
   }
 
