@@ -21,7 +21,7 @@ public class CampPassConfig extends DefaultPassConfig {
           new HotSwapPassFactory("campInjectionProcessor", true) {
             @Override
             protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-              return new CampInjectionProcessor(compiler);
+              return new DIProcessor(compiler);
             }
           })
       .build();

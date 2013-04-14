@@ -7,11 +7,11 @@ import java.util.Set;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.javascript.jscomp.CampInjectionInfo.BindingInfo;
-import com.google.javascript.jscomp.CampInjectionInfo.ClassInfo;
-import com.google.javascript.jscomp.CampInjectionInfo.InterceptorInfo;
-import com.google.javascript.jscomp.CampInjectionInfo.ModuleInitializerInfo;
-import com.google.javascript.jscomp.CampInjectionInfo.PrototypeInfo;
+import com.google.javascript.jscomp.DIInfo.BindingInfo;
+import com.google.javascript.jscomp.DIInfo.ClassInfo;
+import com.google.javascript.jscomp.DIInfo.InterceptorInfo;
+import com.google.javascript.jscomp.DIInfo.ModuleInitializerInfo;
+import com.google.javascript.jscomp.DIInfo.PrototypeInfo;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
@@ -76,7 +76,7 @@ public class DependenciesResolver {
 
   Node makeProviderCall(BindingInfo bindingInfo, String moduleName,
       boolean isPassProviderObject) {
-    String lowerClassName = CampInjectionProcessor.toLowerCase(CampInjectionProcessor
+    String lowerClassName = DIProcessor.toLowerCase(DIProcessor
         .getValidVarName(moduleName));
     Node nameNode = NodeUtil.newQualifiedNameNode(convention, lowerClassName + "."
         + bindingInfo.getName());
@@ -154,7 +154,7 @@ public class DependenciesResolver {
             report(n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
           }
 
-          String lowerClassName = CampInjectionProcessor.toLowerCase(CampInjectionProcessor
+          String lowerClassName = DIProcessor.toLowerCase(DIProcessor
               .getValidVarName(className));
 
           return NodeUtil.newQualifiedNameNode(convention, lowerClassName + "." + bindingName);
@@ -182,7 +182,7 @@ public class DependenciesResolver {
       if (result != null) {
         Node function = moduleInitializerInfo.getModuleInitCall();
         Node block = NodeUtil.getFunctionBody(function);
-        Node n = CampInjectionProcessor.getStatementTopNode(block.getFirstChild());
+        Node n = DIProcessor.getStatementBeginningNode(block.getFirstChild());
         if (n != null) {
           block = result.getBlock();
           n.getParent().addChildBefore(block, n);
@@ -215,7 +215,7 @@ public class DependenciesResolver {
   private Node makeMethodCallExpressionNode(Node newCall, ClassInfo classInfo) {
     Node function = moduleInitializerInfo.getModuleInitCall();
     Node block = NodeUtil.getFunctionBody(function);
-    Node top = CampInjectionProcessor.getStatementTopNode(block.getFirstChild());
+    Node top = DIProcessor.getStatementBeginningNode(block.getFirstChild());
     Node instanceVar = null;
 
     Preconditions.checkNotNull(top);
@@ -256,7 +256,7 @@ public class DependenciesResolver {
       }
     }
     expList.add(instanceVar.cloneTree());
-    return CampInjectionProcessor.newCommaExpression(expList);
+    return DIProcessor.newCommaExpression(expList);
   }
 
 
@@ -295,7 +295,7 @@ public class DependenciesResolver {
         Node var = new Node(Token.VAR, instanceVar);
         Node function = moduleInitializerInfo.getModuleInitCall();
         Node block = NodeUtil.getFunctionBody(function);
-        Node top = CampInjectionProcessor.getStatementTopNode(block.getFirstChild());
+        Node top = DIProcessor.getStatementBeginningNode(block.getFirstChild());
         Preconditions.checkNotNull(top);
 
         top.getParent().addChildBefore(var, top);
@@ -397,16 +397,16 @@ public class DependenciesResolver {
 
     private void declareSingleton(Node block, String functionName) {
       Node call = NodeUtil.newCallNode(
-          NodeUtil.newQualifiedNameNode(convention, CampInjectionConsts.SINGLETON_CALL),
+          NodeUtil.newQualifiedNameNode(convention, DIConsts.SINGLETON_CALL),
           Node.newString(Token.NAME, functionName));
       block.addChildToBack(NodeUtil.newExpr(call));
     }
 
 
     private Node declareEnhancedFunction() {
-      String suffix = CampInjectionProcessor.getValidVarName(CampInjectionProcessor
+      String suffix = DIProcessor.getValidVarName(DIProcessor
           .toLowerCase(classInfo.getClassName()));
-      String functionName = String.format(CampInjectionConsts.ENHANCED_CONSTRUCTOR_FORMAT, suffix);
+      String functionName = String.format(DIConsts.ENHANCED_CONSTRUCTOR_FORMAT, suffix);
       Node paramList = new Node(Token.PARAM_LIST);
       this.setParameter(paramList);
       Node block = new Node(Token.BLOCK);
@@ -414,7 +414,7 @@ public class DependenciesResolver {
           block);
       Node thisRef = new Node(Token.THIS);
       Node baseCall = NodeUtil.newCallNode(
-          NodeUtil.newQualifiedNameNode(convention, CampInjectionConsts.GOOG_BASE), thisRef);
+          NodeUtil.newQualifiedNameNode(convention, DIConsts.GOOG_BASE), thisRef);
       this.setParameter(baseCall);
       block.addChildToBack(NodeUtil.newExpr(baseCall));
       block.copyInformationFromForTree(classInfo.getConstructorNode());
@@ -454,7 +454,7 @@ public class DependenciesResolver {
 
     private void inherits(Node block, String functionName) {
       Node call = NodeUtil.newCallNode(NodeUtil.newQualifiedNameNode(convention,
-          CampInjectionConsts.GOOG_INHERITS));
+          DIConsts.GOOG_INHERITS));
       call.addChildToBack(Node.newString(Token.NAME, functionName));
       call.addChildToBack(NodeUtil.newQualifiedNameNode(convention, classInfo.getClassName()));
       block.addChildToBack(NodeUtil.newExpr(call));
@@ -469,7 +469,7 @@ public class DependenciesResolver {
           Node nameNode = NodeUtil.newQualifiedNameNode(convention,
               functionName
                   + "."
-                  + CampInjectionConsts.PROTOTYPE
+                  + DIConsts.PROTOTYPE
                   + "."
                   + prototypeInfo.getMethodName());
           Node node = new Node(Token.ASSIGN, nameNode, this.createIntercetporCall(classInfo,
@@ -555,8 +555,8 @@ public class DependenciesResolver {
       Node methodName = interceptorInfo.isMethodNameAccess() ? Node.newString(prototypeInfo
           .getMethodName()) : Node.newString("");
       Node ret = NodeUtil.newCallNode(interceptorName, Node.newString(Token.NAME,
-          CampInjectionConsts.THIS_REFERENCE),
-          Node.newString(Token.NAME, CampInjectionConsts.INTERCEPTOR_ARGUMENTS));
+          DIConsts.THIS_REFERENCE),
+          Node.newString(Token.NAME, DIConsts.INTERCEPTOR_ARGUMENTS));
 
       ret.addChildToBack(className);
       ret.addChildToBack(methodName);
@@ -567,11 +567,11 @@ public class DependenciesResolver {
 
 
     private void setInterceptorRefNode(Node block) {
-      block.addChildToBack(NodeUtil.newVarNode(CampInjectionConsts.INTERCEPTOR_ARGUMENTS,
+      block.addChildToBack(NodeUtil.newVarNode(DIConsts.INTERCEPTOR_ARGUMENTS,
           NodeUtil.newCallNode(
-              NodeUtil.newQualifiedNameNode(convention, CampInjectionConsts.SLICE),
+              NodeUtil.newQualifiedNameNode(convention, DIConsts.SLICE),
               Node.newString(Token.NAME, "arguments"))));
-      block.addChildToBack(NodeUtil.newVarNode(CampInjectionConsts.THIS_REFERENCE, new Node(
+      block.addChildToBack(NodeUtil.newVarNode(DIConsts.THIS_REFERENCE, new Node(
           Token.THIS)));
     }
   }
