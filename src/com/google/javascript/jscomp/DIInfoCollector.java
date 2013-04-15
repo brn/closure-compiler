@@ -29,10 +29,15 @@ import com.google.javascript.rhino.Token;
 
 final class DIInfoCollector {
 
-  static final DiagnosticType MESSAGE_CONSTRUCTOR_FUNCTION_IS_ANBIGUOUS = DiagnosticType
+  static final DiagnosticType MESSAGE_MODULE_DEFINITION_IS_DUPLICATED = DiagnosticType
       .error(
           "JSC_MSG_CONSTRUCTOR_FUNCTION_IS_ANBIGUOUS.",
-          "The constructor {0} is ambiguous. Compiler cannot resolve dependencies.");
+          "The module {0} has duplicated definition.");
+  
+  static final DiagnosticType MESSAGE_BINDING_DEFINITION_IS_DUPLICATED = DiagnosticType
+      .error(
+          "JSC_MSG_CONSTRUCTOR_FUNCTION_IS_ANBIGUOUS.",
+          "The module {0} has duplicated binding {1}.");
 
   static final DiagnosticType MESSAGE_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID = DiagnosticType
       .error(
@@ -248,8 +253,13 @@ final class DIInfoCollector {
           String qualifiedName = n.getFirstChild().getQualifiedName();
           if (qualifiedName != null) {
             if (qualifiedName.indexOf("." + DIConsts.PROTOTYPE) > -1) {
-              visited.add(n);
-              return this.prototypeMarkerProcessor;
+              Node classNameNode = NodeUtil.getPrototypeClassName(n.getFirstChild());
+              qualifiedName = classNameNode.getQualifiedName();
+              if (dIInfo.getClassInfo(qualifiedName) != null
+                  || dIInfo.getModuleInfo(qualifiedName) != null) {
+                visited.add(n);
+                return this.prototypeMarkerProcessor;
+              }
             }
           }
         }
@@ -321,7 +331,11 @@ final class DIInfoCollector {
         moduleInfo = new ModuleInfo();
         moduleInfo.setModuleName(parent.getString());
       }
+
       if (moduleInfo != null) {
+        if (dIInfo.getModuleInfo(moduleInfo.getModuleName()) != null) {
+          t.report(n, MESSAGE_MODULE_DEFINITION_IS_DUPLICATED, moduleInfo.getModuleName());
+        }
         dIInfo.putModuleInfo(moduleInfo);
       }
     }
@@ -352,11 +366,7 @@ final class DIInfoCollector {
 
         ClassInfo duplicateEntry = dIInfo.getClassInfo(classInfo.getClassName());
         if (duplicateEntry != null) {
-          if (!duplicateEntry.getParamList().equals(classInfo.getParamList())) {
-            t.report(classInfo.getConstructorNode(), MESSAGE_CONSTRUCTOR_FUNCTION_IS_ANBIGUOUS,
-                classInfo.getClassName());
-            return;
-          }
+          classInfo.setDuplicated(true);
         }
 
         dIInfo.putClassInfo(classInfo);
@@ -475,8 +485,8 @@ final class DIInfoCollector {
     public void processMarker(NodeTraversal t, Node n, Node parent) {
       Node lvalue = n.getFirstChild();
       Node rvalue = lvalue.getNext();
-      if ((lvalue.isGetProp() || lvalue.isGetElem())) {
-        this.collectPrototype(lvalue, rvalue);
+      if (lvalue.isName() || NodeUtil.isGet(lvalue)) {
+        collectPrototype(lvalue, rvalue);
       }
 
       Node getProp = n.getFirstChild();
@@ -488,12 +498,10 @@ final class DIInfoCollector {
           dIInfo.getModuleInfo(qualifiedName) != null &&
           methodName.equals("configure") &&
           getProp.getNext().isFunction()) {
-
         Node paramList = NodeUtil.getFunctionParameters(rvalue);
         if (paramList.getChildCount() > 0) {
-          Node nameNode = NodeUtil.getPrototypeClassName(n.getFirstChild());
           ModuleConfigureInspector inspector = new ModuleConfigureInspector(
-              nameNode.getQualifiedName());
+              qualifiedName);
           ClosureScopeCallback callback = new ClosureScopeCallback(paramList.getFirstChild(),
               inspector);
           NodeTraversal.traverseRoots(compiler, Lists.newArrayList(rvalue), callback);
@@ -504,7 +512,7 @@ final class DIInfoCollector {
 
     private void collectPrototype(Node lvalue, Node rvalue) {
       String qualifiedName = lvalue.getQualifiedName();
-      if (qualifiedName != null) {
+      if (!Strings.isNullOrEmpty(qualifiedName)) {
         if (qualifiedName.indexOf("." + DIConsts.PROTOTYPE) > -1) {
           String className = NodeUtil.getPrototypeClassName(lvalue).getQualifiedName();
 
@@ -706,24 +714,23 @@ final class DIInfoCollector {
             if (methodNode.isString()) {
               String methodName = methodNode.getString();
               if (maybeCall.isCall()) {
-                buildChain(methodName, maybeCall);
-                return maybeCall;
+                return buildChain(methodName, maybeCall);
               }
             }
           }
         }
-        return null;
+        return maybeCall;
       }
 
 
-      private void buildChain(String methodName, Node call) {
+      private Node buildChain(String methodName, Node call) {
         BindingType bindingType = DIInfo.bindingTypeMap.get(methodName);
         if (bindingType != null) {
           Node bindingTarget = call.getFirstChild().getNext();
           if (bindingTarget != null) {
             bindingInfo.setBindedExpressionNode(bindingTarget);
             bindingInfo.setBindingType(bindingType);
-            buildBindingInfo(call.getFirstChild());
+            return buildBindingInfo(call.getFirstChild());
           } else {
             hasError = true;
             String message = BINDING_ERROR_MAP.get(bindingType);
@@ -737,6 +744,7 @@ final class DIInfoCollector {
               ScopeType scopeType = DIInfo.scopeTypeMap.get(qualifiedName);
               if (scopeType != null) {
                 bindingInfo.setScopeType(scopeType);
+                return call;
               } else {
                 hasError = true;
                 nodeTraversal.report(call, MESSAGE_BINDING_SCOPE_TYPE_IS_INVALID);
@@ -760,6 +768,7 @@ final class DIInfoCollector {
                 bindChainName, methodName);
           }
         }
+        return null;
       }
     }
 
@@ -860,7 +869,11 @@ final class DIInfoCollector {
         String bindingName = bindNameNode.getString();
         BindingInfo bindingInfo = new BindingBuilder(bindingName, t, n).build();
         if (bindingInfo != null) {
-          dIInfo.putBindingInfo(className, bindingInfo);
+          if (!dIInfo.hasBindingInfo(className, bindingName)) {
+            dIInfo.putBindingInfo(className, bindingInfo);
+          } else {
+            t.report(n, MESSAGE_BINDING_DEFINITION_IS_DUPLICATED, className, bindingName);
+          }
         }
       } else {
         t.report(n, MESSAGE_BIND_CALL_FIRST_ARGUMENT_IS_INVALID);
@@ -1162,6 +1175,9 @@ final class DIInfoCollector {
         List<InterceptorInfo> interceptorInfoList = dIInfo.getInterceptorInfo(className);
         if (bindingInfoMap != null) {
           moduleInfo.setBindingInfoMap(bindingInfoMap);
+          for (BindingInfo bindingInfo : bindingInfoMap.values()) {
+            bindingInfo.setModuleName(className);
+          }
         }
         if (interceptorInfoList != null) {
           moduleInfo.setInterceptorInfoList(interceptorInfoList);

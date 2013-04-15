@@ -20,7 +20,9 @@ public class DIProcessor implements HotSwapCompilerPass {
   public void process(Node extern, Node root) {
     DIInfo dIInfo = new DIInfo();
     new DIInfoCollector(compiler, dIInfo).collectInfo(root);
-    new DIRewriter(compiler, dIInfo).rewrite();
+    if (!compiler.hasHaltingErrors()) {
+      new DIRewriter(compiler, dIInfo).rewrite();
+    }
   }
 
 

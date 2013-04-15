@@ -26,5 +26,23 @@ camp.module("camp.test.main", function (exports) {
       var o = injector.getInstance(Service);
       o.getNode().innerHTML = 'hogehoge';
     });
+
+    /**
+     * @constructor
+     */
+    var x = function() {
+        };
+    x.prototype.hoge = function() {
+      this.aaa = function() {
+        return 'name11';
+      };
+      this.bbb = function() {
+        return this.aaa() + 'name11';
+      };
+    };
+
+    var xx = new x();
+    xx.hoge();
+    document.getElementById('aaa').innerHTML = xx.aaa() + xx.bbb();
   };
 });

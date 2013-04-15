@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -12,6 +14,7 @@ import com.google.javascript.jscomp.DIInfo.ClassInfo;
 import com.google.javascript.jscomp.DIInfo.InterceptorInfo;
 import com.google.javascript.jscomp.DIInfo.ModuleInitializerInfo;
 import com.google.javascript.jscomp.DIInfo.PrototypeInfo;
+import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
@@ -31,7 +34,12 @@ public class DependenciesResolver {
   static final DiagnosticType MESSAGE_CLASS_NOT_FOUND = DiagnosticType.error(
       "MSG_CLASS_NOT_FOUND", "The class {0} is not defined.");
 
-  private Map<String, Map<String, BindingInfo>> allBindingInfoMap;
+  static final DiagnosticType MESSAGE_CLASS_DEFINITION_IS_DUPLICATED = DiagnosticType
+      .error(
+          "JSC_MSG_CLASS_DEFINITION_IS_DUPLICATED",
+          "Compiler cannot inject dependencies because the constructor {0} definition is duplicated.");
+
+  private Map<String, BindingInfo> allBindingInfoMap;
 
   private Map<String, ClassInfo> clonedMap;
 
@@ -49,7 +57,7 @@ public class DependenciesResolver {
 
 
   public DependenciesResolver(
-      Map<String, Map<String, BindingInfo>> allBindingInfoMap,
+      Map<String, BindingInfo> allBindingInfoMap,
       Map<String, ClassInfo> clonedMap,
       ModuleInitializerInfo moduleInitializerInfo,
       AbstractCompiler compiler) {
@@ -74,12 +82,8 @@ public class DependenciesResolver {
   }
 
 
-  Node makeProviderCall(BindingInfo bindingInfo, String moduleName,
-      boolean isPassProviderObject) {
-    String lowerClassName = DIProcessor.toLowerCase(DIProcessor
-        .getValidVarName(moduleName));
-    Node nameNode = NodeUtil.newQualifiedNameNode(convention, lowerClassName + "."
-        + bindingInfo.getName());
+  Node makeProviderCall(BindingInfo bindingInfo, boolean isPassProviderObject) {
+    Node nameNode = NodeUtil.newQualifiedNameNode(convention, bindingInfo.getBindingAccessorName());
     Node call = NodeUtil.newCallNode(nameNode);
     Node function = bindingInfo.getBindedExpressionNode();
     Node paramList = NodeUtil.getFunctionParameters(function);
@@ -87,9 +91,9 @@ public class DependenciesResolver {
     addCallParameters(paramList, function, call);
 
     if (isPassProviderObject) {
-      return new Node(Token.FUNCTION, Node.newString(Token.NAME, ""),
-          new Node(Token.PARAM_LIST),
-          new Node(Token.BLOCK, new Node(Token.RETURN, call)));
+      return IR.function(IR.name(""),
+          IR.paramList(),
+          IR.block(IR.returnNode(call)));
     } else {
       return call;
     }
@@ -97,13 +101,23 @@ public class DependenciesResolver {
 
 
   Node makeInstantiateExpression(ClassInfo classInfo) {
+    return doMakeInstantiateExpression(classInfo, classInfo.getBindingInfo());
+  }
+
+
+  private Node doMakeInstantiateExpression(ClassInfo classInfo, @Nullable BindingInfo bindingInfo) {
+    if (classInfo.isDuplicated()) {
+      report(classInfo.getConstructorNode(), MESSAGE_CLASS_DEFINITION_IS_DUPLICATED,
+          classInfo.getClassName());
+    }
     Node newCall = null;
-    this.insertEnhancedConstructor(classInfo);
+    insertEnhancedConstructor(classInfo);
 
     if (classInfo.isSingleton()) {
-      return this.makeSingletonCall(classInfo);
+      return makeSingletonCall(classInfo, bindingInfo);
     } else {
-      newCall = this.makeSimpleNewCall(classInfo);
+      newCall = (bindingInfo != null) ? makeBindingCall(classInfo, bindingInfo)
+          : makeSimpleNewCall(classInfo);
       if (classInfo.getSetterList().size() > 0) {
         return this.makeMethodCallExpressionNode(newCall, classInfo);
       }
@@ -122,48 +136,41 @@ public class DependenciesResolver {
       bindingName = bindingName.substring(0, index);
     }
 
-    for (String className : allBindingInfoMap.keySet()) {
-      Map<String, BindingInfo> bindingMap = allBindingInfoMap.get(className);
+    if (allBindingInfoMap.containsKey(bindingName)) {
+      BindingInfo bindingInfo = allBindingInfoMap.get(bindingName);
 
-      if (bindingMap.containsKey(bindingName)) {
-        BindingInfo bindingInfo = bindingMap.get(bindingName);
+      switch (bindingInfo.getBindingType()) {
 
-        switch (bindingInfo.getBindingType()) {
-
-        case TO:
-          if (isPassProviderObject) {
-            report(n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
-          }
-
-          String name = bindingInfo.getBindedExpressionNode().getQualifiedName();
-          ClassInfo info = clonedMap.get(name);
-
-          if (info != null) {
-            return this.makeInstantiateExpression(info);
-          } else {
-            reportClassNotFound(n, name);
-          }
-          break;
-
-        case TO_PROVIDER:
-          System.out.println(bindingInfo.getName());
-          return this.makeProviderCall(bindingInfo, className, isPassProviderObject);
-
-        case TO_INSTANCE:
-          if (isPassProviderObject) {
-            report(n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
-          }
-
-          String lowerClassName = DIProcessor.toLowerCase(DIProcessor
-              .getValidVarName(className));
-
-          return NodeUtil.newQualifiedNameNode(convention, lowerClassName + "." + bindingName);
+      case TO:
+        if (isPassProviderObject) {
+          report(n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
         }
-      }
-    }
 
-    report(n, MESSAGE_BINDING_NOT_FOUND, bindingName);
-    return new Node(Token.NULL);
+        String name = bindingInfo.getBindedExpressionNode().getQualifiedName();
+        ClassInfo info = clonedMap.get(name);
+
+        if (info != null) {
+          return doMakeInstantiateExpression(info, bindingInfo);
+        } else {
+          reportClassNotFound(n, name);
+          break;
+        }
+
+      case TO_PROVIDER:
+        return makeProviderCall(bindingInfo, isPassProviderObject);
+
+      case TO_INSTANCE:
+        if (isPassProviderObject) {
+          report(n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
+          break;
+        }
+
+        return NodeUtil.newQualifiedNameNode(convention, bindingInfo.getBindingAccessorName());
+      }
+    } else {
+      report(n, MESSAGE_BINDING_NOT_FOUND, bindingName);
+    }
+    return IR.nullNode();
   }
 
 
@@ -194,20 +201,31 @@ public class DependenciesResolver {
 
 
   private Node makeSimpleNewCall(ClassInfo classInfo) {
-    Node newCall = new Node(Token.NEW, NodeUtil.newQualifiedNameNode(convention,
+    Node newCall = IR.newNode(NodeUtil.newQualifiedNameNode(convention,
         classInfo.getClassName()));
-    this.addCallParameters(classInfo.getParamList(), classInfo.getConstructorNode(), newCall);
+    addCallParameters(classInfo.getParamList(), classInfo.getConstructorNode(), newCall);
     return newCall;
   }
 
 
-  private Node makeSingletonCall(ClassInfo classInfo) {
-    this.insertEnhancedConstructor(classInfo);
+  private Node makeBindingCall(ClassInfo classInfo, BindingInfo bindingInfo) {
+    Node bindingCall = NodeUtil.newCallNode(NodeUtil.newQualifiedNameNode(convention,
+        bindingInfo.getBindingAccessorName()));
+    addCallParameters(classInfo.getParamList(), classInfo.getConstructorNode(), bindingCall);
+    if (compiler.getErrorManager().getWarningCount() > 0) {
+      System.out.println(bindingCall.toStringTree());
+    }
+    return bindingCall;
+  }
+
+
+  private Node makeSingletonCall(ClassInfo classInfo, @Nullable BindingInfo bindingInfo) {
+    insertEnhancedConstructor(classInfo);
     SingletonBuilder builder = new SingletonBuilder();
     if (classInfo.isEager()) {
-      return builder.makeEagerSingleton(classInfo);
+      return builder.makeEagerSingleton(classInfo, bindingInfo);
     } else {
-      return builder.makeLazySingleton(classInfo);
+      return builder.makeLazySingleton(classInfo, bindingInfo);
     }
   }
 
@@ -222,8 +240,7 @@ public class DependenciesResolver {
     if (top.isExprResult() && top.getFirstChild().isAssign()) {
       instanceVar = top.getFirstChild();
     } else {
-      Node var = new Node(Token.VAR, Node.newString(Token.NAME, "instance$"
-          + variableId));
+      Node var = NodeUtil.newVarNode("instance$" + variableId, null);
       var.copyInformationFromForTree(top);
       top.getParent().addChildBefore(var, top);
       instanceVar = var.getFirstChild().cloneNode();
@@ -237,8 +254,7 @@ public class DependenciesResolver {
 
   private Node makeCommaExpression(Node newCall, Node instanceVar, ClassInfo classInfo) {
     instanceVar = instanceVar.cloneTree();
-    List<Node> expList = Lists.newArrayList(new Node(Token.ASSIGN, instanceVar.cloneTree(),
-        newCall));
+    List<Node> expList = Lists.newArrayList(IR.assign(instanceVar.cloneTree(), newCall));
     for (String setterName : classInfo.getSetterList()) {
       PrototypeInfo prototypeInfo = classInfo.getPrototypeInfo(setterName);
       if (prototypeInfo != null) {
@@ -247,7 +263,7 @@ public class DependenciesResolver {
                 + setterName));
 
         for (String param : prototypeInfo.getParamList()) {
-          Node binding = this.resolveBinding(prototypeInfo.getFunction(), param);
+          Node binding = resolveBinding(prototypeInfo.getFunction(), param);
           binding.copyInformationFromForTree(prototypeInfo.getFunction());
           setterCall.addChildToBack(binding);
         }
@@ -263,7 +279,7 @@ public class DependenciesResolver {
   private void addCallParameters(List<String> paramList, Node n, Node call) {
     for (String param : paramList) {
       call
-          .addChildToBack(this.resolveBinding(n, param));
+          .addChildToBack(resolveBinding(n, param));
     }
   }
 
@@ -274,7 +290,7 @@ public class DependenciesResolver {
     for (Node param : paramList.children()) {
       paramNameList.add(param.getString());
     }
-    this.addCallParameters(paramNameList, n, call);
+    addCallParameters(paramNameList, n, call);
   }
 
 
@@ -287,12 +303,12 @@ public class DependenciesResolver {
     }
 
 
-    public Node makeLazySingleton(ClassInfo classInfo) {
+    public Node makeLazySingleton(ClassInfo classInfo, @Nullable BindingInfo bindingInfo) {
       Node instanceVar;
       if (classInfo.getSingletonVariable() == null) {
 
-        instanceVar = this.makeSingletonVariable();
-        Node var = new Node(Token.VAR, instanceVar);
+        instanceVar = makeSingletonVariable();
+        Node var = IR.var(instanceVar);
         Node function = moduleInitializerInfo.getModuleInitCall();
         Node block = NodeUtil.getFunctionBody(function);
         Node top = DIProcessor.getStatementBeginningNode(block.getFirstChild());
@@ -305,34 +321,35 @@ public class DependenciesResolver {
         instanceVar = classInfo.getSingletonVariable();
       }
 
-      Node newCall = makeSimpleNewCall(classInfo);
+      Node newCall = bindingInfo != null ? makeBindingCall(classInfo, bindingInfo)
+          : makeSimpleNewCall(classInfo);
 
       if (classInfo.getSetterList() != null) {
         newCall = makeCommaExpression(newCall, instanceVar, classInfo);
       }
 
-      Node hook = new Node(Token.HOOK, instanceVar.cloneNode(), instanceVar.cloneNode());
-      hook.addChildToBack(newCall);
+      Node hook = IR.hook(instanceVar.cloneNode(), instanceVar.cloneNode(), newCall);
       return hook;
     }
 
 
-    public Node makeEagerSingleton(ClassInfo classInfo) {
+    public Node makeEagerSingleton(ClassInfo classInfo, @Nullable BindingInfo bindingInfo) {
       if (classInfo.getSingletonVariable() == null) {
-        Node instanceVar = this.makeSingletonVariable();
-        Node var = new Node(Token.VAR, instanceVar);
+        Node instanceVar = makeSingletonVariable();
+        Node var = IR.var(instanceVar);
         Node function = moduleInitializerInfo.getModuleInitCall();
         Node block = NodeUtil.getFunctionBody(function);
         block.addChildToFront(var);
         classInfo.setSingletonVariable(instanceVar);
 
-        Node newCall = makeSimpleNewCall(classInfo);
+        Node newCall = (bindingInfo != null) ? makeBindingCall(classInfo, bindingInfo)
+            : makeSimpleNewCall(classInfo);
 
         if (classInfo.getSetterList() != null) {
           newCall = makeCommaExpression(newCall, instanceVar, classInfo);
         }
 
-        Node assign = new Node(Token.ASSIGN, instanceVar.cloneNode(), newCall);
+        Node assign = IR.assign(instanceVar.cloneNode(), newCall);
         Node expr = NodeUtil.newExpr(assign);
         expr.copyInformationFromForTree(block);
         block.addChildAfter(expr, block.getFirstChild());
@@ -377,29 +394,19 @@ public class DependenciesResolver {
       if (this.classInfoSet.containsKey(classInfo)) {
         return this.classInfoSet.get(classInfo);
       }
-      Node block = new Node(Token.BLOCK);
+      Node block = IR.block();
       Node function = this.declareEnhancedFunction();
       this.attachConstructorJSDocInfo(function);
       String functionName = function.getFirstChild().getString();
       block.addChildToBack(function);
-      this.inherits(block, functionName);
-      if (classInfo.isSingleton()) {
-        this.declareSingleton(block, functionName);
-      }
-      this.declarePrototype(block, function, functionName);
+      inherits(block, functionName);
+      declarePrototype(block, functionName);
       InterceptorCodeBlock ret = new InterceptorCodeBlock(block);
       this.classInfoSet.put(classInfo, ret);
       classInfo.rewriteClassName(functionName);
+      classInfo.setBindingInfo(null);
       classInfo.setAliasPoint(null);
       return ret;
-    }
-
-
-    private void declareSingleton(Node block, String functionName) {
-      Node call = NodeUtil.newCallNode(
-          NodeUtil.newQualifiedNameNode(convention, DIConsts.SINGLETON_CALL),
-          Node.newString(Token.NAME, functionName));
-      block.addChildToBack(NodeUtil.newExpr(call));
     }
 
 
@@ -407,15 +414,15 @@ public class DependenciesResolver {
       String suffix = DIProcessor.getValidVarName(DIProcessor
           .toLowerCase(classInfo.getClassName()));
       String functionName = String.format(DIConsts.ENHANCED_CONSTRUCTOR_FORMAT, suffix);
-      Node paramList = new Node(Token.PARAM_LIST);
+      Node paramList = IR.paramList();
       this.setParameter(paramList);
-      Node block = new Node(Token.BLOCK);
-      Node function = new Node(Token.FUNCTION, Node.newString(Token.NAME, functionName), paramList,
+      Node block = IR.block();
+      Node function = IR.function(IR.name(functionName), paramList,
           block);
-      Node thisRef = new Node(Token.THIS);
+      Node thisRef = IR.thisNode();
       Node baseCall = NodeUtil.newCallNode(
-          NodeUtil.newQualifiedNameNode(convention, DIConsts.GOOG_BASE), thisRef);
-      this.setParameter(baseCall);
+          NodeUtil.newQualifiedNameNode(convention, classInfo.getClassName() + ".call"), thisRef);
+      setParameter(baseCall);
       block.addChildToBack(NodeUtil.newExpr(baseCall));
       block.copyInformationFromForTree(classInfo.getConstructorNode());
       classInfo.setConstructorNode(function);
@@ -461,7 +468,7 @@ public class DependenciesResolver {
     }
 
 
-    private void declarePrototype(Node block, Node function, String functionName) {
+    private void declarePrototype(Node block, String functionName) {
       Map<String, PrototypeInfo> prototypeInfoMap = classInfo.getPrototypeInfoMap();
       for (PrototypeInfo prototypeInfo : prototypeInfoMap.values()) {
         Set<InterceptorInfo> interceptorInfoSet = prototypeInfo.getInterceptorInfoSet();
@@ -472,12 +479,24 @@ public class DependenciesResolver {
                   + DIConsts.PROTOTYPE
                   + "."
                   + prototypeInfo.getMethodName());
-          Node node = new Node(Token.ASSIGN, nameNode, this.createIntercetporCall(classInfo,
+          Node node = IR.assign(nameNode, this.createIntercetporCall(classInfo,
               prototypeInfo, interceptorInfoSet));
           this.attachMethodJSDocInfo(node);
           Node expr = NodeUtil.newExpr(node);
           expr.copyInformationFromForTree(prototypeInfo.getFunction());
-          block.addChildToBack(expr);
+          
+          Node and = null;
+          for (InterceptorInfo interceptorInfo : interceptorInfoSet) {
+            String interceptorCall = interceptorInfo.getModuleName() + "." + interceptorInfo.getName();
+            Node qnameNode = NodeUtil.newQualifiedNameNode(convention, interceptorCall);
+            and = and != null? IR.and(and, qnameNode) : qnameNode;
+          }
+          
+          if (and != null) {
+            block.addChildToBack(IR.ifNode(and, IR.block(expr)));
+          } else {
+            block.addChildToBack(expr);
+          }
         }
       }
     }
@@ -495,9 +514,7 @@ public class DependenciesResolver {
         PrototypeInfo prototypeInfo,
         Set<InterceptorInfo> interceptorInfoSet) {
 
-      Node functionNode = new Node(Token.FUNCTION, Node.newString(Token.NAME, ""), new Node(
-          Token.PARAM_LIST),
-          new Node(Token.BLOCK));
+      Node functionNode = IR.function(IR.name(""), IR.paramList(), IR.block());
       Node block = NodeUtil.getFunctionBody(functionNode);
       Node paramList = NodeUtil.getFunctionParameters(functionNode);
 
@@ -531,13 +548,13 @@ public class DependenciesResolver {
 
           interceptorCall = (index == copied.size() - 1) ?
               call :
-              new Node(Token.FUNCTION, Node.newString(Token.NAME, ""), new Node(Token.PARAM_LIST),
-                  new Node(Token.BLOCK, new Node(Token.RETURN, call)));
+              IR.function(IR.name(""), IR.paramList(),
+                  IR.block(IR.returnNode(call)));
           index++;
         }
       }
 
-      block.addChildToBack(new Node(Token.RETURN, interceptorCall));
+      block.addChildToBack(IR.returnNode(interceptorCall));
       return functionNode;
     }
 
@@ -571,8 +588,7 @@ public class DependenciesResolver {
           NodeUtil.newCallNode(
               NodeUtil.newQualifiedNameNode(convention, DIConsts.SLICE),
               Node.newString(Token.NAME, "arguments"))));
-      block.addChildToBack(NodeUtil.newVarNode(DIConsts.THIS_REFERENCE, new Node(
-          Token.THIS)));
+      block.addChildToBack(NodeUtil.newVarNode(DIConsts.THIS_REFERENCE, IR.thisNode()));
     }
   }
 }

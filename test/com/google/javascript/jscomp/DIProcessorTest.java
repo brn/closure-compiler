@@ -110,11 +110,12 @@ public class DIProcessorTest extends CompilerTestCase {
             "function Module() {}",
             "Module.prototype.configure = function() {",
             "  this.foo = 'test';",
+            "  this.testDeps = function(foo) {return new testNs.foo.bar.TestDeps(foo)}",
             "  return this;",
             "};",
             "(function(){",
             "  var module = (new Module).configure();",
-            "  var test = new testNs.foo.bar.Test(new testNs.foo.bar.TestDeps(module.foo));",
+            "  var test = new testNs.foo.bar.Test(module.testDeps(module.foo));",
             "})();"
         ));
   }
@@ -144,12 +145,14 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Foo = function(bar) {};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.foo = function(bar) {return new testNs.foo.bar.Foo(bar)};",
             "  this.bar = function(){};",
+            "  this.testDeps = function(foo) {return new testNs.foo.bar.TestDeps(foo)}",
             "  return this;",
             "};",
             "(function(){",
             "  var module = (new Module).configure();",
-            "  var test = new testNs.foo.bar.Test(new testNs.foo.bar.TestDeps(new testNs.foo.bar.Foo(module.bar)));",
+            "  var test = new testNs.foo.bar.Test(module.testDeps(module.foo(module.bar)));",
             "})();"
         ));
   }
@@ -207,12 +210,13 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test = function(binding1){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)};",
             "  this.binding1 = 'binding1';",
             "  return this;",
             "};",
             "(function(){",
             "  var module = (new Module).configure();",
-            "  var test = new testNs.foo.bar.Test(module.binding1);",
+            "  var test = module.testClass(module.binding1);",
             "})();"
         ));
   }
@@ -271,14 +275,15 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test = function(binding1){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)}",
             "  this.binding1 = 'binding1';",
             "  return this;",
             "};",
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  var test = (singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0));",
-            "  var test2 = (singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0));",
+            "  var test = (singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0));",
+            "  var test2 = (singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0));",
             "})();"
         ));
   }
@@ -307,14 +312,15 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test2 = function(testClass){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)};",
             "  this.binding1 = 'binding1';",
             "  return this;",
             "};",
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  var test = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0)));",
-            "  var test2 = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0)));",
+            "  var test = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0)));",
+            "  var test2 = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0)));",
             "})();"
         ));
   }
@@ -347,6 +353,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test2 = function(testClass){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1);};",
             "  this.binding1 = 'binding1';",
             "  this.binding2 = 'binding2';",
             "  return this;",
@@ -354,8 +361,8 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  var test = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0)));",
-            "  var test2 = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0)));",
+            "  var test = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0)));",
+            "  var test2 = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0)));",
             "})();"
         ));
   }
@@ -385,6 +392,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test.prototype.setItem = function(binding2){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)}",
             "  this.binding1 = 'binding1';",
             "  this.binding2 = 'binding2';",
             "  return this;",
@@ -392,8 +400,8 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  var test = singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0);",
-            "  var test2 = singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0);",
+            "  var test = singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0);",
+            "  var test2 = singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0);",
             "})();"
         ));
   }
@@ -429,6 +437,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test2 = function(testClass){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)};",
             "  this.binding1 = 'binding1';",
             "  this.binding2 = 'binding2';",
             "  this.binding3 = 'binding3';",
@@ -437,8 +446,8 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  var test = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0.setItem2(module.binding3), singletonInstance0)));",
-            "  var test2 = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0.setItem2(module.binding3), singletonInstance0)));",
+            "  var test = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0.setItem2(module.binding3), singletonInstance0)));",
+            "  var test2 = new testNs.foo.bar.Test2((singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0.setItem2(module.binding3), singletonInstance0)));",
             "})();"
         ));
   }
@@ -471,6 +480,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test.prototype.setItem2 = function(binding3){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1);}",
             "  this.binding1 = 'binding1';",
             "  this.binding2 = 'binding2';",
             "  this.binding3 = 'binding3';",
@@ -479,8 +489,8 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  var test = singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0.setItem2(module.binding3), singletonInstance0);",
-            "  var test2 = singletonInstance0? singletonInstance0 : (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0.setItem2(module.binding3), singletonInstance0);",
+            "  var test = singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0.setItem2(module.binding3), singletonInstance0);",
+            "  var test2 = singletonInstance0? singletonInstance0 : (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setItem(module.binding2), singletonInstance0.setItem2(module.binding3), singletonInstance0);",
             "})();"
         ));
   }
@@ -503,13 +513,14 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test = function(binding1){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)}",
             "  this.binding1 = 'binding1';",
             "  return this;",
             "};",
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  singletonInstance0 = (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0);",
+            "  singletonInstance0 = (singletonInstance0 = module.testClass(module.binding1), singletonInstance0);",
             "})();"
         ));
   }
@@ -538,13 +549,14 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test2 = function(testClass){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)};",
             "  this.binding1 = 'binding1';",
             "  return this;",
             "};",
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  singletonInstance0 = (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0);",
+            "  singletonInstance0 = (singletonInstance0 = module.testClass(module.binding1), singletonInstance0);",
             "  var test = new testNs.foo.bar.Test2(singletonInstance0)",
             "  var test2 = new testNs.foo.bar.Test2(singletonInstance0)",
             "})();"
@@ -579,6 +591,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test2 = function(testClass){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)}",
             "  this.binding1 = 'binding1';",
             "  this.binding2 = 'binding2';",
             "  return this;",
@@ -586,7 +599,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  singletonInstance0 = (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setBinding(module.binding2), singletonInstance0);",
+            "  singletonInstance0 = (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setBinding(module.binding2), singletonInstance0);",
             "  var test = new testNs.foo.bar.Test2(singletonInstance0)",
             "  var test2 = new testNs.foo.bar.Test2(singletonInstance0)",
             "})();"
@@ -618,6 +631,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test.prototype.setBinding = function(binding2){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)}",
             "  this.binding1 = 'binding1';",
             "  this.binding2 = 'binding2';",
             "  return this;",
@@ -625,7 +639,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  singletonInstance0 = (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setBinding(module.binding2), singletonInstance0);",
+            "  singletonInstance0 = (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setBinding(module.binding2), singletonInstance0);",
             "  var test = singletonInstance0",
             "  var test2 = singletonInstance0;",
             "})();"
@@ -663,6 +677,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test2 = function(testClass){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)}",
             "  this.binding1 = 'binding1';",
             "  this.binding2 = 'binding2';",
             "  this.binding3 = 'binding3';",
@@ -671,7 +686,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  singletonInstance0 = (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setBinding(module.binding2), singletonInstance0.setBinding2(module.binding3), singletonInstance0);",
+            "  singletonInstance0 = (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setBinding(module.binding2), singletonInstance0.setBinding2(module.binding3), singletonInstance0);",
             "  var test = new testNs.foo.bar.Test2(singletonInstance0)",
             "  var test2 = new testNs.foo.bar.Test2(singletonInstance0)",
             "})();"
@@ -706,6 +721,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "testNs.foo.bar.Test.prototype.setBinding2 = function(binding3){};",
             "function Module() {}",
             "Module.prototype.configure = function() {",
+            "  this.testClass = function(binding1) {return new testNs.foo.bar.Test(binding1)}",
             "  this.binding1 = 'binding1';",
             "  this.binding2 = 'binding2';",
             "  this.binding3 = 'binding3';",
@@ -714,7 +730,7 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var singletonInstance0;",
-            "  singletonInstance0 = (singletonInstance0 = new testNs.foo.bar.Test(module.binding1), singletonInstance0.setBinding(module.binding2), singletonInstance0.setBinding2(module.binding3), singletonInstance0);",
+            "  singletonInstance0 = (singletonInstance0 = module.testClass(module.binding1), singletonInstance0.setBinding(module.binding2), singletonInstance0.setBinding2(module.binding3), singletonInstance0);",
             "  var test = singletonInstance0;",
             "  var test2 = singletonInstance0;",
             "})();"
@@ -755,6 +771,63 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var test = new testNs.foo.bar.Test2(function() {return module.testClass(module.binding1)});",
+            "})();"
+        ));
+  }
+  
+  public void testSimpleInterceptor() {
+    test(
+        code(
+            "var testNs = {foo:{bar:{}}}",
+            "/**@constructor*/",
+            "testNs.foo.bar.Test = function(){};",
+            "testNs.foo.bar.Test.prototype.foo = function() {};",
+            module(
+                "binder.bindInterceptor(camp.injections.Matchers.instanceOf(testNs.foo.bar.Test),",
+                "                       camp.injections.Matchers.like('f*'),",
+                "                       function(methodInvocation) {",
+                "                         window.console.log(methodInvocation.getQualifiedName());",
+                "                         return methodInvocation.proceed();",
+                "                       });"
+            ),
+            initModule(
+                "var test = injector.getInstance(testNs.foo.bar.Test);"
+            )
+        ),
+        code(
+            "var testNs = {foo:{bar:{}}}",
+            "testNs.foo.bar.Test = function(){};",
+            "testNs.foo.bar.Test.prototype.foo = function() {};",
+            "function Module() {}",
+            "Module.prototype.configure = function() {",
+            "  this.jscomp$interceptor$0 = function(",
+            "                              jscomp$methodInvocation$context,",
+            "                              jscomp$methodInvocation$args,",
+            "                              jscomp$methodInvocation$className,",
+            "                              jscomp$methodInvocation$methodName,",
+            "                              jscomp$methodInvocation$proceed",
+            "                              ) {",
+            "    window.console.log(jscomp$methodInvocation$className + '.' + jscomp$methodInvocation$methodName)",
+            "    return jscomp$methodInvocation$proceed.apply(jscomp$methodInvocation$context, jscomp$methodInvocation$args);",
+            "  };",
+            "  return this;",
+            "};",
+            "(function(){",
+            "  var module = (new Module).configure();",
+            "  function JSComp$enhanced$testNs_foo_bar_Test() {testNs.foo.bar.Test.call(this);}",
+            "  goog.inherits(JSComp$enhanced$testNs_foo_bar_Test, testNs.foo.bar.Test);",
+            "  if (module.jscomp$interceptor$0) {",
+            "    JSComp$enhanced$testNs_foo_bar_Test.prototype.foo = function() {",
+            "      var jscomp$interceptor$args = Array.prototype.slice.call(arguments);",
+            "      var jscomp$interceptor$this = this;",
+            "      return module.jscomp$interceptor$0(jscomp$interceptor$this,",
+            "                                         jscomp$interceptor$args,",
+            "                                         'testNs.foo.bar.Test',",
+            "                                         'foo',",
+            "                                         testNs.foo.bar.Test.prototype.foo)",
+            "    }",
+            "  }",
+            "  var test = new JSComp$enhanced$testNs_foo_bar_Test;",
             "})();"
         ));
   }

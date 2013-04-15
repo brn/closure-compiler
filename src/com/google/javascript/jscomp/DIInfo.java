@@ -26,7 +26,8 @@ final class DIInfo {
 
   private Map<String, Map<String, BindingInfo>> bindingInfoMap = Maps.newHashMap();
 
-  private ArrayListMultimap<String, InterceptorInfo> interceptorInfoMap = ArrayListMultimap.create();
+  private ArrayListMultimap<String, InterceptorInfo> interceptorInfoMap = ArrayListMultimap
+      .create();
 
   private ArrayListMultimap<String, String> setterMap = ArrayListMultimap.create();
 
@@ -99,6 +100,15 @@ final class DIInfo {
 
   public Map<String, ClassInfo> getClassInfoMap() {
     return this.classInfoMap;
+  }
+
+
+  public boolean hasBindingInfo(String className, String bindingName) {
+    Map<String, BindingInfo> bindingMap = bindingInfoMap.get(className);
+    if (bindingMap != null) {
+      return bindingMap.containsKey(bindingName);
+    }
+    return false;
   }
 
 
@@ -472,6 +482,10 @@ final class DIInfo {
 
     private Node singletonVariable;
 
+    private boolean isDuplicated;
+
+    private BindingInfo bindingInfo;
+
 
     public ClassInfo(String className) {
       this.className = className;
@@ -672,6 +686,26 @@ final class DIInfo {
 
     public boolean isEager() {
       return this.scopeType == ScopeType.EAGER_SINGLETON;
+    }
+
+
+    public void setDuplicated(boolean isDuplicated) {
+      this.isDuplicated = isDuplicated;
+    }
+
+
+    public boolean isDuplicated() {
+      return isDuplicated;
+    }
+
+
+    public void setBindingInfo(BindingInfo bindingInfo) {
+      this.bindingInfo = bindingInfo;
+    }
+
+
+    public BindingInfo getBindingInfo() {
+      return bindingInfo;
     }
 
 
@@ -905,6 +939,10 @@ final class DIInfo {
 
     private ScopeType scopeType = ScopeType.PROTOTYPE;
 
+    private String moduleName;
+
+    private String moduleVariableName;
+
 
     public BindingInfo(String name) {
       this.name = name;
@@ -1020,6 +1058,17 @@ final class DIInfo {
 
     public boolean isEager() {
       return this.scopeType == ScopeType.EAGER_SINGLETON;
+    }
+
+
+    public void setModuleName(String moduleName) {
+      this.moduleName = moduleName;
+      this.moduleVariableName = DIProcessor.newValidVarName(moduleName);
+    }
+
+
+    public String getBindingAccessorName() {
+      return moduleVariableName + "." + name;
     }
   }
 

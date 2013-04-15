@@ -1,4 +1,8 @@
-
+/**
+ * @define {boolean} Overridden to true by the compiler when --closure_pass
+ *                   or --mark_as_compiled is specified.
+ */
+var COMPILED = false;
 
 camp.module('camp.vm.interaction', function (exports) {
   var Injector = camp.using('camp.injections.Injector');
@@ -230,48 +234,49 @@ camp.module('camp.vm.interaction', function (exports) {
   exports.DefaultModule = function() {};
 
   exports.DefaultModule.prototype.configure = function(binder) {
-    binder.bindInterceptor(
-      Matchers.inNamespace('camp.vm.interaction'),
-      Matchers.like("set*"),
-      function(methodInvocation) {
-        window.console.log('call before ' + methodInvocation.getQualifiedName());
-        return methodInvocation.proceed();
-      }
-    );
+    if (!COMPILED) {
+      binder.bindInterceptor(
+        Matchers.inNamespace('camp.vm.interaction'),
+        Matchers.like("set*"),
+        function(methodInvocation) {
+          window.console.log('call before ' + methodInvocation.getQualifiedName());
+          return methodInvocation.proceed();
+        }
+      );
 
-    binder.bindInterceptor(
-      Matchers.inNamespace('camp.vm.interaction'),
-      Matchers.like("set*"),
-      function(methodInvocation) {
-        var ret = methodInvocation.proceed();
-        window.console.log('call after ' + methodInvocation.getQualifiedName());
-        return ret;
-      }
-    );
+      binder.bindInterceptor(
+        Matchers.inNamespace('camp.vm.interaction'),
+        Matchers.like("set*"),
+        function(methodInvocation) {
+          var ret = methodInvocation.proceed();
+          window.console.log('call after ' + methodInvocation.getQualifiedName());
+          return ret;
+        }
+      );
 
-    binder.bindInterceptor(
-      Matchers.subclassOf(exports.Base1),
-      Matchers.like("insert"),
-      function(methodInvocation) {
-        var ret = methodInvocation.proceed();
-        window.console.log('ok !' + ret);
-        return ret;
-      }
-    );
+      binder.bindInterceptor(
+        Matchers.subclassOf(exports.Base1),
+        Matchers.like("insert"),
+        function(methodInvocation) {
+          var ret = methodInvocation.proceed();
+          window.console.log('ok !' + ret);
+          return ret;
+        }
+      );
+    }
+     /*
+     binder.bindInterceptor("camp.*", "*", function nullify(methodInvocation) {
+     var ret = methodInvocation.proceed();
 
-/*
-    binder.bindInterceptor("camp.*", "*", function nullify(methodInvocation) {
-      var ret = methodInvocation.proceed();
-
-      return ret? ret : null;
-    });
+     return ret? ret : null;
+     });
 
 
-    binder.bindInterceptor("goog.*", "*", function nullify(methodInvocation) {
-      var ret = methodInvocation.proceed();
+     binder.bindInterceptor("goog.*", "*", function nullify(methodInvocation) {
+     var ret = methodInvocation.proceed();
 
-      return ret? ret : null;
-    });*/
+     return ret? ret : null;
+     });*/
 
     binder.bind('dataSourceManager').toProvider(function() {
       return new exports.DataSourceManager(new PubSub);

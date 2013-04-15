@@ -154,33 +154,38 @@ final class DIRewriter {
       // binder.bind('foo').to(foo.bar.baz.Class) <- this.
       Node expression = bindingInfo.getBindedExpressionNode();
 
+      Node propNode = IR.getprop(IR.thisNode(), IR.string(bindingName));
+      Node assign = null;
+
       switch (bindingInfo.getBindingType()) {
       case TO: {
-        Node stementBeginningNode = DIProcessor.getStatementBeginningNode(n);
-        Preconditions.checkNotNull(stementBeginningNode);
         Preconditions.checkArgument(expression.isName() || NodeUtil.isGet(expression));
         String name = expression.getQualifiedName();
         Preconditions.checkArgument(!Strings.isNullOrEmpty(name));
         Preconditions.checkNotNull(diInfo.getClassInfo(name));
 
-        // Remove constructor binding node.
-        stementBeginningNode.detachFromParent();
-        compiler.reportCodeChange();
+        ClassInfo classInfo = diInfo.getClassInfo(name);
+        Node newCall = IR.newNode(NodeUtil.newQualifiedNameNode(convention, name));
+        Node paramList = IR.paramList();
+        for (String param : classInfo.getParamList()) {
+          paramList.addChildToBack(IR.name(param));
+          newCall.addChildToBack(IR.name(param));
+        }
+        assign = IR.assign(propNode,
+            IR.function(IR.name(""), paramList, IR.block(IR.returnNode(newCall))));
       }
         break;
 
       case TO_PROVIDER:
       case TO_INSTANCE: {
-        Node propNode = IR.getprop(IR.thisNode(), IR.string(bindingName));
-
-        Node assign = IR.assign(propNode, expression.cloneTree());
-        assign.copyInformationFromForTree(n);
-
-        // Replace a bind call node by a 'this' assignment node.
-        DIProcessor.replaceNode(n, assign);
-        compiler.reportCodeChange();
+        assign = IR.assign(propNode, expression.cloneTree());
       }
       }
+
+      assign.copyInformationFromForTree(n);
+      // Replace a bind call node by a 'this' assignment node.
+      DIProcessor.replaceNode(n, assign);
+      compiler.reportCodeChange();
     }
   }
 
@@ -400,7 +405,7 @@ final class DIRewriter {
        */
       private void replaceGetQualifiedName(Node callNode) {
         isRewrited = true;
-        Node prefix = IR.add(IR.name(CLASS_NAME), IR.name("."));
+        Node prefix = IR.add(IR.name(CLASS_NAME), IR.string("."));
         Node add = IR.add(prefix, IR.name(METHOD_NAME));
         add.copyInformationFromForTree(callNode);
         DIProcessor.replaceNode(callNode, add);
@@ -460,7 +465,7 @@ final class DIRewriter {
    * instantiation.
    */
   private final class ModuleInitializerConfig {
-    private Map<String, Map<String, BindingInfo>> allBindingInfoMap = Maps.newHashMap();
+    private Map<String, BindingInfo> allBindingInfoMap = Maps.newHashMap();
 
     private Map<String, ClassInfo> clonedMap = Maps.newHashMap();
 
@@ -487,7 +492,7 @@ final class DIRewriter {
       for (String moduleName : moduleInitInfo.getConfigModuleList()) {
         ModuleInfo moduleInfo = diInfo.getModuleInfo(moduleName);
         if (moduleInfo != null) {
-          allBindingInfoMap.put(moduleInfo.getModuleName(), moduleInfo.getBindingInfoMap());
+          allBindingInfoMap.putAll(moduleInfo.getBindingInfoMap());
           List<InterceptorInfo> infoList = diInfo.getInterceptorInfo(moduleName);
           if (infoList != null) {
             List<InterceptorInfo> list = Lists.newArrayList();
@@ -688,7 +693,7 @@ final class DIRewriter {
     /**
      * @return the allBindingInfoMap
      */
-    public Map<String, Map<String, BindingInfo>> getAllBindingInfoMap() {
+    public Map<String, BindingInfo> getAllBindingInfoMap() {
       return allBindingInfoMap;
     }
 
@@ -720,7 +725,7 @@ final class DIRewriter {
 
   private final class ModuleInitializerRewriter implements NodeRewriter {
 
-    private Map<String, Map<String, BindingInfo>> allBindingInfoMap;
+    private Map<String, BindingInfo> allBindingInfoMap;
 
     private Map<String, ClassInfo> clonedMap;
 
@@ -751,18 +756,17 @@ final class DIRewriter {
      * is instantiated regardless of using or not.
      */
     private void initEagerSingletons() {
-      for (Map<String, BindingInfo> bindingInfoMap : allBindingInfoMap.values()) {
-        for (BindingInfo bindingInfo : bindingInfoMap.values()) {
-          Node exp = bindingInfo.getBindedExpressionNode();
+      for (BindingInfo bindingInfo : allBindingInfoMap.values()) {
+        Node exp = bindingInfo.getBindedExpressionNode();
 
-          if (exp.isName() || NodeUtil.isGet(exp)) {
-            String qname = exp.getQualifiedName();
-            if (!Strings.isNullOrEmpty(qname)) {
-              if (clonedMap.containsKey(qname)) {
-                ClassInfo classInfo = clonedMap.get(qname);
-                classInfo.setScopeType(bindingInfo.getScopeType());
-                dependenciesResolver.makeInstantiateExpression(classInfo);
-              }
+        if (exp.isName() || NodeUtil.isGet(exp)) {
+          String qname = exp.getQualifiedName();
+          if (!Strings.isNullOrEmpty(qname)) {
+            if (clonedMap.containsKey(qname)) {
+              ClassInfo classInfo = clonedMap.get(qname);
+              classInfo.setScopeType(bindingInfo.getScopeType());
+              classInfo.setBindingInfo(bindingInfo);
+              dependenciesResolver.makeInstantiateExpression(classInfo);
             }
           }
         }
@@ -827,29 +831,22 @@ final class DIRewriter {
        */
       private void inliningGetInstanceByNameCall(Node n, String bindingName) {
         Node newChild = null;
+        if (allBindingInfoMap.containsKey(bindingName)) {
+          BindingInfo bindingInfo = allBindingInfoMap.get(bindingName);
 
-        for (String moduleName : allBindingInfoMap.keySet()) {
-          Map<String, BindingInfo> bindingInfoMap = allBindingInfoMap.get(moduleName);
+          if (bindingInfo.isProvider()) {
+            newChild = dependenciesResolver.makeProviderCall(bindingInfo, false);
+          } else {
+            Node expression = bindingInfo.getBindedExpressionNode();
+            Preconditions.checkArgument(expression.isName() || NodeUtil.isGet(expression));
+            String name = expression.getQualifiedName();
+            Preconditions.checkArgument(!Strings.isNullOrEmpty(name));
+            ClassInfo info = clonedMap.get(name);
 
-          if (bindingInfoMap.containsKey(bindingName)) {
-            BindingInfo bindingInfo = bindingInfoMap.get(bindingName);
-
-            if (bindingInfo.isProvider()) {
-              newChild = dependenciesResolver.makeProviderCall(bindingInfo, moduleName, false);
-              break;
+            if (info != null) {
+              newChild = dependenciesResolver.makeInstantiateExpression(info);
             } else {
-              Node expression = bindingInfo.getBindedExpressionNode();
-              Preconditions.checkArgument(expression.isName() || NodeUtil.isGet(expression));
-              String name = expression.getQualifiedName();
-              Preconditions.checkArgument(!Strings.isNullOrEmpty(name));
-              ClassInfo info = clonedMap.get(name);
-
-              if (info != null) {
-                newChild = dependenciesResolver.makeInstantiateExpression(info);
-              } else {
-                dependenciesResolver.reportClassNotFound(n, name);
-              }
-              break;
+              dependenciesResolver.reportClassNotFound(n, name);
             }
           }
         }
