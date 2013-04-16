@@ -753,7 +753,7 @@ public class DIProcessorTest extends CompilerTestCase {
                 "binder.bind('binding1').toInstance('binding1');"
             ),
             initModule(
-                "var test = injector.getInstance(testNs.foo.bar.Test2);"
+            "var test = injector.getInstance(testNs.foo.bar.Test2);"
             )
         ),
         code(
@@ -774,7 +774,8 @@ public class DIProcessorTest extends CompilerTestCase {
             "})();"
         ));
   }
-  
+
+
   public void testSimpleInterceptor() {
     test(
         code(
@@ -791,7 +792,7 @@ public class DIProcessorTest extends CompilerTestCase {
                 "                       });"
             ),
             initModule(
-                "var test = injector.getInstance(testNs.foo.bar.Test);"
+            "var test = injector.getInstance(testNs.foo.bar.Test);"
             )
         ),
         code(
@@ -816,19 +817,79 @@ public class DIProcessorTest extends CompilerTestCase {
             "  var module = (new Module).configure();",
             "  function JSComp$enhanced$testNs_foo_bar_Test() {testNs.foo.bar.Test.call(this);}",
             "  goog.inherits(JSComp$enhanced$testNs_foo_bar_Test, testNs.foo.bar.Test);",
-            "  if (module.jscomp$interceptor$0) {",
-            "    JSComp$enhanced$testNs_foo_bar_Test.prototype.foo = function() {",
-            "      var jscomp$interceptor$args = Array.prototype.slice.call(arguments);",
-            "      var jscomp$interceptor$this = this;",
-            "      return module.jscomp$interceptor$0(jscomp$interceptor$this,",
-            "                                         jscomp$interceptor$args,",
-            "                                         'testNs.foo.bar.Test',",
-            "                                         'foo',",
-            "                                         testNs.foo.bar.Test.prototype.foo)",
-            "    }",
+            "  JSComp$enhanced$testNs_foo_bar_Test.prototype.foo = function() {",
+            "    var jscomp$interceptor$args = Array.prototype.slice.call(arguments);",
+            "    var jscomp$interceptor$this = this;",
+            "    return module.jscomp$interceptor$0(jscomp$interceptor$this,",
+            "                                       jscomp$interceptor$args,",
+            "                                       'testNs.foo.bar.Test',",
+            "                                       'foo',",
+            "                                       testNs.foo.bar.Test.prototype.foo)",
             "  }",
             "  var test = new JSComp$enhanced$testNs_foo_bar_Test;",
             "})();"
         ));
+  }
+
+
+  public void testDuplicatedInstanceBinding() {
+    test(
+        code(
+            "var testNs = {foo:{bar:{}}}",
+            "var COMPILED = false",
+            module(
+              "if (!COMPILED) {",
+              "  binder.bind('foo').toInstance('dev-mode')",
+              "} else {",
+              "  binder.bind('foo').toInstance('product')",
+              "}"
+            ),
+            "/**@constructor*/",
+            "testNs.foo.bar.Test = function(foo){};",
+            initModule("var test = injector.getInstance(testNs.foo.bar.Test)")
+        ),
+        code(
+            "var testNs = {foo:{bar:{}}}",
+            "var COMPILED = false",
+            "function Module() {}",
+            "Module.prototype.configure = function() {",
+            "  if (!COMPILED) {",
+            "    this.foo = 'dev-mode';",
+            "  } else {",
+            "    this.foo = 'product';",
+            "  }",
+            "  return this;",
+            "}",
+            "testNs.foo.bar.Test = function(foo){};",
+            "(function(){",
+            "  var module = (new Module).configure();",
+            "  var test = new testNs.foo.bar.Test(module.foo || null)",
+            "})();"
+        ));
+  }
+  
+  private void testFailure(String code, DiagnosticType expectedError) {
+    test(code, null, expectedError);
+  }
+  
+  public void testDuplicatedConstructorBinding() {
+    testFailure(
+        code(
+            "var testNs = {foo:{bar:{}}}",
+            "var COMPILED = false",
+            "/**@constructor*/",
+            "testNs.foo.bar.Test = function(testClass){};",
+            "testNs.foo.bar.TestClass = function(foo){};",
+            "testNs.foo.bar.TestClass2 = function(foo){};",
+            module(
+              "binder.bind('foo').toInstance('foo')",
+              "if (!COMPILED) {",
+              "  binder.bind('testClass').to(testNs.foo.bar.TestClass);",  
+              "} else {",
+              "  binder.bind('testClass').to(testNs.foo.bar.TestClass2);",
+              "}"
+            ),
+            initModule("var test = injector.getInstance(testNs.foo.bar.Test)")
+        ), AggressiveDIOptimizerInfoCollector.MESSAGE_CONSTRUCTOR_BINDING_DEFINITION_IS_AMBIGUOUS);
   }
 }

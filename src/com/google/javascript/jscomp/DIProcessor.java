@@ -18,10 +18,10 @@ public class DIProcessor implements HotSwapCompilerPass {
 
   @Override
   public void process(Node extern, Node root) {
-    DIInfo dIInfo = new DIInfo();
-    new DIInfoCollector(compiler, dIInfo).collectInfo(root);
+    AggressiveDIOptimizerInfo aggressiveDIOptimizerInfo = new AggressiveDIOptimizerInfo();
+    new AggressiveDIOptimizerInfoCollector(compiler, aggressiveDIOptimizerInfo).collectInfo(root);
     if (!compiler.hasHaltingErrors()) {
-      new DIRewriter(compiler, dIInfo).rewrite();
+      new AggressiveDIOptimizer(compiler, aggressiveDIOptimizerInfo).optimize();
     }
   }
 

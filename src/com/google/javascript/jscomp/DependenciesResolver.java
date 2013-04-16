@@ -9,11 +9,11 @@ import javax.annotation.Nullable;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.javascript.jscomp.DIInfo.BindingInfo;
-import com.google.javascript.jscomp.DIInfo.ConstructorInfo;
-import com.google.javascript.jscomp.DIInfo.InterceptorInfo;
-import com.google.javascript.jscomp.DIInfo.ModuleInitializerInfo;
-import com.google.javascript.jscomp.DIInfo.PrototypeInfo;
+import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.BindingInfo;
+import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.ConstructorInfo;
+import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.InterceptorInfo;
+import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.ModuleInitializerInfo;
+import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.PrototypeInfo;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
@@ -38,7 +38,7 @@ public class DependenciesResolver {
       .error(
           "JSC_MSG_CLASS_DEFINITION_IS_DUPLICATED",
           "Compiler cannot inject dependencies because the constructor {0} definition is duplicated.");
-  
+
   static final DiagnosticType MESSAGE_DEPENDENCIES_IS_CIRCULATED_OR_TOO_COMPLICATED = DiagnosticType
       .error(
           "JSC_MSG_CLASS_DEFINITION_IS_DUPLICATED",
@@ -61,6 +61,7 @@ public class DependenciesResolver {
   private int variableId = 0;
 
   private final ResolvingStackChecker resolvingStackChecker = new ResolvingStackChecker(100);
+
 
   public DependenciesResolver(
       Map<String, BindingInfo> allBindingInfoMap,
@@ -92,7 +93,8 @@ public class DependenciesResolver {
     resolvingStackChecker.reset();
     return doMakeProviderCall(bindingInfo, false);
   }
-  
+
+
   private Node doMakeProviderCall(BindingInfo bindingInfo, boolean isPassProviderObject) {
     Node nameNode = NodeUtil.newQualifiedNameNode(convention, bindingInfo.getBindingAccessorName());
     Node call = NodeUtil.newCallNode(nameNode);
@@ -101,12 +103,19 @@ public class DependenciesResolver {
 
     addCallParameters(paramList, function, call);
 
+    Node ret = null;
     if (isPassProviderObject) {
-      return IR.function(IR.name(""),
+      ret = IR.function(IR.name(""),
           IR.paramList(),
           IR.block(IR.returnNode(call)));
     } else {
-      return call;
+      ret = call;
+    }
+
+    if (!bindingInfo.isInConditional()) {
+      return ret;
+    } else {
+      return IR.hook(nameNode.cloneTree(), ret, IR.nullNode());
     }
   }
 
@@ -117,7 +126,9 @@ public class DependenciesResolver {
   }
 
 
-  private Node doMakeInstantiateExpression(ConstructorInfo constructorInfo, @Nullable BindingInfo bindingInfo) {
+  private Node doMakeInstantiateExpression(
+      ConstructorInfo constructorInfo,
+      @Nullable BindingInfo bindingInfo) {
     if (constructorInfo.isDuplicated()) {
       report(constructorInfo.getConstructorNode(), MESSAGE_CLASS_DEFINITION_IS_DUPLICATED,
           constructorInfo.getClassName());
@@ -140,12 +151,12 @@ public class DependenciesResolver {
 
   private Node resolveBinding(Node n, String bindingName) {
     resolvingStackChecker.push();
-    
+
     if (resolvingStackChecker.isExceeded()) {
       report(n, MESSAGE_DEPENDENCIES_IS_CIRCULATED_OR_TOO_COMPLICATED);
       return IR.nullNode();
     }
-    
+
     boolean isPassProviderObject = false;
     int index = bindingName.indexOf("Provider");
 
@@ -182,8 +193,13 @@ public class DependenciesResolver {
           report(n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
           break;
         }
-
-        return NodeUtil.newQualifiedNameNode(convention, bindingInfo.getBindingAccessorName());
+        if (!bindingInfo.isInConditional()) {
+          return NodeUtil.newQualifiedNameNode(convention, bindingInfo.getBindingAccessorName());
+        } else {
+          Node getprop = NodeUtil.newQualifiedNameNode(convention,
+              bindingInfo.getBindingAccessorName());
+          return IR.or(getprop, IR.nullNode());
+        }
       }
     } else {
       report(n, MESSAGE_BINDING_NOT_FOUND, bindingName);
@@ -227,13 +243,20 @@ public class DependenciesResolver {
 
 
   private Node makeBindingCall(ConstructorInfo constructorInfo, BindingInfo bindingInfo) {
-    Node bindingCall = NodeUtil.newCallNode(NodeUtil.newQualifiedNameNode(convention,
-        bindingInfo.getBindingAccessorName()));
-    addCallParameters(constructorInfo.getParamList(), constructorInfo.getConstructorNode(), bindingCall);
+    Node getprop = NodeUtil.newQualifiedNameNode(
+        convention, bindingInfo.getBindingAccessorName());
+    Node bindingCall = NodeUtil.newCallNode(getprop);
+    addCallParameters(constructorInfo.getParamList(), constructorInfo.getConstructorNode(),
+        bindingCall);
     if (compiler.getErrorManager().getWarningCount() > 0) {
       System.out.println(bindingCall.toStringTree());
     }
-    return bindingCall;
+
+    if (!bindingInfo.isInConditional()) {
+      return bindingCall;
+    } else {
+      return IR.hook(getprop.cloneTree(), bindingCall, IR.nullNode());
+    }
   }
 
 
@@ -311,28 +334,33 @@ public class DependenciesResolver {
     addCallParameters(paramNameList, n, call);
   }
 
-  
+
   private final class ResolvingStackChecker {
     private int depth = 0;
-    
+
     private int maxDepth;
-    
+
+
     public ResolvingStackChecker(int maxDepth) {
       this.maxDepth = maxDepth;
     }
-    
+
+
     public void push() {
       this.depth++;
     }
-    
+
+
     public void reset() {
       this.depth = 0;
     }
-    
+
+
     public boolean isExceeded() {
       return this.depth > this.maxDepth;
     }
   }
+
 
   private final class SingletonBuilder {
 
@@ -373,7 +401,8 @@ public class DependenciesResolver {
     }
 
 
-    public Node makeEagerSingleton(ConstructorInfo constructorInfo, @Nullable BindingInfo bindingInfo) {
+    public Node makeEagerSingleton(ConstructorInfo constructorInfo,
+        @Nullable BindingInfo bindingInfo) {
       if (constructorInfo.getSingletonVariable() == null) {
         Node instanceVar = makeSingletonVariable();
         Node var = IR.var(instanceVar);
@@ -461,7 +490,8 @@ public class DependenciesResolver {
           block);
       Node thisRef = IR.thisNode();
       Node baseCall = NodeUtil.newCallNode(
-          NodeUtil.newQualifiedNameNode(convention, constructorInfo.getClassName() + ".call"), thisRef);
+          NodeUtil.newQualifiedNameNode(convention, constructorInfo.getClassName() + ".call"),
+          thisRef);
       setParameter(baseCall);
       block.addChildToBack(NodeUtil.newExpr(baseCall));
       block.copyInformationFromForTree(constructorInfo.getConstructorNode());
@@ -474,8 +504,9 @@ public class DependenciesResolver {
       JSDocInfo info = function.getJSDocInfo();
       JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
       builder.recordConstructor();
-      JSTypeExpression exp = new JSTypeExpression(new Node(Token.BANG, Node.newString(constructorInfo
-          .getClassName())),
+      JSTypeExpression exp = new JSTypeExpression(new Node(Token.BANG,
+          Node.newString(constructorInfo
+              .getClassName())),
           constructorInfo.getConstructorNode().getSourceFileName());
       builder.recordBaseType(exp);
 
@@ -524,19 +555,8 @@ public class DependenciesResolver {
           this.attachMethodJSDocInfo(node);
           Node expr = NodeUtil.newExpr(node);
           expr.copyInformationFromForTree(prototypeInfo.getFunction());
-          
-          Node and = null;
-          for (InterceptorInfo interceptorInfo : interceptorInfoSet) {
-            String interceptorCall = interceptorInfo.getModuleName() + "." + interceptorInfo.getName();
-            Node qnameNode = NodeUtil.newQualifiedNameNode(convention, interceptorCall);
-            and = and != null? IR.and(and, qnameNode) : qnameNode;
-          }
-          
-          if (and != null) {
-            block.addChildToBack(IR.ifNode(and, IR.block(expr)));
-          } else {
-            block.addChildToBack(expr);
-          }
+
+          block.addChildToBack(expr);
         }
       }
     }
@@ -607,19 +627,27 @@ public class DependenciesResolver {
 
       Node interceptorName = NodeUtil.newQualifiedNameNode(convention,
           interceptorInfo.getModuleName() + "." + interceptorInfo.getName());
-      Node className = interceptorInfo.isClassNameAccess() ? Node.newString(info.getClassName())
-          : Node.newString("");
-      Node methodName = interceptorInfo.isMethodNameAccess() ? Node.newString(prototypeInfo
-          .getMethodName()) : Node.newString("");
-      Node ret = NodeUtil.newCallNode(interceptorName, Node.newString(Token.NAME,
-          DIConsts.THIS_REFERENCE),
-          Node.newString(Token.NAME, DIConsts.INTERCEPTOR_ARGUMENTS));
+      Node className = interceptorInfo.isClassNameAccess() ?
+          IR.string(info.getClassName()) : IR.string("");
+      Node methodName = interceptorInfo.isMethodNameAccess() ?
+          IR.string(prototypeInfo.getMethodName()) : IR.string("");
+      Node ret = NodeUtil.newCallNode(
+          interceptorName,
+          IR.name(DIConsts.THIS_REFERENCE),
+          IR.name(DIConsts.INTERCEPTOR_ARGUMENTS));
 
       ret.addChildToBack(className);
       ret.addChildToBack(methodName);
       ret.addChildToBack(innerCallNode);
 
-      return ret;
+      if (!interceptorInfo.isInConditional()) {
+        return ret;
+      } else {
+        return IR.hook(interceptorName.cloneTree(), ret,
+            NodeUtil.newCallNode(
+                IR.getprop(innerCallNode.cloneTree(), IR.string("apply")),
+                IR.name(DIConsts.THIS_REFERENCE)));
+      }
     }
 
 
