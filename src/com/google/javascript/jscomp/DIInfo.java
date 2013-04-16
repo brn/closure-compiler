@@ -22,7 +22,7 @@ final class DIInfo {
 
   private List<ModuleInitializerInfo> moduleInitInfoList = Lists.newArrayList();
 
-  private Map<String, ClassInfo> classInfoMap = Maps.newHashMap();
+  private Map<String, ConstructorInfo> constructorInfoMap = Maps.newHashMap();
 
   private Map<String, Map<String, BindingInfo>> bindingInfoMap = Maps.newHashMap();
 
@@ -88,18 +88,18 @@ final class DIInfo {
   }
 
 
-  public void putClassInfo(ClassInfo classInfo) {
-    this.classInfoMap.put(classInfo.getClassName(), classInfo);
+  public void putClassInfo(ConstructorInfo constructorInfo) {
+    this.constructorInfoMap.put(constructorInfo.getClassName(), constructorInfo);
   }
 
 
-  public ClassInfo getClassInfo(String className) {
-    return this.classInfoMap.get(className);
+  public ConstructorInfo getClassInfo(String className) {
+    return this.constructorInfoMap.get(className);
   }
 
 
-  public Map<String, ClassInfo> getClassInfoMap() {
-    return this.classInfoMap;
+  public Map<String, ConstructorInfo> getClassInfoMap() {
+    return this.constructorInfoMap;
   }
 
 
@@ -455,7 +455,7 @@ final class DIInfo {
   }
 
 
-  static final class ClassInfo implements Cloneable {
+  static final class ConstructorInfo implements Cloneable {
     private String className;
 
     private List<String> paramList = Lists.newArrayList();
@@ -487,7 +487,7 @@ final class DIInfo {
     private BindingInfo bindingInfo;
 
 
-    public ClassInfo(String className) {
+    public ConstructorInfo(String className) {
       this.className = className;
     }
 
@@ -712,7 +712,7 @@ final class DIInfo {
     @Override
     public Object clone() {
       try {
-        ClassInfo info = (ClassInfo) super.clone();
+        ConstructorInfo info = (ConstructorInfo) super.clone();
         for (String key : this.prototypeInfoMap.keySet()) {
           PrototypeInfo proto = this.prototypeInfoMap.get(key);
           info.prototypeInfoMap.put(key, (PrototypeInfo) proto.clone());
@@ -933,7 +933,7 @@ final class DIInfo {
 
     private Node providerNode;
 
-    private ClassInfo classInfo;
+    private ConstructorInfo constructorInfo;
 
     private BindingType bindingType;
 
@@ -1001,13 +1001,13 @@ final class DIInfo {
     }
 
 
-    public ClassInfo getClassInfo() {
-      return classInfo;
+    public ConstructorInfo getClassInfo() {
+      return constructorInfo;
     }
 
 
-    public void setClassInfo(ClassInfo classInfo) {
-      this.classInfo = classInfo;
+    public void setClassInfo(ConstructorInfo constructorInfo) {
+      this.constructorInfo = constructorInfo;
     }
 
 
@@ -1069,6 +1069,12 @@ final class DIInfo {
 
     public String getBindingAccessorName() {
       return moduleVariableName + "." + name;
+    }
+    
+    public boolean hasSameAttributes(BindingInfo bindingInfo) {
+      return bindingInfo.getBindingType() == getBindingType() &&
+          bindingInfo.getScopeType() == scopeType &&
+          bindingInfo.getName() == name;
     }
   }
 

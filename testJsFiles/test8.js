@@ -1,35 +1,113 @@
 var testNs = {foo:{bar:{}}};
+var camp = {
+      injections : {}
+    };
+
+/**
+ * @define {boolean}
+ */
+var COMPILED = false;
+
 /**
  * @constructor
- * @param {testNs.foo.bar.TestDeps} testDeps
  */
-testNs.foo.bar.Test = function(testDeps){this.testDeps = testDeps;};
+function A(a){
+  this.string_ = a;
+  this.b = null;
+}
 
-testNs.foo.bar.Test.prototype.toString = function() {
-  return this.testDeps.foo + '1';
+/**
+ * @param {!Binder} binder
+ * @returns {A}
+ */
+A.createInstance = function(binder) {
+  var ret = new A(binder.getA());
+  ret.setB && ret.setB(binder.getB());
+  ret.setC && ret.setC(binder.getB());
+  return ret;
+};
+
+
+/**
+ * @returns {string}
+ */
+A.prototype.getStr = function() {
+  return this.string_ + this.b.getStr();
+};
+
+
+if (!COMPILED) {
+  A.prototype.setB = function(b) {
+    this.b = b;
+  };
+} else {
+  A.prototype.setC = function(b) {
+    this.b = b;
+  };
+}
+
+/**
+ * @constructor
+ */
+function B(b) {
+  this.b_ = b;
+}
+
+/**
+ * @param {!Binder} binder
+ * @return {B}
+ */
+B.createInstance = function(binder) {
+  return new B(binder.getA());
+};
+
+B.prototype.getStr = function() {
+  return this.b_ + 'aaaa';
 };
 
 /**
  * @constructor
  */
-testNs.foo.bar.TestDeps = function(foo){this.foo = foo;};
+function Module() {
 
+}
 
 /**
- * @constructor
+ * @param {!Binder} binder
  */
-function Module() {}
+Module.prototype.configure = function(binder) {
+  if (!COMPILED) {
+    binder.getA = function() {
+      return 'a';
+    };
+  } else {
+    binder.getA = function() {
+      return 'b';
+    };
+  }
 
-Module.prototype.configure = function() {
-  this.foo = 'test';
+  var instance;
   /**
-   * @return {testNs.foo.bar.TestDeps}
+   * @return {B}
    */
-  this.testDeps = function(foo) {return new testNs.foo.bar.TestDeps(foo)};
-  return this;
+  binder.getB = function() {
+    return instance = instance || B.createInstance(binder);
+  };
+
+  binder.interceptor0 = function() {
+  };
 };
-(function(){
-  var module = (new Module).configure();
-  var test = new testNs.foo.bar.Test(module.testDeps(module.foo));
-  document.body.innerHTML = test;
-})();
+
+/**
+ * @constructor
+ */
+function Binder(){
+
+};
+
+var module = new Module();
+var binder = new Binder();
+module.configure(binder);
+var a = A.createInstance(binder);
+var b = A.createInstance(binder);
+document.getElementById('a').innerHTML = a.getStr() + b.getStr();

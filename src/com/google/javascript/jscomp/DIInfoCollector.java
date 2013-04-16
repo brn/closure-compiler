@@ -8,12 +8,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.javascript.jscomp.DIConsts.ClassMatchType;
 import com.google.javascript.jscomp.DIConsts.MethodMatchType;
 import com.google.javascript.jscomp.DIInfo.BindingInfo;
 import com.google.javascript.jscomp.DIInfo.BindingType;
-import com.google.javascript.jscomp.DIInfo.ClassInfo;
+import com.google.javascript.jscomp.DIInfo.ConstructorInfo;
 import com.google.javascript.jscomp.DIInfo.InjectorInfo;
 import com.google.javascript.jscomp.DIInfo.InterceptorInfo;
 import com.google.javascript.jscomp.DIInfo.ModuleInfo;
@@ -29,11 +30,16 @@ import com.google.javascript.rhino.Token;
 
 final class DIInfoCollector {
 
+  static final DiagnosticType MESSAGE_FUNCTION_IS_CALLED_INSIDE_OF_CONDITIONAL = DiagnosticType
+      .warning(
+          "JSC_MSG_BINDING_IS_CALLED_INSIDE_OF_CONDITIONAL",
+          "Call of the function {0} inside of the conditional statement/expression may cause undefined behaviour.");
+
   static final DiagnosticType MESSAGE_MODULE_DEFINITION_IS_DUPLICATED = DiagnosticType
       .error(
           "JSC_MSG_CONSTRUCTOR_FUNCTION_IS_ANBIGUOUS.",
           "The module {0} has duplicated definition.");
-  
+
   static final DiagnosticType MESSAGE_BINDING_DEFINITION_IS_DUPLICATED = DiagnosticType
       .error(
           "JSC_MSG_CONSTRUCTOR_FUNCTION_IS_ANBIGUOUS.",
@@ -342,34 +348,34 @@ final class DIInfoCollector {
 
 
     private void processConstructor(NodeTraversal t, Node n) {
-      ClassInfo classInfo = null;
+      ConstructorInfo constructorInfo = null;
       if (NodeUtil.isFunctionDeclaration(n)) {
         String name = n.getFirstChild().getString();
-        classInfo = new ClassInfo(name);
+        constructorInfo = new ConstructorInfo(name);
       } else {
         Node parent = n.getParent();
         if (parent.isAssign()) {
           String name = parent.getFirstChild().getQualifiedName();
-          classInfo = new ClassInfo(name);
+          constructorInfo = new ConstructorInfo(name);
         } else if (NodeUtil.isVarDeclaration(parent)) {
-          classInfo = new ClassInfo(parent.getString());
+          constructorInfo = new ConstructorInfo(parent.getString());
         }
       }
 
-      if (classInfo != null) {
+      if (constructorInfo != null) {
         Node paramList = n.getFirstChild().getNext();
-        classInfo.setJSDocInfo(NodeUtil.getBestJSDocInfo(n));
-        classInfo.setConstructorNode(n);
+        constructorInfo.setJSDocInfo(NodeUtil.getBestJSDocInfo(n));
+        constructorInfo.setConstructorNode(n);
         for (Node param : paramList.children()) {
-          classInfo.addParam(param.getString());
+          constructorInfo.addParam(param.getString());
         }
 
-        ClassInfo duplicateEntry = dIInfo.getClassInfo(classInfo.getClassName());
+        ConstructorInfo duplicateEntry = dIInfo.getClassInfo(constructorInfo.getClassName());
         if (duplicateEntry != null) {
-          classInfo.setDuplicated(true);
+          constructorInfo.setDuplicated(true);
         }
 
-        dIInfo.putClassInfo(classInfo);
+        dIInfo.putClassInfo(constructorInfo);
       }
     }
   }
@@ -855,9 +861,26 @@ final class DIInfoCollector {
       String binderName = firstArgument.getString();
       if (qualifiedName != null) {
         if (qualifiedName.equals(binderName + "." + DIConsts.BIND)) {
+          reportWarningIfCalledInConditional(t, n, firstArgument, DIConsts.BIND);
           caseBind(t, n);
         } else if (qualifiedName.equals(binderName + "." + DIConsts.BIND_INTERCEPTOR)) {
+          reportWarningIfCalledInConditional(t, n, firstArgument, DIConsts.BIND_INTERCEPTOR);
           caseInterceptor(t, n);
+        }
+      }
+    }
+
+
+    private void reportWarningIfCalledInConditional(NodeTraversal t, Node n, Node firstArgument,
+        String methodName) {
+      Node block = NodeUtil.getFunctionBody(firstArgument.getParent().getParent());
+      Preconditions.checkNotNull(block);
+      while (n != null && !n.equals(block)) {
+        n = n.getParent();
+        if (n.isAnd() || n.isIf() || n.isOr() || n.isSwitch()) {
+          t.report(n, MESSAGE_FUNCTION_IS_CALLED_INSIDE_OF_CONDITIONAL, DIConsts.BINDER + "."
+              + methodName);
+          break;
         }
       }
     }
@@ -870,10 +893,13 @@ final class DIInfoCollector {
         BindingInfo bindingInfo = new BindingBuilder(bindingName, t, n).build();
         if (bindingInfo != null) {
           if (!dIInfo.hasBindingInfo(className, bindingName)) {
-            dIInfo.putBindingInfo(className, bindingInfo);
-          } else {
-            t.report(n, MESSAGE_BINDING_DEFINITION_IS_DUPLICATED, className, bindingName);
+            BindingInfo duplicated = dIInfo.getBindingInfoMap(className).get(bindingName);
+            if (!duplicated.hasSameAttributes(bindingInfo)) {
+              t.report(n, MESSAGE_BINDING_DEFINITION_IS_DUPLICATED, className, bindingName);
+            }
+            return;
           }
+          dIInfo.putBindingInfo(className, bindingInfo);
         }
       } else {
         t.report(n, MESSAGE_BIND_CALL_FIRST_ARGUMENT_IS_INVALID);
@@ -1084,33 +1110,33 @@ final class DIInfoCollector {
 
 
     private void bindClassInfo() {
-      Map<String, ClassInfo> classInfoMap = dIInfo.getClassInfoMap();
+      Map<String, ConstructorInfo> classInfoMap = dIInfo.getClassInfoMap();
       for (String className : classInfoMap.keySet()) {
-        ClassInfo classInfo = classInfoMap.get(className);
+        ConstructorInfo constructorInfo = classInfoMap.get(className);
         Map<String, PrototypeInfo> prototypeInfoMap = dIInfo
             .getPrototypeInfo(className);
         if (prototypeInfoMap != null) {
-          classInfo.setPrototypeInfoMap(prototypeInfoMap);
+          constructorInfo.setPrototypeInfoMap(prototypeInfoMap);
         }
 
         if (dIInfo.hasSetter(className)) {
-          classInfo.setSetterList(dIInfo.getSetterList(className));
+          constructorInfo.setSetterList(dIInfo.getSetterList(className));
         }
       }
     }
 
 
     private void bindBaseTypeInfo() {
-      Map<String, ClassInfo> classInfoMap = dIInfo.getClassInfoMap();
-      for (ClassInfo classInfo : classInfoMap.values()) {
-        this.checkBaseType(classInfo);
+      Map<String, ConstructorInfo> classInfoMap = dIInfo.getClassInfoMap();
+      for (ConstructorInfo constructorInfo : classInfoMap.values()) {
+        this.checkBaseType(constructorInfo);
       }
     }
 
 
-    private void checkBaseType(ClassInfo classInfo) {
-      Map<String, PrototypeInfo> prototypeInfoMap = classInfo.getPrototypeInfoMap();
-      for (ClassInfo baseTypeInfo : this.getBaseTypeList(classInfo)) {
+    private void checkBaseType(ConstructorInfo constructorInfo) {
+      Map<String, PrototypeInfo> prototypeInfoMap = constructorInfo.getPrototypeInfoMap();
+      for (ConstructorInfo baseTypeInfo : this.getBaseTypeList(constructorInfo)) {
         Map<String, PrototypeInfo> basePrototypeInfoMap = baseTypeInfo.getPrototypeInfoMap();
         for (String baseMethodName : basePrototypeInfoMap.keySet()) {
           if (!prototypeInfoMap.containsKey(baseMethodName)) {
@@ -1122,10 +1148,10 @@ final class DIInfoCollector {
     }
 
 
-    private List<ClassInfo> getBaseTypeList(ClassInfo classInfo) {
-      List<ClassInfo> classInfoList = Lists.newArrayList();
+    private List<ConstructorInfo> getBaseTypeList(ConstructorInfo constructorInfo) {
+      List<ConstructorInfo> classInfoList = Lists.newArrayList();
       while (true) {
-        JSDocInfo jsDocInfo = classInfo.getJSDocInfo();
+        JSDocInfo jsDocInfo = constructorInfo.getJSDocInfo();
         if (jsDocInfo != null) {
           JSTypeExpression type = jsDocInfo.getBaseType();
           if (type != null) {
@@ -1133,10 +1159,10 @@ final class DIInfoCollector {
             Node firstChild = typeRoot.getFirstChild();
             if (firstChild.isString()) {
               String baseType = firstChild.getString();
-              ClassInfo baseInfo = dIInfo.getClassInfo(baseType);
+              ConstructorInfo baseInfo = dIInfo.getClassInfo(baseType);
               if (baseInfo != null) {
                 classInfoList.add(baseInfo);
-                classInfo = baseInfo;
+                constructorInfo = baseInfo;
                 continue;
               }
             }
@@ -1219,7 +1245,7 @@ final class DIInfoCollector {
         Node rvalue = child.getNext();
         if (NodeUtil.isGet(rvalue) || rvalue.isName()) {
           String name = rvalue.getQualifiedName();
-          ClassInfo info = dIInfo.getClassInfo(name);
+          ConstructorInfo info = dIInfo.getClassInfo(name);
           if (info != null) {
             this.createAliasClassInfoFrom(n, info, qualifiedName);
           }
@@ -1228,9 +1254,9 @@ final class DIInfoCollector {
     }
 
 
-    private void createAliasClassInfoFrom(Node aliasPoint, ClassInfo info, String name) {
+    private void createAliasClassInfoFrom(Node aliasPoint, ConstructorInfo info, String name) {
       if (dIInfo.getClassInfo(name) == null) {
-        ClassInfo aliasInfo = new ClassInfo(name);
+        ConstructorInfo aliasInfo = new ConstructorInfo(name);
         dIInfo.putClassInfo(aliasInfo);
         aliasInfo.setConstructorNode(info.getConstructorNode());
         aliasInfo.setPrototypeInfoMap(info.getPrototypeInfoMap());
@@ -1246,9 +1272,9 @@ final class DIInfoCollector {
       Node rvalue = nameNode.getFirstChild();
       if (rvalue != null && (rvalue.isName() || NodeUtil.isGet(rvalue))) {
         String name = rvalue.getQualifiedName();
-        ClassInfo info = dIInfo.getClassInfo(name);
+        ConstructorInfo info = dIInfo.getClassInfo(name);
         if (info != null) {
-          this.createAliasClassInfoFrom(n, info, nameNode.getString());
+          createAliasClassInfoFrom(n, info, nameNode.getString());
         }
       }
     }

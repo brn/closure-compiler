@@ -15,7 +15,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.javascript.jscomp.DIConsts.ClassMatchType;
 import com.google.javascript.jscomp.DIInfo.BindingInfo;
-import com.google.javascript.jscomp.DIInfo.ClassInfo;
+import com.google.javascript.jscomp.DIInfo.ConstructorInfo;
 import com.google.javascript.jscomp.DIInfo.InjectorInfo;
 import com.google.javascript.jscomp.DIInfo.InterceptorInfo;
 import com.google.javascript.jscomp.DIInfo.ModuleInfo;
@@ -164,10 +164,10 @@ final class DIRewriter {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(name));
         Preconditions.checkNotNull(diInfo.getClassInfo(name));
 
-        ClassInfo classInfo = diInfo.getClassInfo(name);
+        ConstructorInfo constructorInfo = diInfo.getClassInfo(name);
         Node newCall = IR.newNode(NodeUtil.newQualifiedNameNode(convention, name));
         Node paramList = IR.paramList();
-        for (String param : classInfo.getParamList()) {
+        for (String param : constructorInfo.getParamList()) {
           paramList.addChildToBack(IR.name(param));
           newCall.addChildToBack(IR.name(param));
         }
@@ -461,13 +461,13 @@ final class DIRewriter {
 
   /**
    * The configuration for dependencies resolving. The 'configuration' clone
-   * ClassInfo and PrototypeInfo for adding additional informations of the
+   * ConstructorInfo and PrototypeInfo for adding additional informations of the
    * instantiation.
    */
   private final class ModuleInitializerConfig {
     private Map<String, BindingInfo> allBindingInfoMap = Maps.newHashMap();
 
-    private Map<String, ClassInfo> clonedMap = Maps.newHashMap();
+    private Map<String, ConstructorInfo> clonedMap = Maps.newHashMap();
 
     private DependenciesResolver dependenciesResolver;
 
@@ -509,16 +509,16 @@ final class DIRewriter {
 
 
     /**
-     * Clone all ClassInfo.
+     * Clone all ConstructorInfo.
      */
     private void cloneClassInfo() {
-      for (ClassInfo classInfo : diInfo.getClassInfoMap().values()) {
-        ClassInfo newClassInfo = (ClassInfo) classInfo.clone();
+      for (ConstructorInfo constructorInfo : diInfo.getClassInfoMap().values()) {
+        ConstructorInfo newClassInfo = (ConstructorInfo) constructorInfo.clone();
         clonedMap.put(newClassInfo.getClassName(), newClassInfo);
       }
 
-      for (ClassInfo classInfo : clonedMap.values()) {
-        bindInterceptorInfo(classInfo);
+      for (ConstructorInfo constructorInfo : clonedMap.values()) {
+        bindInterceptorInfo(constructorInfo);
       }
     }
 
@@ -526,18 +526,18 @@ final class DIRewriter {
     /**
      * Propagate InterceptorInfo by to matching in compilation time.
      * 
-     * @param classInfo
-     *          The ClassInfo of matching target.
+     * @param constructorInfo
+     *          The ConstructorInfo of matching target.
      */
-    private void bindInterceptorInfo(ClassInfo classInfo) {
-      if (!classInfo.hasInterceptorFlag()) {
+    private void bindInterceptorInfo(ConstructorInfo constructorInfo) {
+      if (!constructorInfo.hasInterceptorFlag()) {
         for (List<InterceptorInfo> interceptorInfoList : interceptorMap.values()) {
           for (InterceptorInfo interceptorInfo : interceptorInfoList) {
-            if (isMatchClass(interceptorInfo, classInfo)) {
-              boolean hasMatchedMethod = addInterceptorInfoToPrototypeIfMatched(classInfo,
+            if (isMatchClass(interceptorInfo, constructorInfo)) {
+              boolean hasMatchedMethod = addInterceptorInfoToPrototypeIfMatched(constructorInfo,
                   interceptorInfo);
               if (hasMatchedMethod) {
-                classInfo.setInterceptorFlag();
+                constructorInfo.setInterceptorFlag();
               }
             }
           }
@@ -549,16 +549,16 @@ final class DIRewriter {
     /**
      * Bind the InterceptorInfo to PrototypeInfo if method is matched.
      * 
-     * @param classInfo
-     *          The ClassInfo of matching target.
+     * @param constructorInfo
+     *          The ConstructorInfo of matching target.
      * @param interceptorInfo
      *          The InterceptorInfo of current checking.
      * @return a method is matched or not.
      */
-    private boolean addInterceptorInfoToPrototypeIfMatched(ClassInfo classInfo,
+    private boolean addInterceptorInfoToPrototypeIfMatched(ConstructorInfo constructorInfo,
         InterceptorInfo interceptorInfo) {
       boolean hasMatchedMethod = false;
-      Map<String, PrototypeInfo> prototypeInfoMap = classInfo.getPrototypeInfoMap();
+      Map<String, PrototypeInfo> prototypeInfoMap = constructorInfo.getPrototypeInfoMap();
       for (PrototypeInfo prototypeInfo : prototypeInfoMap.values()) {
         if (isMatchMethod(prototypeInfo, interceptorInfo)) {
           if (!prototypeInfo.hasInterceptorInfo(interceptorInfo)) {
@@ -602,14 +602,14 @@ final class DIRewriter {
      * 
      * @param interceptorInfo
      *          Current matcher.
-     * @param classInfo
-     *          The ClassInfo of current matching target.
+     * @param constructorInfo
+     *          The ConstructorInfo of current matching target.
      * @return matched or not.
      */
-    private boolean isMatchClass(InterceptorInfo interceptorInfo, ClassInfo classInfo) {
+    private boolean isMatchClass(InterceptorInfo interceptorInfo, ConstructorInfo constructorInfo) {
       ClassMatchType classMatchType = interceptorInfo.getClassMatchType();
       if (classMatchType != null) {
-        String className = classInfo.getClassName();
+        String className = constructorInfo.getClassName();
         switch (classMatchType) {
 
         case IN_NAMESPACE: {
@@ -627,7 +627,7 @@ final class DIRewriter {
         }
 
         case SUBCLASS_OF:
-          return this.checkTypeHierarchy(classInfo, interceptorInfo);
+          return this.checkTypeHierarchy(constructorInfo, interceptorInfo);
 
         case INSTANCE_OF:
           return interceptorInfo.getClassMatcher().equals(className);
@@ -644,14 +644,14 @@ final class DIRewriter {
     /**
      * Check base types for subclassOf matcher.
      * 
-     * @param classInfo
-     *          A ClassInfo of current matching target.
+     * @param constructorInfo
+     *          A ConstructorInfo of current matching target.
      * @param interceptorInfo
      *          Current matcher.
      * @return matched or not.
      */
-    private boolean checkTypeHierarchy(ClassInfo classInfo, InterceptorInfo interceptorInfo) {
-      JSDocInfo jsDocInfo = classInfo.getJSDocInfo();
+    private boolean checkTypeHierarchy(ConstructorInfo constructorInfo, InterceptorInfo interceptorInfo) {
+      JSDocInfo jsDocInfo = constructorInfo.getJSDocInfo();
       if (jsDocInfo != null) {
         JSTypeExpression exp = jsDocInfo.getBaseType();
         if (exp != null) {
@@ -659,7 +659,7 @@ final class DIRewriter {
           if (this.checkType(typeNode, interceptorInfo.getClassMatcher())) {
             return true;
           } else if (typeNode.isString()) {
-            ClassInfo baseInfo = clonedMap.get(typeNode.getString());
+            ConstructorInfo baseInfo = clonedMap.get(typeNode.getString());
             if (baseInfo != null) {
               return this.checkTypeHierarchy(baseInfo, interceptorInfo);
             }
@@ -701,7 +701,7 @@ final class DIRewriter {
     /**
      * @return the clonedMap
      */
-    public Map<String, ClassInfo> getClonedMap() {
+    public Map<String, ConstructorInfo> getClonedMap() {
       return clonedMap;
     }
 
@@ -727,7 +727,7 @@ final class DIRewriter {
 
     private Map<String, BindingInfo> allBindingInfoMap;
 
-    private Map<String, ClassInfo> clonedMap;
+    private Map<String, ConstructorInfo> clonedMap;
 
     private ModuleInitializerInfo moduleInitializerInfo;
 
@@ -763,10 +763,10 @@ final class DIRewriter {
           String qname = exp.getQualifiedName();
           if (!Strings.isNullOrEmpty(qname)) {
             if (clonedMap.containsKey(qname)) {
-              ClassInfo classInfo = clonedMap.get(qname);
-              classInfo.setScopeType(bindingInfo.getScopeType());
-              classInfo.setBindingInfo(bindingInfo);
-              dependenciesResolver.makeInstantiateExpression(classInfo);
+              ConstructorInfo constructorInfo = clonedMap.get(qname);
+              constructorInfo.setScopeType(bindingInfo.getScopeType());
+              constructorInfo.setBindingInfo(bindingInfo);
+              dependenciesResolver.makeInstantiateExpression(constructorInfo);
             }
           }
         }
@@ -807,7 +807,7 @@ final class DIRewriter {
        *          The name of target constructor function.
        */
       private void inliningGetInstanceCall(Node n, String className) {
-        ClassInfo info = clonedMap.get(className);
+        ConstructorInfo info = clonedMap.get(className);
         Node child = null;
 
         if (info != null) {
@@ -835,13 +835,13 @@ final class DIRewriter {
           BindingInfo bindingInfo = allBindingInfoMap.get(bindingName);
 
           if (bindingInfo.isProvider()) {
-            newChild = dependenciesResolver.makeProviderCall(bindingInfo, false);
+            newChild = dependenciesResolver.makeProviderCall(bindingInfo);
           } else {
             Node expression = bindingInfo.getBindedExpressionNode();
             Preconditions.checkArgument(expression.isName() || NodeUtil.isGet(expression));
             String name = expression.getQualifiedName();
             Preconditions.checkArgument(!Strings.isNullOrEmpty(name));
-            ClassInfo info = clonedMap.get(name);
+            ConstructorInfo info = clonedMap.get(name);
 
             if (info != null) {
               newChild = dependenciesResolver.makeInstantiateExpression(info);
