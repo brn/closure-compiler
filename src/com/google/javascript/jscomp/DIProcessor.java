@@ -132,4 +132,10 @@ public class DIProcessor implements HotSwapCompilerPass {
     }
     return comma;
   }
+  
+  static void report(AbstractCompiler compiler, Node n, DiagnosticType message, String... arguments) {
+    JSError error = JSError.make(n.getSourceFileName(),
+        n, message, arguments);
+    compiler.report(error);
+  }
 }

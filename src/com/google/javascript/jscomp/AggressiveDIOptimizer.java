@@ -102,7 +102,8 @@ final class AggressiveDIOptimizer {
   private int interceptorId = 0;
 
 
-  public AggressiveDIOptimizer(AbstractCompiler compiler, AggressiveDIOptimizerInfo aggressiveDIOptimizerInfo) {
+  public AggressiveDIOptimizer(AbstractCompiler compiler,
+      AggressiveDIOptimizerInfo aggressiveDIOptimizerInfo) {
     this.compiler = compiler;
     this.convention = compiler.getCodingConvention();
     this.diInfo = aggressiveDIOptimizerInfo;
@@ -547,7 +548,7 @@ final class AggressiveDIOptimizer {
 
 
     /**
-     * Bind the InterceptorInfo to PrototypeInfo if method is matched.
+     * Bind the InterceptorInfo to the PrototypeInfo if method is matched.
      * 
      * @param constructorInfo
      *          The ConstructorInfo of matching target.
@@ -561,7 +562,11 @@ final class AggressiveDIOptimizer {
       Map<String, PrototypeInfo> prototypeInfoMap = constructorInfo.getPrototypeInfoMap();
       for (PrototypeInfo prototypeInfo : prototypeInfoMap.values()) {
         if (isMatchMethod(prototypeInfo, interceptorInfo)) {
-          if (!prototypeInfo.hasInterceptorInfo(interceptorInfo)) {
+          if (prototypeInfo.isAmbiguous()) {
+            DIProcessor.report(compiler, prototypeInfo.getFunction(),
+                AggressiveDIOptimizerInfoCollector.MESSAGE_PROTOTYPE_FUNCTION_IS_AMBIGUOUS,
+                prototypeInfo.getMethodName(), constructorInfo.getClassName());
+          } else if (!prototypeInfo.hasInterceptorInfo(interceptorInfo)) {
             prototypeInfo.addInterceptor(interceptorInfo);
             hasMatchedMethod = true;
           }
@@ -572,7 +577,7 @@ final class AggressiveDIOptimizer {
 
 
     /**
-     * Check the method is matched with interceptor binding.
+     * Check the method is matched with a interceptor binding.
      * 
      * @param prototypeInfo
      *          A PrototypeInfo of matching target.
@@ -642,7 +647,7 @@ final class AggressiveDIOptimizer {
 
 
     /**
-     * Check base types for subclassOf matcher.
+     * Check base types for a subclassOf matcher.
      * 
      * @param constructorInfo
      *          A ConstructorInfo of current matching target.
@@ -650,7 +655,8 @@ final class AggressiveDIOptimizer {
      *          Current matcher.
      * @return matched or not.
      */
-    private boolean checkTypeHierarchy(ConstructorInfo constructorInfo, InterceptorInfo interceptorInfo) {
+    private boolean checkTypeHierarchy(ConstructorInfo constructorInfo,
+        InterceptorInfo interceptorInfo) {
       JSDocInfo jsDocInfo = constructorInfo.getJSDocInfo();
       if (jsDocInfo != null) {
         JSTypeExpression exp = jsDocInfo.getBaseType();
@@ -752,8 +758,8 @@ final class AggressiveDIOptimizer {
 
 
     /**
-     * Initialize constructor which is specified as Scopes.EAGER_SINGLETON. It
-     * is instantiated regardless of using or not.
+     * Initialize the constructors that are specified as Scopes.EAGER_SINGLETON.
+     * That constructors are instantiated regardless of using or not.
      */
     private void initEagerSingletons() {
       for (BindingInfo bindingInfo : allBindingInfoMap.values()) {

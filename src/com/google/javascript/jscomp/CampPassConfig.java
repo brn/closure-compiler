@@ -9,6 +9,8 @@ public class CampPassConfig extends DefaultPassConfig {
   
   private boolean inserted = false;
   
+  private CompilerOptions options;
+  
   ImmutableList<HotSwapPassFactory> SPECIAL_PASSES = new ImmutableList.Builder<HotSwapPassFactory>()
       .add(
           new HotSwapPassFactory("campModuleProcessor", true) {
@@ -29,6 +31,7 @@ public class CampPassConfig extends DefaultPassConfig {
 
   public CampPassConfig(CompilerOptions option) {
     super(option);
+    this.options = option;
   }
 
 
@@ -36,6 +39,7 @@ public class CampPassConfig extends DefaultPassConfig {
   protected List<PassFactory> getChecks() {
     List<PassFactory> ret = super.getChecks();
     List<PassFactory> specialPass = Lists.newArrayList();
+    
     for (PassFactory passFactory : ret) {
       if (passFactory.equals(closureRewriteGoogClass) && !inserted) {
         inserted = true;
@@ -46,6 +50,13 @@ public class CampPassConfig extends DefaultPassConfig {
       }
       specialPass.add(passFactory);
     }
+    
+    if (!options.processClosureDI) {
+      specialPass.remove(SPECIAL_PASSES.get(1));
+    } else {
+      options.setDefineToBooleanLiteral("IS_PROCESS_AGGRESSIVE_DI", true);
+    }
+    
     return specialPass;
   }
 }

@@ -77,15 +77,8 @@ public class DependenciesResolver {
   }
 
 
-  void report(Node n, DiagnosticType message, String... arguments) {
-    JSError error = JSError.make(n.getSourceFileName(),
-        n, message, arguments);
-    compiler.report(error);
-  }
-
-
   void reportClassNotFound(Node n, String name) {
-    report(n, MESSAGE_CLASS_NOT_FOUND, name);
+    DIProcessor.report(compiler, n, MESSAGE_CLASS_NOT_FOUND, name);
   }
 
 
@@ -130,7 +123,7 @@ public class DependenciesResolver {
       ConstructorInfo constructorInfo,
       @Nullable BindingInfo bindingInfo) {
     if (constructorInfo.isDuplicated()) {
-      report(constructorInfo.getConstructorNode(), MESSAGE_CLASS_DEFINITION_IS_DUPLICATED,
+      DIProcessor.report(compiler, constructorInfo.getConstructorNode(), MESSAGE_CLASS_DEFINITION_IS_DUPLICATED,
           constructorInfo.getClassName());
     }
     Node newCall = null;
@@ -153,7 +146,7 @@ public class DependenciesResolver {
     resolvingStackChecker.push();
 
     if (resolvingStackChecker.isExceeded()) {
-      report(n, MESSAGE_DEPENDENCIES_IS_CIRCULATED_OR_TOO_COMPLICATED);
+      DIProcessor.report(compiler, n, MESSAGE_DEPENDENCIES_IS_CIRCULATED_OR_TOO_COMPLICATED);
       return IR.nullNode();
     }
 
@@ -172,7 +165,7 @@ public class DependenciesResolver {
 
       case TO:
         if (isPassProviderObject) {
-          report(n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
+          DIProcessor.report(compiler, n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
         }
 
         String name = bindingInfo.getBindedExpressionNode().getQualifiedName();
@@ -190,7 +183,7 @@ public class DependenciesResolver {
 
       case TO_INSTANCE:
         if (isPassProviderObject) {
-          report(n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
+          DIProcessor.report(compiler, n, MESSAGE_BINDING_IS_NOT_A_PROVIDER, bindingName);
           break;
         }
         if (!bindingInfo.isInConditional()) {
@@ -202,7 +195,7 @@ public class DependenciesResolver {
         }
       }
     } else {
-      report(n, MESSAGE_BINDING_NOT_FOUND, bindingName);
+      DIProcessor.report(compiler, n, MESSAGE_BINDING_NOT_FOUND, bindingName);
     }
     return IR.nullNode();
   }

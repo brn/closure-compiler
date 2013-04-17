@@ -18,13 +18,6 @@ public class CampCommandLineRunner extends CommandLineRunner {
     // Let the superclass create the CompilerOptions using the values parsed
     // from the command-line arguments.
     CompilerOptions options = super.createOptions();
-
-    // ENABLE ADDITIONAL OPTIONS HERE.
-    if (options.customPasses == null) {
-      options.customPasses = HashMultimap.create();
-    }
-	options.customPasses.put(CustomPassExecutionTime.BEFORE_CHECKS, new CampModuleProcessor(getCompiler()));
-
     return options;
   }
 

@@ -868,6 +868,8 @@ public class DIProcessorTest extends CompilerTestCase {
         ));
   }
   
+  //Failure case
+  
   private void testFailure(String code, DiagnosticType expectedError) {
     test(code, null, expectedError);
   }

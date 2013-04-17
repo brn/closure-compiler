@@ -1,5 +1,6 @@
 package com.google.javascript.jscomp;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +32,14 @@ import com.google.javascript.rhino.Token;
 
 final class AggressiveDIOptimizerInfoCollector {
 
+  static final DiagnosticType MESSAGE_METHOD_NOT_FOUND = DiagnosticType
+      .error(
+          "JSC_MSG_METHOD_NOT_FOUND",
+          "The prototype {0} which speciefied as method injection target is not found on the prototypes of a constructor {1}");
+
+  static final DiagnosticType MESSAGE_PROTOTYPE_FUNCTION_IS_AMBIGUOUS = DiagnosticType.error(
+      "JSC_MSG_PROTOTYPE_FUNCTION_IS_AMBIGUOUS", "The prototype {0} is ambiguous.");
+
   static final DiagnosticType MESSAGE_FUNCTION_IS_CALLED_INSIDE_OF_CONDITIONAL = DiagnosticType
       .warning(
           "JSC_MSG_BINDING_IS_CALLED_INSIDE_OF_CONDITIONAL",
@@ -50,7 +59,7 @@ final class AggressiveDIOptimizerInfoCollector {
       .error(
           "JSC_MSG_CONSTRUCTOR_BINDING_DEFINITION_IS_ANBIGUOUS.",
           "The constructor binding {0} in module {1} is ambiguous. The constructor binding must be a unique.");
-  
+
   static final DiagnosticType MESSAGE_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID = DiagnosticType
       .error(
           "JSC_MSG_FIRST_ARGUMENT_OF_MODULE_INITIALIZER_IS_INVALID.",
@@ -228,7 +237,8 @@ final class AggressiveDIOptimizerInfoCollector {
   private AggressiveDIOptimizerInfo aggressiveDIOptimizerInfo;
 
 
-  public AggressiveDIOptimizerInfoCollector(AbstractCompiler compiler, AggressiveDIOptimizerInfo aggressiveDIOptimizerInfo) {
+  public AggressiveDIOptimizerInfoCollector(AbstractCompiler compiler,
+      AggressiveDIOptimizerInfo aggressiveDIOptimizerInfo) {
     this.compiler = compiler;
     this.aggressiveDIOptimizerInfo = aggressiveDIOptimizerInfo;
   }
@@ -376,7 +386,8 @@ final class AggressiveDIOptimizerInfoCollector {
           constructorInfo.addParam(param.getString());
         }
 
-        ConstructorInfo duplicateEntry = aggressiveDIOptimizerInfo.getConstructorInfo(constructorInfo.getClassName());
+        ConstructorInfo duplicateEntry = aggressiveDIOptimizerInfo
+            .getConstructorInfo(constructorInfo.getClassName());
         if (duplicateEntry != null) {
           constructorInfo.setDuplicated(true);
         }
@@ -527,11 +538,10 @@ final class AggressiveDIOptimizerInfoCollector {
       if (!Strings.isNullOrEmpty(qualifiedName)) {
         if (qualifiedName.indexOf("." + DIConsts.PROTOTYPE) > -1) {
           String className = NodeUtil.getPrototypeClassName(lvalue).getQualifiedName();
-
           // foo.prototype.bar = function() {...
           if (rvalue.isFunction() && qualifiedName.matches(DIConsts.PROTOTYPE_REGEX)) {
             String methodName = NodeUtil.getPrototypePropertyName(lvalue);
-            this.addPrototypeMember(className, methodName, rvalue);
+            addPrototypeMember(className, methodName, rvalue);
           } else if (qualifiedName.endsWith("." + DIConsts.PROTOTYPE)
               && rvalue.isObjectLit()) {
             // foo.prototype = {...
@@ -559,10 +569,37 @@ final class AggressiveDIOptimizerInfoCollector {
 
 
     private void addPrototypeMember(String className, String methodName, Node function) {
+      Map<String, PrototypeInfo> duplicatedInfoMap = aggressiveDIOptimizerInfo
+          .getPrototypeInfo(className);
+      PrototypeInfo duplicatedInfo;
+      List<String> dupParamList = null;
+      if (duplicatedInfoMap != null) {
+        duplicatedInfo = duplicatedInfoMap.get(methodName);
+        if (duplicatedInfo != null) {
+          dupParamList = duplicatedInfo.getParamList();
+        }
+      }
       PrototypeInfo prototypeInfo = new PrototypeInfo(methodName, function);
       Node paramList = function.getFirstChild().getNext();
-      for (Node param : paramList.children()) {
-        prototypeInfo.addParam(param.getString());
+      
+      if (dupParamList != null) {
+        if (dupParamList.size() != paramList.getChildCount()) {
+          prototypeInfo.setAmbiguous(true);
+        }
+      }
+      
+      int index = 0;
+      for (Node paramNode : paramList.children()) {
+        String param = paramNode.getString();
+        if (dupParamList != null) {
+          if (dupParamList.size() > index) {
+            if (!param.equals(dupParamList.get(index))) {
+              prototypeInfo.setAmbiguous(true);
+            }
+          }
+        }
+        prototypeInfo.addParam(param);
+        index++;
       }
       aggressiveDIOptimizerInfo.putPrototypeInfo(className, prototypeInfo);
     }
@@ -895,10 +932,12 @@ final class AggressiveDIOptimizerInfoCollector {
         BindingInfo bindingInfo = new BindingBuilder(bindingName, t, n).build();
         if (bindingInfo != null) {
           if (aggressiveDIOptimizerInfo.hasBindingInfo(className, bindingName)) {
-            List<BindingInfo> duplicated = aggressiveDIOptimizerInfo.getBindingInfoMap(className).get(bindingName);
+            List<BindingInfo> duplicated = aggressiveDIOptimizerInfo.getBindingInfoMap(className)
+                .get(bindingName);
             if (duplicated.size() > 0) {
               if (bindingInfo.getBindingType() == BindingType.TO) {
-                t.report(n, MESSAGE_CONSTRUCTOR_BINDING_DEFINITION_IS_AMBIGUOUS, bindingName, className);
+                t.report(n, MESSAGE_CONSTRUCTOR_BINDING_DEFINITION_IS_AMBIGUOUS, bindingName,
+                    className);
                 return;
               } else if (!isBindingListHasSameAttributes(duplicated, bindingInfo)) {
                 t.report(n, MESSAGE_BINDING_DEFINITION_IS_AMBIGUOUS, bindingName, className);
@@ -1136,12 +1175,27 @@ final class AggressiveDIOptimizerInfoCollector {
         ConstructorInfo constructorInfo = classInfoMap.get(className);
         Map<String, PrototypeInfo> prototypeInfoMap = aggressiveDIOptimizerInfo
             .getPrototypeInfo(className);
-        if (prototypeInfoMap != null) {
-          constructorInfo.setPrototypeInfoMap(prototypeInfoMap);
-        }
 
-        if (aggressiveDIOptimizerInfo.hasSetter(className)) {
-          constructorInfo.setSetterList(aggressiveDIOptimizerInfo.getSetterList(className));
+        if (prototypeInfoMap != null) {
+          if (aggressiveDIOptimizerInfo.hasSetter(className)) {
+            List<String> setterList = aggressiveDIOptimizerInfo.getSetterList(className);
+            constructorInfo.setSetterList(setterList);
+            for (String setter : setterList) {
+              PrototypeInfo prototypeInfo = prototypeInfoMap.get(setter);
+              if (prototypeInfo != null) {
+                if (prototypeInfo.isAmbiguous()) {
+                  DIProcessor.report(compiler, prototypeInfo.getFunction(),
+                      MESSAGE_PROTOTYPE_FUNCTION_IS_AMBIGUOUS, prototypeInfo.getMethodName());
+                  continue;
+                }
+              } else {
+                DIProcessor.report(compiler, constructorInfo.getConstructorNode(),
+                    MESSAGE_METHOD_NOT_FOUND, setter, constructorInfo.getClassName());
+                continue;
+              }
+            }
+          }
+          constructorInfo.setPrototypeInfoMap(prototypeInfoMap);
         }
       }
     }
@@ -1220,14 +1274,16 @@ final class AggressiveDIOptimizerInfoCollector {
         ModuleInfo moduleInfo = moduleInfoMap.get(className);
 
         if (aggressiveDIOptimizerInfo.hasBindingInfo(className)) {
-          ArrayListMultimap<String, BindingInfo> bindingInfoMap = aggressiveDIOptimizerInfo.getBindingInfoMap(className);
+          ArrayListMultimap<String, BindingInfo> bindingInfoMap = aggressiveDIOptimizerInfo
+              .getBindingInfoMap(className);
           moduleInfo.setBindingInfoMap(bindingInfoMap);
           for (BindingInfo bindingInfo : bindingInfoMap.values()) {
             bindingInfo.setModuleName(className);
           }
         }
-        
-        List<InterceptorInfo> interceptorInfoList = aggressiveDIOptimizerInfo.getInterceptorInfo(className);
+
+        List<InterceptorInfo> interceptorInfoList = aggressiveDIOptimizerInfo
+            .getInterceptorInfo(className);
         if (interceptorInfoList != null) {
           moduleInfo.setInterceptorInfoList(interceptorInfoList);
         }

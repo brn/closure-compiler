@@ -1157,15 +1157,13 @@ final class AggressiveDIOptimizerInfo {
   static final class PrototypeInfo implements Cloneable {
     private Node methodNode;
 
-    private Node lastInsertedInterceptorNode;
-
     private List<String> paramList = Lists.newArrayList();
 
     private String name;
 
-    private boolean weaved = false;
-
     private Set<InterceptorInfo> interceptorInfoSet = Sets.newLinkedHashSet();
+    
+    private boolean isAmbiguous = false;
 
 
     public PrototypeInfo(String name, Node function) {
@@ -1176,23 +1174,6 @@ final class AggressiveDIOptimizerInfo {
 
     public void addParam(String name) {
       this.paramList.add(name);
-    }
-
-
-    /**
-     * @return the lastInsertedInterceptor
-     */
-    public Node getLastInsertedInterceptor() {
-      return lastInsertedInterceptorNode;
-    }
-
-
-    /**
-     * @param lastInsertedInterceptor
-     *          the lastInsertedInterceptor to set
-     */
-    public void setLastInsertedInterceptor(Node lastInsertedInterceptor) {
-      this.lastInsertedInterceptorNode = lastInsertedInterceptor;
     }
 
 
@@ -1226,22 +1207,19 @@ final class AggressiveDIOptimizerInfo {
     }
 
 
-    public boolean isWeaved() {
-      return weaved;
-    }
-
-
-    public void setWeaved(boolean weaved) {
-      this.weaved = weaved;
+    /**
+     * @return the isAmbiguous
+     */
+    public boolean isAmbiguous() {
+      return isAmbiguous;
     }
 
 
     /**
-     * @param interceptorMap
-     *          the interceptorMap to set
+     * @param isAmbiguous the isAmbiguous to set
      */
-    public void addInterceptorInfo(InterceptorInfo interceptorInfo) {
-      this.interceptorInfoSet.add(interceptorInfo);
+    public void setAmbiguous(boolean isAmbiguous) {
+      this.isAmbiguous = isAmbiguous;
     }
 
 

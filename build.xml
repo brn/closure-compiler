@@ -2,6 +2,7 @@
 <project name="closure-compiler" default="all">
 
 		<property name="compiler.dir" value="${basedir}/lib/google-closure-compiler" />
+		<property name="compiler.build.dir" value="${basedir}/lib/google-closure-compiler/build" />
 		<property name="compiler.classes.dir" value="${compiler.dir}/build/classes" />
 		<property name="compiler.test.classes.dir" value="${compiler.dir}/build/test" />
 		<property name="src.dir" value="${basedir}/src" />
@@ -28,17 +29,16 @@
 				<ant antfile="build.xml"
 						 dir="${compiler.dir}"
 						 inheritAll="false"/>
+    	<ant antfile="build.xml"
+    					 target="compile-tests"
+						 dir="${compiler.dir}"
+						 inheritAll="false"/>
     </target>
 
 		<target name="compile" depends="compiler">
 				<mkdir dir="${classes.dir}" />
 				<javac srcdir="${src.dir}"
 							 debug="true"
-							 classpath="${closure-compiler.jar}"
-							 destdir="${classes.dir}"/>
-				<javac srcdir="${src.dir}"
-							 debug="true"
-							 target="compile-tests"
 							 classpath="${closure-compiler.jar}"
 							 destdir="${classes.dir}"/>
 		</target>
@@ -89,6 +89,7 @@
 		<target name="clean">
 				<delete dir="${build.dir}" />
 				<delete dir="${classes.dir}" />
+				<delete dir="${compiler.build.dir}" />
 		</target>
 		
 		<target name="build" depends="camp-command-line-runner" />
