@@ -50,12 +50,7 @@ public class CampPassConfig extends DefaultPassConfig {
       }
       specialPass.add(passFactory);
     }
-    
-    if (!options.processClosureDI) {
-      specialPass.remove(SPECIAL_PASSES.get(1));
-    } else {
-      options.setDefineToBooleanLiteral("IS_PROCESS_AGGRESSIVE_DI", true);
-    }
+    options.setDefineToBooleanLiteral("IS_PROCESS_AGGRESSIVE_DI", true);
     
     return specialPass;
   }

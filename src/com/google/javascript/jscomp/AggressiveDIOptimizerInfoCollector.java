@@ -468,9 +468,7 @@ final class AggressiveDIOptimizerInfoCollector {
 
 
   private final class InjectMarkerProcessor implements MarkerProcessor {
-    private final Pattern pattern = Pattern.compile("([a-zA-Z_$][\\w_$]*)(?:\\(([\\s\\S]+)\\))");
-
-
+    
     public void processMarker(NodeTraversal t, Node n, Node parent) {
       Node constructorNameNode = n.getFirstChild().getNext();
       Node methodNameNode = constructorNameNode.getNext();
@@ -510,7 +508,7 @@ final class AggressiveDIOptimizerInfoCollector {
         String methodName) {
       MethodInjectionInfo methodInjectionInfo = null;
       if (methodName.indexOf("(") > -1) {
-        Matcher matcher = pattern.matcher(methodName);
+        Matcher matcher = DIConsts.INJECTON_PARSE_REG.matcher(methodName);
         if (matcher.find()) {
           if (matcher.groupCount() == 2) {
             String paramStr = matcher.group(2);

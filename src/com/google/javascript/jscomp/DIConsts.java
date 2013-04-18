@@ -1,5 +1,7 @@
 package com.google.javascript.jscomp;
 
+import java.util.regex.Pattern;
+
 public class DIConsts {
 
   enum ClassMatchType {
@@ -55,4 +57,5 @@ public class DIConsts {
   static final String ENHANCED_CONSTRUCTOR_FORMAT = "JSComp$enhanced$%s";
   static final String GOOG_BASE = "goog.base";
   static final String GOOG_INHERITS = "goog.inherits";
+  static final Pattern INJECTON_PARSE_REG = Pattern.compile("([a-zA-Z_$][\\w_$]*)(?:\\(([\\s\\S]+)\\))");
 }
