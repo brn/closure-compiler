@@ -55,10 +55,10 @@ import com.google.javascript.rhino.Token;
  *    }
  *    this.jscomp$interceptor$0 = function(jscomp$methodInvocation$this,
  *                                         jscomp$methodInvocation$arguments,
- *                                         jscomp$methodInvocation$className,
+ *                                         jscomp$methodInvocation$constructorName,
  *                                         jscomp$methodInvocation$methodName,
  *                                         jscomp$methodInvocation$proceed) {
- *      console.log("log call before : " + jscomp$methodInvocation$className + ("." + jscomp$joinPoint$methodName));
+ *      console.log("log call before : " + jscomp$methodInvocation$constructorName + ("." + jscomp$joinPoint$methodName));
  *      return jscomp$methodInvocation$proceed.apply(this, jscomp$methodInvocation$arguments);
  *    }
  *  }
@@ -151,8 +151,11 @@ final class AggressiveDIOptimizer {
       // The value node of binding.
       // binder.bind('foo').to(foo.bar.baz.Class) <- this.
       Node expression = bindingInfo.getBindedExpressionNode();
+      
+      Node bindingNameNode = IR.string(bindingName);
 
-      Node propNode = IR.getprop(IR.thisNode(), IR.string(bindingName));
+      Node propNode = DIProcessor.isValidIdentifier(bindingName)?
+          IR.getprop(IR.thisNode(), bindingNameNode) : IR.getelem(IR.thisNode(), bindingNameNode);
       Node assign = null;
 
       switch (bindingInfo.getBindingType()) {
@@ -253,7 +256,7 @@ final class AggressiveDIOptimizer {
 
       private static final String ARGS = "jscomp$methodInvocation$args";
 
-      private static final String CLASS_NAME = "jscomp$methodInvocation$className";
+      private static final String CLASS_NAME = "jscomp$methodInvocation$constructorName";
 
       private static final String METHOD_NAME = "jscomp$methodInvocation$methodName";
 
@@ -346,9 +349,9 @@ final class AggressiveDIOptimizer {
           this.replaceGetMethodName(callNode);
         }
 
-        // methodInvocation.getClassName()
-        for (Node callNode : interceptorInfo.getClassNameNodeList()) {
-          this.replaceGetClassName(callNode);
+        // methodInvocation.getconstructorName()
+        for (Node callNode : interceptorInfo.getConstructorNameNodeList()) {
+          this.replaceGetconstructorName(callNode);
         }
 
         // methodInvocation.getArguments()
@@ -426,13 +429,13 @@ final class AggressiveDIOptimizer {
 
 
       /**
-       * Replace MethodInvocation#getClassName call node to a simple variable
+       * Replace MethodInvocation#getconstructorName call node to a simple variable
        * reference node.
        * 
        * @param callNode
-       *          A node of 'methodInvocation.getClassName' call.
+       *          A node of 'methodInvocation.getconstructorName' call.
        */
-      private void replaceGetClassName(Node callNode) {
+      private void replaceGetconstructorName(Node callNode) {
         isRewrited = true;
         Node name = IR.name(CLASS_NAME);
         name.copyInformationFromForTree(callNode);
@@ -513,9 +516,9 @@ final class AggressiveDIOptimizer {
      * Clone all ConstructorInfo.
      */
     private void cloneClassInfo() {
-      for (ConstructorInfo constructorInfo : diInfo.getClassInfoMap().values()) {
+      for (ConstructorInfo constructorInfo : diInfo.getConstructorInfoMap().values()) {
         ConstructorInfo newClassInfo = (ConstructorInfo) constructorInfo.clone();
-        clonedMap.put(newClassInfo.getClassName(), newClassInfo);
+        clonedMap.put(newClassInfo.getConstructorName(), newClassInfo);
       }
 
       for (ConstructorInfo constructorInfo : clonedMap.values()) {
@@ -565,7 +568,7 @@ final class AggressiveDIOptimizer {
           if (prototypeInfo.isAmbiguous()) {
             DIProcessor.report(compiler, prototypeInfo.getFunction(),
                 AggressiveDIOptimizerInfoCollector.MESSAGE_PROTOTYPE_FUNCTION_IS_AMBIGUOUS,
-                prototypeInfo.getMethodName(), constructorInfo.getClassName());
+                prototypeInfo.getMethodName(), constructorInfo.getConstructorName());
           } else if (!prototypeInfo.hasInterceptorInfo(interceptorInfo)) {
             prototypeInfo.addInterceptor(interceptorInfo);
             hasMatchedMethod = true;
@@ -612,30 +615,30 @@ final class AggressiveDIOptimizer {
      * @return matched or not.
      */
     private boolean isMatchClass(InterceptorInfo interceptorInfo, ConstructorInfo constructorInfo) {
-      ClassMatchType classMatchType = interceptorInfo.getClassMatchType();
+      ClassMatchType classMatchType = interceptorInfo.getConstructorMatchType();
       if (classMatchType != null) {
-        String className = constructorInfo.getClassName();
+        String constructorName = constructorInfo.getConstructorName();
         switch (classMatchType) {
 
         case IN_NAMESPACE: {
-          String reg = "^" + interceptorInfo.getClassMatcher().replaceAll("\\.", "\\.") + "$";
-          int index = className.lastIndexOf('.');
+          String reg = "^" + interceptorInfo.getConstructorMatcher().replaceAll("\\.", "\\.") + "$";
+          int index = constructorName.lastIndexOf('.');
           if (index > -1) {
-            return className.substring(0, index).matches(reg);
+            return constructorName.substring(0, index).matches(reg);
           }
-          return className.matches(reg);
+          return constructorName.matches(reg);
         }
 
         case SUB_NAMESPACE: {
-          String reg = "^" + interceptorInfo.getClassMatcher().replaceAll("\\.", "\\.") + ".*";
-          return className.matches(reg);
+          String reg = "^" + interceptorInfo.getConstructorMatcher().replaceAll("\\.", "\\.") + ".*";
+          return constructorName.matches(reg);
         }
 
         case SUBCLASS_OF:
           return this.checkTypeHierarchy(constructorInfo, interceptorInfo);
 
         case INSTANCE_OF:
-          return interceptorInfo.getClassMatcher().equals(className);
+          return interceptorInfo.getConstructorMatcher().equals(constructorName);
 
         case ANY:
           return true;
@@ -662,7 +665,7 @@ final class AggressiveDIOptimizer {
         JSTypeExpression exp = jsDocInfo.getBaseType();
         if (exp != null) {
           Node typeNode = exp.getRoot().getFirstChild();
-          if (this.checkType(typeNode, interceptorInfo.getClassMatcher())) {
+          if (this.checkType(typeNode, interceptorInfo.getConstructorMatcher())) {
             return true;
           } else if (typeNode.isString()) {
             ConstructorInfo baseInfo = clonedMap.get(typeNode.getString());
@@ -772,7 +775,9 @@ final class AggressiveDIOptimizer {
               ConstructorInfo constructorInfo = clonedMap.get(qname);
               constructorInfo.setScopeType(bindingInfo.getScopeType());
               constructorInfo.setBindingInfo(bindingInfo);
-              dependenciesResolver.makeInstantiateExpression(constructorInfo);
+              if (bindingInfo.isEager()) {
+                dependenciesResolver.makeInstantiateExpression(constructorInfo);
+              }
             }
           }
         }
@@ -809,11 +814,11 @@ final class AggressiveDIOptimizer {
        * 
        * @param n
        *          A node of injector.getInstance call.
-       * @param className
+       * @param constructorName
        *          The name of target constructor function.
        */
-      private void inliningGetInstanceCall(Node n, String className) {
-        ConstructorInfo info = clonedMap.get(className);
+      private void inliningGetInstanceCall(Node n, String constructorName) {
+        ConstructorInfo info = clonedMap.get(constructorName);
         Node child = null;
 
         if (info != null) {
@@ -822,7 +827,7 @@ final class AggressiveDIOptimizer {
           DIProcessor.replaceNode(n, child);
           compiler.reportCodeChange();
         } else {
-          dependenciesResolver.reportClassNotFound(n, className);
+          dependenciesResolver.reportClassNotFound(n, constructorName);
         }
       }
 

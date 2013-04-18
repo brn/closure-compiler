@@ -12,37 +12,19 @@ camp.module("camp.test.main", function (exports) {
   var Base3 = camp.using('camp.vm.interaction.Base3');
 
   exports.main = function () {
-    modules.init([DefaultModule, DefaultModule2], function (injector) {
+    /*modules.init([DefaultModule, DefaultModule2], function (injector) {
       var l = injector.getInstance(Test3);
-      var v = injector.getInstance(Test);
+      /*var v = injector.getInstance(Test);
       var o = injector.getInstanceByName('dataSourceManager');
       var x = injector.getInstance(Base3);
       o.echo(l.getName() + v.getName());
       window.localStorage['foo'] = l.getName() + v.getName();
       window.console.log(injector.getInstance(Test4));
       x.insert();
-    });
+    });*/
     modules.init([DefaultModule], function (injector) {
       var o = injector.getInstance(Service);
       o.getNode().innerHTML = 'hogehoge';
     });
-
-    /**
-     * @constructor
-     */
-    var x = function() {
-        };
-    x.prototype.hoge = function() {
-      this.aaa = function() {
-        return 'name11';
-      };
-      this.bbb = function() {
-        return this.aaa() + 'name11';
-      };
-    };
-
-    var xx = new x();
-    xx.hoge();
-    document.getElementById('aaa').innerHTML = xx.aaa() + xx.bbb();
   };
 });

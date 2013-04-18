@@ -138,4 +138,15 @@ public class DIProcessor implements HotSwapCompilerPass {
         n, message, arguments);
     compiler.report(error);
   }
+  
+  static boolean isValidIdentifier(String ident) {
+    if (ident.matches("^[0-9].*")) {
+      return false;
+    }
+    
+    if (ident.matches(".*[^\\w_$].*")) {
+      return false;
+    }
+    return true;
+  }
 }

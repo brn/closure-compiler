@@ -19,7 +19,7 @@ public class DIConsts {
   public static final String INJECTOR = "camp.injections.Injector";
   static final String BINDER = "camp.injections.Binder";
   static final String METHOD_INVOCATION = "camp.injections.MethodInvocation";
-  static final String METHOD_INVOCATION_GET_CLASS_NAME = "getClassName";
+  static final String METHOD_INVOCATION_GET_CONSTRUCTOR_NAME = "getConstructorName";
   static final String METHOD_INVOCATION_GET_METHOD_NAME = "getMethodName";
   static final String METHOD_INVOCATION_GET_QUALIFIED_NAME = "getQualifiedName";
   static final String METHOD_INVOCATION_GET_ARGUMENTS = "getArguments";

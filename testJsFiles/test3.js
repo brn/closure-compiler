@@ -47,7 +47,7 @@ camp.module('camp.vm.interaction', function (exports) {
    */
   Service2.prototype.getNode = function () {
     return this._node;
-  }
+  };
 
 
   /**
@@ -58,7 +58,7 @@ camp.module('camp.vm.interaction', function (exports) {
   exports.Test = function (name1, test2) {
     this._x = name1;
     this._test2 = test2;
-  }
+  };
   Injector.inject(exports.Test, 'setService');
 
 
@@ -82,7 +82,7 @@ camp.module('camp.vm.interaction', function (exports) {
      * @private {camp.vm.interaction.Service}
      */
     _service : null
-  }
+  };
 
 
 
@@ -92,7 +92,7 @@ camp.module('camp.vm.interaction', function (exports) {
    */
   exports.Test2 = function (name2) {
     this._name = name2;
-  }
+  };
 
 
   /**
@@ -100,7 +100,7 @@ camp.module('camp.vm.interaction', function (exports) {
    */
   exports.Test2.prototype.getName = function () {
     return this._name;
-  }
+  };
 
   /**
    * @constructor
@@ -123,7 +123,7 @@ camp.module('camp.vm.interaction', function (exports) {
    */
   exports.Test3 = function (name1, test2) {
     exports.Test.call(this, name1, test2);
-  }
+  };
   goog.inherits(exports.Test3, exports.Test);
 
 
@@ -135,7 +135,7 @@ camp.module('camp.vm.interaction', function (exports) {
   exports.Test4 = function (name1, name2) {
     this.a = name1;
     this.b = name2;
-  }
+  };
 
   exports.Test4.prototype.c = '';
 
@@ -144,11 +144,11 @@ camp.module('camp.vm.interaction', function (exports) {
    */
   exports.Test4.prototype.setC = function (c) {
     this.c = c;
-  }
+  };
 
   exports.Test4.prototype.get = function () {
     return this.a + this.b + this.c.getName();
-  }
+  };
 
   /**
    * @constructor
@@ -192,7 +192,13 @@ camp.module('camp.vm.interaction', function (exports) {
   };
 
 
-  Injector.inject(exports.Test3, "setService");
+
+  exports.Test.prototype.setService = function() {
+    return function(service) {
+      this._service = service;
+    };
+  }();
+  Injector.inject(exports.Test3, "setService(service)");
 
   /**
    * @constructor
@@ -234,7 +240,7 @@ camp.module('camp.vm.interaction', function (exports) {
   exports.DefaultModule = function() {};
 
   exports.DefaultModule.prototype.configure = function(binder) {
-    if (!COMPILED) {
+   /* if (!COMPILED) {
       binder.bindInterceptor(
         Matchers.inNamespace('camp.vm.interaction'),
         Matchers.like("set*"),
@@ -264,7 +270,7 @@ camp.module('camp.vm.interaction', function (exports) {
         }
       );
     }
-     /*
+
      binder.bindInterceptor("camp.*", "*", function nullify(methodInvocation) {
      var ret = methodInvocation.proceed();
 

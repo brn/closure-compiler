@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
@@ -29,14 +30,17 @@ final class AggressiveDIOptimizerInfo {
   private ArrayListMultimap<String, InterceptorInfo> interceptorInfoMap = ArrayListMultimap
       .create();
 
-  private ArrayListMultimap<String, String> setterMap = ArrayListMultimap.create();
+  private ArrayListMultimap<String, MethodInjectionInfo> methodInjectionInfoMap = ArrayListMultimap
+      .create();
+  
+  private Map<String, String> methodInjectionDeclarations = Maps.newHashMap();
 
 
   /**
    * @return the prototypeInfoMap
    */
-  public Map<String, PrototypeInfo> getPrototypeInfo(String className) {
-    return prototypeInfoMap.get(className);
+  public Map<String, PrototypeInfo> getPrototypeInfo(String constructorName) {
+    return prototypeInfoMap.get(constructorName);
   }
 
 
@@ -44,13 +48,13 @@ final class AggressiveDIOptimizerInfo {
    * @param prototypeInfoMap
    *          the prototypeInfoMap to set
    */
-  public void putPrototypeInfo(String className, PrototypeInfo prototypeInfo) {
+  public void putPrototypeInfo(String constructorName, PrototypeInfo prototypeInfo) {
     Map<String, PrototypeInfo> prototypeInfoList;
-    if (this.prototypeInfoMap.containsKey(className)) {
-      prototypeInfoList = prototypeInfoMap.get(className);
+    if (this.prototypeInfoMap.containsKey(constructorName)) {
+      prototypeInfoList = prototypeInfoMap.get(constructorName);
     } else {
       prototypeInfoList = Maps.newHashMap();
-      this.prototypeInfoMap.put(className, prototypeInfoList);
+      this.prototypeInfoMap.put(constructorName, prototypeInfoList);
     }
     prototypeInfoList.put(prototypeInfo.getMethodName(), prototypeInfo);
   }
@@ -88,27 +92,28 @@ final class AggressiveDIOptimizerInfo {
   }
 
 
-  public void putClassInfo(ConstructorInfo constructorInfo) {
-    this.constructorInfoMap.put(constructorInfo.getClassName(), constructorInfo);
+  public void putConstructorInfo(ConstructorInfo constructorInfo) {
+    this.constructorInfoMap.put(constructorInfo.getConstructorName(), constructorInfo);
   }
 
 
-  public ConstructorInfo getConstructorInfo(String className) {
-    return this.constructorInfoMap.get(className);
+  public ConstructorInfo getConstructorInfo(String constructorName) {
+    return this.constructorInfoMap.get(constructorName);
   }
 
 
-  public Map<String, ConstructorInfo> getClassInfoMap() {
+  public Map<String, ConstructorInfo> getConstructorInfoMap() {
     return this.constructorInfoMap;
   }
 
-  
-  public boolean hasBindingInfo(String className) {
-    return bindingInfoMap.containsKey(className);
+
+  public boolean hasBindingInfo(String constructorName) {
+    return bindingInfoMap.containsKey(constructorName);
   }
 
-  public boolean hasBindingInfo(String className, String bindingName) {
-    ArrayListMultimap<String, BindingInfo> bindingMap = bindingInfoMap.get(className);
+
+  public boolean hasBindingInfo(String constructorName, String bindingName) {
+    ArrayListMultimap<String, BindingInfo> bindingMap = bindingInfoMap.get(constructorName);
     if (bindingMap != null && bindingMap.size() > 1) {
       return bindingMap.containsKey(bindingName);
     }
@@ -116,44 +121,53 @@ final class AggressiveDIOptimizerInfo {
   }
 
 
-  public void putBindingInfo(String className, BindingInfo bindingInfo) {
+  public void putBindingInfo(String constructorName, BindingInfo bindingInfo) {
     ArrayListMultimap<String, BindingInfo> map;
-    if (!this.bindingInfoMap.containsKey(className)) {
+    if (!this.bindingInfoMap.containsKey(constructorName)) {
       map = ArrayListMultimap.create();
-      this.bindingInfoMap.put(className, map);
+      this.bindingInfoMap.put(constructorName, map);
     }
-    map = this.bindingInfoMap.get(className);
+    map = this.bindingInfoMap.get(constructorName);
     map.put(bindingInfo.getName(), bindingInfo);
   }
 
 
-  public ArrayListMultimap<String, BindingInfo> getBindingInfoMap(String className) {
-    return this.bindingInfoMap.get(className);
+  public ArrayListMultimap<String, BindingInfo> getBindingInfoMap(String constructorName) {
+    return this.bindingInfoMap.get(constructorName);
   }
 
 
-  void putInterceptorInfo(String className, InterceptorInfo interceptorInfo) {
-    this.interceptorInfoMap.put(className, interceptorInfo);
+  void putInterceptorInfo(String constructorName, InterceptorInfo interceptorInfo) {
+    this.interceptorInfoMap.put(constructorName, interceptorInfo);
   }
 
 
-  List<InterceptorInfo> getInterceptorInfo(String className) {
-    return this.interceptorInfoMap.get(className);
+  List<InterceptorInfo> getInterceptorInfo(String constructorName) {
+    return this.interceptorInfoMap.get(constructorName);
   }
 
 
-  public void putSetter(String className, String setterName) {
-    this.setterMap.put(className, setterName);
+  public void putMethodInjectionInfo(String constructorName, MethodInjectionInfo methodInjectionInfo) {
+    this.methodInjectionInfoMap.put(constructorName, methodInjectionInfo);
+    this.methodInjectionDeclarations.put(constructorName, methodInjectionInfo.getMethodName());
+  }
+  
+  public boolean hasMethodInjectionInfo(String constructorName, String methodName) {
+    String injectionTarget = this.methodInjectionDeclarations.get(constructorName);
+    if (!Strings.isNullOrEmpty(injectionTarget)) {
+      return injectionTarget.equals(methodName);
+    }
+    return false;
   }
 
 
-  public List<String> getSetterList(String name) {
-    return this.setterMap.get(name);
+  public List<MethodInjectionInfo> getMethodInjectionInfoList(String name) {
+    return this.methodInjectionInfoMap.get(name);
   }
 
 
   public boolean hasSetter(String name) {
-    return this.setterMap.containsKey(name);
+    return this.methodInjectionInfoMap.containsKey(name);
   }
 
 
@@ -173,7 +187,7 @@ final class AggressiveDIOptimizerInfo {
 
     private Node interceptorNode;
 
-    private boolean classNameAccess = false;
+    private boolean constructorNameAccess = false;
 
     private boolean methodNameAccess = false;
 
@@ -183,21 +197,21 @@ final class AggressiveDIOptimizerInfo {
 
     private List<Node> thisNodeList = Lists.newArrayList();
 
-    private List<Node> classNameNodeList = Lists.newArrayList();
+    private List<Node> constructorNameNodeList = Lists.newArrayList();
 
     private List<Node> methodNameNodeList = Lists.newArrayList();
 
     private List<Node> qualifiedNameNodeList = Lists.newArrayList();
 
     private String moduleName;
-    
+
     private boolean isInConditional;
 
 
     /**
      * @return the classMatcher
      */
-    public String getClassMatcher() {
+    public String getConstructorMatcher() {
       return classMatcher;
     }
 
@@ -257,7 +271,7 @@ final class AggressiveDIOptimizerInfo {
     /**
      * @return the classMatchType
      */
-    public ClassMatchType getClassMatchType() {
+    public ClassMatchType getConstructorMatchType() {
       return classMatchType;
     }
 
@@ -314,19 +328,19 @@ final class AggressiveDIOptimizerInfo {
 
 
     /**
-     * @return the classNameAccess
+     * @return the constructorNameAccess
      */
-    public boolean isClassNameAccess() {
-      return classNameAccess;
+    public boolean isConstructorNameAccess() {
+      return constructorNameAccess;
     }
 
 
     /**
-     * @param classNameAccess
-     *          the classNameAccess to set
+     * @param constructorNameAccess
+     *          the constructorNameAccess to set
      */
-    public void recordClassNameAccess(boolean classNameAccess) {
-      this.classNameAccess = classNameAccess;
+    public void recordConstructorNameAccess(boolean constructorNameAccess) {
+      this.constructorNameAccess = constructorNameAccess;
     }
 
 
@@ -409,19 +423,19 @@ final class AggressiveDIOptimizerInfo {
 
 
     /**
-     * @return the classNameNodeList
+     * @return the constructorNameNodeList
      */
-    public List<Node> getClassNameNodeList() {
-      return classNameNodeList;
+    public List<Node> getConstructorNameNodeList() {
+      return constructorNameNodeList;
     }
 
 
     /**
-     * @param classNameNode
-     *          the classNameNodeList to set
+     * @param constructorNameNode
+     *          the constructorNameNodeList to set
      */
-    public void addClassNameNode(Node classNameNode) {
-      this.classNameNodeList.add(classNameNode);
+    public void addConstructorNameNode(Node constructorNameNode) {
+      this.constructorNameNodeList.add(constructorNameNode);
     }
 
 
@@ -470,16 +484,76 @@ final class AggressiveDIOptimizerInfo {
   }
 
 
+  static final class MethodInjectionInfo {
+    private String methodName;
+
+    private List<String> parameterList;
+    
+    private Node injectionCall;
+
+
+    public MethodInjectionInfo(String methodName, Node injectionCall) {
+      this.methodName = methodName;
+      this.injectionCall = injectionCall;
+    }
+
+
+    /**
+     * @return the methodName
+     */
+    public String getMethodName() {
+      return methodName;
+    }
+
+
+    /**
+     * @param methodName
+     *          the methodName to set
+     */
+    public void setMethodName(String methodName) {
+      this.methodName = methodName;
+    }
+
+
+    /**
+     * @return the isParameterSpecified
+     */
+    public boolean isParameterSpecified() {
+      return parameterList != null;
+    }
+
+
+    /**
+     * @return the parameterList
+     */
+    public List<String> getParameterList() {
+      return parameterList;
+    }
+
+
+    public void setParameterList(List<String> parameterList) {
+      this.parameterList = parameterList;
+    }
+
+
+    /**
+     * @return the injectionCall
+     */
+    public Node getInjectionCall() {
+      return injectionCall;
+    }
+
+  }
+
+
   static final class ConstructorInfo implements Cloneable {
-    private String className;
+    private String constructorName;
 
     private List<String> paramList = Lists.newArrayList();
 
-    private List<String> setterList = Lists.newArrayList();
+    private List<MethodInjectionInfo> methodInjectionInfoList = Lists.newArrayList();
 
     private boolean hasInterceptor = false;
-
-    private Node providerNode;
 
     private ScopeType scopeType;
 
@@ -498,22 +572,24 @@ final class AggressiveDIOptimizerInfo {
     private Node singletonVariable;
 
     private boolean isDuplicated;
+    
+    private boolean hasConstructorInjectionSpecification;
 
     private BindingInfo bindingInfo;
 
 
-    public ConstructorInfo(String className) {
-      this.className = className;
+    public ConstructorInfo(String constructorName) {
+      this.constructorName = constructorName;
     }
 
 
-    void rewriteClassName(String name) {
-      this.className = name;
+    void rewriteConstructorName(String name) {
+      this.constructorName = name;
     }
 
 
-    public String getClassName() {
-      return this.className;
+    public String getConstructorName() {
+      return this.constructorName;
     }
 
 
@@ -521,6 +597,9 @@ final class AggressiveDIOptimizerInfo {
       paramList.add(name);
     }
 
+    public void setParamList(List<String> paramList) {
+      this.paramList = paramList;
+    }
 
     public List<String> getParamList() {
       return this.paramList;
@@ -538,36 +617,19 @@ final class AggressiveDIOptimizerInfo {
 
 
     /**
-     * @return the setterList
+     * @return the methodInjectionInfoList
      */
-    public List<String> getSetterList() {
-      return setterList;
+    public List<MethodInjectionInfo> getMethodInjectionList() {
+      return methodInjectionInfoList;
     }
 
 
     /**
-     * @param setterList
-     *          the setterList to set
+     * @param methodInjectionInfoList
+     *          the methodInjectionInfoList to set
      */
-    public void setSetterList(List<String> setterList) {
-      this.setterList.addAll(setterList);
-    }
-
-
-    /**
-     * @return the provider
-     */
-    public Node getProviderNode() {
-      return providerNode;
-    }
-
-
-    /**
-     * @param providerNode
-     *          the provider to set
-     */
-    public void setProviderNode(Node providerNode) {
-      this.providerNode = providerNode;
+    public void setMethodInjectionInfoList(List<MethodInjectionInfo> methodInjectionInfoList) {
+      this.methodInjectionInfoList.addAll(methodInjectionInfoList);
     }
 
 
@@ -724,6 +786,22 @@ final class AggressiveDIOptimizerInfo {
     }
 
 
+    /**
+     * @return the hasConstructorInjectionSpecification
+     */
+    public boolean hasConstructorInjectionSpecification() {
+      return hasConstructorInjectionSpecification;
+    }
+
+
+    /**
+     * @param hasConstructorInjectionSpecification the hasConstructorInjectionSpecification to set
+     */
+    public void setConstructorInjectionSpecification(boolean hasConstructorInjectionSpecification) {
+      this.hasConstructorInjectionSpecification = hasConstructorInjectionSpecification;
+    }
+
+
     @Override
     public Object clone() {
       try {
@@ -732,6 +810,7 @@ final class AggressiveDIOptimizerInfo {
           PrototypeInfo proto = this.prototypeInfoMap.get(key);
           info.prototypeInfoMap.put(key, (PrototypeInfo) proto.clone());
         }
+        
         return info;
       } catch (CloneNotSupportedException e) {
         throw new InternalError(e.toString());
@@ -955,7 +1034,7 @@ final class AggressiveDIOptimizerInfo {
     private ScopeType scopeType = ScopeType.PROTOTYPE;
 
     private String moduleVariableName;
-    
+
     private boolean isInConditional;
 
 
@@ -1016,7 +1095,7 @@ final class AggressiveDIOptimizerInfo {
     }
 
 
-    public ConstructorInfo getClassInfo() {
+    public ConstructorInfo getConstructorInfo() {
       return constructorInfo;
     }
 
@@ -1084,15 +1163,18 @@ final class AggressiveDIOptimizerInfo {
     public String getBindingAccessorName() {
       return moduleVariableName + "." + name;
     }
-    
+
+
     public void setInConditional(boolean isInConditional) {
       this.isInConditional = isInConditional;
     }
-    
+
+
     public boolean isInConditional() {
       return isInConditional;
     }
-    
+
+
     public boolean hasSameAttributes(BindingInfo bindingInfo) {
       return bindingInfo.getBindingType() == getBindingType() &&
           bindingInfo.getScopeType() == scopeType &&
@@ -1162,7 +1244,7 @@ final class AggressiveDIOptimizerInfo {
     private String name;
 
     private Set<InterceptorInfo> interceptorInfoSet = Sets.newLinkedHashSet();
-    
+
     private boolean isAmbiguous = false;
 
 
@@ -1216,7 +1298,8 @@ final class AggressiveDIOptimizerInfo {
 
 
     /**
-     * @param isAmbiguous the isAmbiguous to set
+     * @param isAmbiguous
+     *          the isAmbiguous to set
      */
     public void setAmbiguous(boolean isAmbiguous) {
       this.isAmbiguous = isAmbiguous;
