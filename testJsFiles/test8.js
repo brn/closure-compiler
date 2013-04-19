@@ -17,7 +17,6 @@ function A(a){
 }
 
 /**
- * @param {!Binder} binder
  * @returns {A}
  */
 A.createInstance = function(binder) {
@@ -54,7 +53,6 @@ function B(b) {
 }
 
 /**
- * @param {!Binder} binder
  * @return {B}
  */
 B.createInstance = function(binder) {
@@ -72,9 +70,6 @@ function Module() {
 
 }
 
-/**
- * @param {!Binder} binder
- */
 Module.prototype.configure = function(binder) {
   if (!COMPILED) {
     binder.getA = function() {
@@ -82,7 +77,7 @@ Module.prototype.configure = function(binder) {
     };
   } else {
     binder.getA = function() {
-      return 'b';
+      return 'b'
     };
   }
 
@@ -98,16 +93,12 @@ Module.prototype.configure = function(binder) {
   };
 };
 
-/**
- * @constructor
- */
-function Binder(){
+var bindings = {
 
-};
+    };
 
 var module = new Module();
-var binder = new Binder();
-module.configure(binder);
-var a = A.createInstance(binder);
-var b = A.createInstance(binder);
+module.configure(bindings);
+var a = A.createInstance(bindings);
+var b = A.createInstance(bindings);
 document.getElementById('a').innerHTML = a.getStr() + b.getStr();

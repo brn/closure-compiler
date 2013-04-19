@@ -163,7 +163,10 @@ final class AggressiveDIOptimizer {
         Preconditions.checkArgument(expression.isName() || NodeUtil.isGet(expression));
         String name = expression.getQualifiedName();
         Preconditions.checkArgument(!Strings.isNullOrEmpty(name));
-        Preconditions.checkNotNull(diInfo.getConstructorInfo(name));
+        if (diInfo.getConstructorInfo(name) == null) {
+          DependenciesResolver.reportClassNotFount(compiler, expression, name);
+          return;
+        }
 
         ConstructorInfo constructorInfo = diInfo.getConstructorInfo(name);
         Node newCall = IR.newNode(NodeUtil.newQualifiedNameNode(convention, name));

@@ -77,6 +77,9 @@ public class DependenciesResolver {
     this.interceptorBuilder = new InterceptorAstBuilder(convention);
   }
 
+  static void reportClassNotFount(AbstractCompiler compiler, Node n, String name) {
+    DIProcessor.report(compiler, n, MESSAGE_CLASS_NOT_FOUND, name);
+  }
 
   void reportClassNotFound(Node n, String name) {
     DIProcessor.report(compiler, n, MESSAGE_CLASS_NOT_FOUND, name);

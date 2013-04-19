@@ -21,6 +21,7 @@ var COMPILED = false;
 
 /**
  * @constructor
+ * @param {string} a
  */
 function A(a){
   this.string_ = a;
@@ -29,7 +30,7 @@ function A(a){
 camp.injections.Injector.inject(A, 'setC');
 
 /**
- * @returns {string}
+ * @return {string}
  */
 A.prototype.getStr = function() {
   return this.string_ + this.b.getStr();
@@ -37,10 +38,16 @@ A.prototype.getStr = function() {
 
 
 if (!COMPILED) {
+  /**
+   * @param {string} b
+   */
   A.prototype.setB = function(b) {
     this.b = b;
   };
 } else {
+  /**
+   * @param {string} b
+   */
   A.prototype.setC = function(b) {
     this.b = b;
   };
@@ -48,11 +55,15 @@ if (!COMPILED) {
 
 /**
  * @constructor
+ * @param {string} c
  */
 function B(c) {
   this.b_ = c;
 }
 
+/**
+ * @return {string}
+ */
 B.prototype.getStr = function() {
   return this.b_ + 'aaaa';
 };
@@ -74,19 +85,11 @@ function Module() {
 }
 
 Module.prototype.configure = function(binder) {
-  if (!COMPILED) {
+//  if (!COMPILED) {
     binder.bind('a').toInstance('a');
-  }
+//  }
   binder.bind('b').to(B);
   binder.bind('c').toInstance('c');
-  binder.bindInterceptor(
-    camp.injections.Matchers.instanceOf(A),
-    camp.injections.Matchers.like('getStr'),
-    function(methodInvocation) {
-      var ret = methodInvocation.proceed();
-      return ret + 'c____x';
-    }
-  );
 };
 
 camp.injections.modules.init([Module], function(injector) {
