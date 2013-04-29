@@ -153,7 +153,8 @@ public class CampModuleRewriter {
     private final Set<String> fqnSet = Sets.newHashSet();
 
     private final LocalAliasResolver localAliasResolver = new LocalAliasResolver();
-    
+
+
     private final class LocalAliasResolver {
       private Map<String, TypeInfo> inferedTypeInfoMap = Maps.newHashMap();
 
@@ -180,9 +181,9 @@ public class CampModuleRewriter {
           String rvalueName,
           TypeInfo typeInfo,
           ModuleInfo moduleInfo) {
-        
+
         inferedTypeInfoMap.put(localAliasInfo.getLvalue(), typeInfo);
-        
+
         JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
         Node functionType = buildJSDocTypeNode(rvalueName, typeInfo);
 
@@ -200,7 +201,7 @@ public class CampModuleRewriter {
         Node functionType = new Node(Token.FUNCTION, new Node(Token.NEW,
             Node.newString(rvalueName)));
         JSDocInfo info = typeInfo.getJSDocInfo();
-        
+
         for (String paramName : info.getParameterNames()) {
           JSTypeExpression exp = info.getParameterType(paramName);
           Node typeNode = exp.getRoot();
@@ -233,7 +234,7 @@ public class CampModuleRewriter {
       rewriteMain(moduleInfo);
 
       compiler.reportCodeChange();
-      
+
       localAliasResolver.resolve(moduleInfo);
     }
 
@@ -248,27 +249,6 @@ public class CampModuleRewriter {
         } else {
           break;
         }
-      }
-
-      String qualifiedName = tmp.getQualifiedName();
-      if (qualifiedName != null) {
-        String[] splited = qualifiedName.split("\\.");
-        String name = moduleName;
-
-        if (splited.length > 2) {
-          for (int i = 1; i < splited.length; i++) {
-            name += "." + splited[i];
-          }
-        } else if (splited.length == 2) {
-          name += ("." + splited[1]);
-        }
-
-        if (!fqnSet.contains(name) &&
-            splited.length == 2 &&
-            !splited[1].equals("main")) {
-          addGoogProvide(moduleInfo, exports, name);
-        }
-
       }
 
       Node fqn = NodeUtil.newQualifiedNameNode(convention, moduleInfo.getModuleName());
@@ -289,19 +269,6 @@ public class CampModuleRewriter {
         expr.detachFromParent();
         moduleInfo.getModuleCallNode().getLastChild().getLastChild().addChildToBack(expr);
       }
-    }
-
-
-    private void addGoogProvide(ModuleInfo moduleInfo, Node exports, String name) {
-      fqnSet.add(name);
-      Node provideName = NodeUtil.newQualifiedNameNode(convention, CampModuleConsts.GOOG_PROVIDE);
-      Node provideCall = NodeUtil.newCallNode(provideName,
-          Node.newString(name));
-      Node expr = NodeUtil.newExpr(provideCall);
-      expr.copyInformationFromForTree(exports);
-      Node block = NodeUtil.getFunctionBody(moduleInfo.getModuleCallNode().getLastChild());
-      block.addChildToFront(expr);
-      compiler.reportCodeChange();
     }
   }
 
@@ -432,12 +399,27 @@ public class CampModuleRewriter {
 
     @Override
     public void rewrite(ModuleInfo moduleInfo) {
+      addGoogProvide(moduleInfo);
       Node moduleCall = moduleInfo.getModuleCallNode();
       Node closure = NodeUtil.getFunctionBody(moduleCall.getLastChild());
       closure.detachFromParent();
       moduleCall.getParent().getParent().replaceChild(moduleCall.getParent(), closure);
       compiler.reportCodeChange();
       NodeUtil.tryMergeBlock(closure);
+    }
+
+
+    private void addGoogProvide(ModuleInfo moduleInfo) {
+      for (String name : moduleInfo.getExportedList()) {
+        Node provideName = NodeUtil.newQualifiedNameNode(convention, CampModuleConsts.GOOG_PROVIDE);
+        Node provideCall = NodeUtil.newCallNode(provideName,
+            Node.newString(name));
+        Node expr = NodeUtil.newExpr(provideCall);
+        expr.copyInformationFromForTree(moduleInfo.getModuleCallNode());
+        Node block = NodeUtil.getFunctionBody(moduleInfo.getModuleCallNode().getLastChild());
+        block.addChildToFront(expr);
+        compiler.reportCodeChange();
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-camp.module("using.require", function (exports) {
+camp.module("using.require", ['Test'], function (exports) {
   var Test = camp.using('using.provide.Test');
 
   /**

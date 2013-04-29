@@ -1,1 +1,1 @@
-java -jar build/compiler.jar --js test/test2.js --js test/test3.js --js test/test4.js --formatting PRETTY_PRINT
+java -jar build/compiler.jar --js testJsFiles/test2.js --js testJsFiles/test3.js --js testJsFiles/test4.js --formatting PRETTY_PRINT

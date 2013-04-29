@@ -137,6 +137,8 @@ final class CampModuleTransformInfo {
 
     private Node main;
 
+    private List<String> exportedList; 
+    
     private List<Node> usingCallList = Lists.newArrayList();
 
     private Set<Node> exportsSet = Sets.newLinkedHashSet();
@@ -167,6 +169,16 @@ final class CampModuleTransformInfo {
       this.moduleId = moduleId + "_" + id;
       this.nra = nra;
       id++;
+    }
+
+
+    public List<String> getExportedList() {
+      return exportedList;
+    }
+
+
+    public void setExportedList(List<String> exportedList) {
+      this.exportedList = exportedList;
     }
 
 

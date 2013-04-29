@@ -1,5 +1,6 @@
 package com.google.javascript.jscomp;
 
+import java.util.List;
 import java.util.Set;
 
 import com.google.common.base.Strings;
@@ -27,7 +28,8 @@ final class CampModuleInfoCollector {
   static final DiagnosticType MESSAGE_MODULE_SECOND_ARGUMENT_NOT_VALID = DiagnosticType
       .error(
           "JSC_MSG_MODULE_SECOND_ARGUMENT_NOT_VALID.",
-          "The second argument of the camp.module must be a function which has an argument named <exports> only.");
+          "The second argument of the camp.module must be a function which has an argument named <exports> only" +
+          " or array literal which contains exported name.");
 
   static final DiagnosticType MESSAGE_USING_FIRST_ARGUMENT_NOT_VALID = DiagnosticType.error(
       "JSC_MSG_USING_FIRST_ARGUMENT_NOT_VALID.",
@@ -229,6 +231,7 @@ final class CampModuleInfoCollector {
           !stringNode.isString() ||
           Strings.isNullOrEmpty(stringNode.getString())) {
         t.report(n, MESSAGE_USING_FIRST_ARGUMENT_NOT_VALID);
+        return;
       }
 
       Node tmp = n;
@@ -468,12 +471,14 @@ final class CampModuleInfoCollector {
       String moduleName = n.getNext().getString();
       if (!Strings.isNullOrEmpty(moduleName)) {
         String moduleId = this.createModuleIdFrom(moduleName);
+        List<String> exportedList = this.getExportedList(moduleName, n.getNext().getNext());
         Node functionNode = parent.getLastChild();
         Node paramList = NodeUtil.getFunctionParameters(functionNode);
         if (paramList.getChildCount() == 1) {
           ModuleInfo moduleInfo = campModuleTransformInfo.createModuleInfo(moduleName, moduleId,
               parent,
               paramList.getFirstChild());
+          moduleInfo.setExportedList(exportedList);
           campModuleTransformInfo.putModuleInfo(sourceName, moduleInfo);
           NodeTraversal.traverseRoots(compiler,
               Lists.newArrayList(functionNode),
@@ -485,6 +490,18 @@ final class CampModuleInfoCollector {
     }
 
 
+    private List<String> getExportedList(String moduleName, Node maybeArray) {
+      List<String> ret = Lists.newArrayList();  
+      if (maybeArray.isArrayLit()) {
+        for (Node name : maybeArray.children()) {
+          if (name.isString()) {
+            ret.add(moduleName + "." + name.getString());
+          }
+        }
+      }
+      return ret;
+    }
+    
     private String createModuleIdFrom(String moduleName) {
       return moduleName.replaceAll("\\.", "_");
     }
@@ -499,7 +516,10 @@ final class CampModuleInfoCollector {
       Node firstArg = n.getFirstChild().getNext();
       if (firstArg != null && firstArg.isString()) {
         Node secondArg = firstArg.getNext();
-        if (secondArg != null && secondArg.isFunction()) {
+        if (secondArg != null && (secondArg.isFunction() || secondArg.isArrayLit())) {
+          if (secondArg.isArrayLit()) {
+            secondArg = secondArg.getNext();
+          }
           Node paramList = NodeUtil.getFunctionParameters(secondArg);
           if (paramList.getChildCount() == 1) {
             return true;

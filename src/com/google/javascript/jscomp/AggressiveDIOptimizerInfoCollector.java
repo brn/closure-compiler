@@ -1,21 +1,15 @@
 package com.google.javascript.jscomp;
 
-import java.lang.reflect.Constructor;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
+
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.MethodInjectionInfo;
@@ -832,6 +826,9 @@ final class AggressiveDIOptimizerInfoCollector {
       public BindingInfo build() {
         Node callNode = buildBindingInfo(this.node);
         bindingInfo.setBindCallNode(callNode);
+        if (bindingInfo.getBindingType() == null) {
+          return null;
+        }
         return hasError ? null : bindingInfo;
       }
 

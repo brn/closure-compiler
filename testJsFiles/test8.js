@@ -70,14 +70,30 @@ function Module() {
 
 }
 
+/**
+ * @constructor
+ */
+var Ext = function(){
+      this['a'] = 'a';
+      this['b'] = 'b';
+    };
+
+Ext.prototype.getString = function(name) {
+  return this[name];
+};
+
+var ext = new Ext;
+
 Module.prototype.configure = function(binder) {
   if (!COMPILED) {
+    var a = ext.getString('a');
     binder.getA = function() {
-      return 'a';
+      return a;
     };
   } else {
+    var b = ext.getString('b');
     binder.getA = function() {
-      return 'b'
+      return b;
     };
   }
 
@@ -93,9 +109,14 @@ Module.prototype.configure = function(binder) {
   };
 };
 
-var bindings = {
+/**
+ * @constructor
+ */
+function Binder(){
 
-    };
+}
+
+var bindings = new Binder();
 
 var module = new Module();
 module.configure(bindings);

@@ -1,4 +1,4 @@
-camp.module("using.provide", function (exports) {
+camp.module("using.provide", ['Test'], function (exports) {
   /**
    * @constructor
    */

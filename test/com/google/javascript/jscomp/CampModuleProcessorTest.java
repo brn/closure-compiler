@@ -1,6 +1,7 @@
 package com.google.javascript.jscomp;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -13,7 +14,9 @@ public class CampModuleProcessorTest extends CompilerTestCase {
 
   private static String EXTERNS = "var window;";
 
-  private static String MODULE_PREFIX = "camp.module('test.foo.bar.baz', function(exports){";
+  private static String MODULE_EXPORTED_PREFIX = "camp.module('test.foo.bar.baz', [%s], function(exports){";
+
+  private static String MODULE_PREFIX = "camp.module('test.foo.bar.baz', function(exports) {";
 
   private static String MODULE_SUFFIX = "});";
 
@@ -24,9 +27,14 @@ public class CampModuleProcessorTest extends CompilerTestCase {
 
 
   private String module(String... codes) {
+    String exports = codes[0];
     StringBuilder builder = new StringBuilder();
-    for (String code : codes) {
+    for (int i = 1; i < codes.length; i++) {
+      String code = codes[i];
       builder.append(code + "\n");
+    }
+    if (exports != null) {
+      return String.format(MODULE_EXPORTED_PREFIX, exports) + builder.toString() + MODULE_SUFFIX;
     }
     return MODULE_PREFIX + builder.toString() + MODULE_SUFFIX;
   }
@@ -54,7 +62,8 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testLvalueAccessOfCampModule() {
     test(
         module(
-        "camp.module = {};"
+            null,
+            "camp.module = {};"
         ),
         code(
         "camp.module = {}"
@@ -65,7 +74,8 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testLvalueAccessOfCampUsing() {
     test(
         module(
-        "camp.using = {};"
+            null,
+            "camp.using = {};"
         ),
         code(
         "camp.using = {}"
@@ -76,7 +86,8 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testSimpleAlias() {
     test(
         module(
-        "exports.Test = function(){};"
+            "'Test'",
+            "exports.Test = function(){};"
         ),
         code(
             "goog.provide('test.foo.bar.baz.Test');",
@@ -88,6 +99,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testAliasPrototype() {
     test(
         module(
+            "'Test1'",
             "exports.Test1 = function(){}",
             "exports.Test1.prototype.test = function(){};",
             "exports.Test1.prototype.TEST_VALUE = 100;"
@@ -104,6 +116,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testMultiAlias() {
     test(
         module(
+            "'Test1', 'Test2'",
             "exports.Test1 = function(){};",
             "exports.Test1.prototype.test = function(){};",
             "exports.Test2 = function(){};",
@@ -123,6 +136,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testInClosure() {
     test(
         module(
+            "'Test1', 'Test2'",
             "exports.Test1 = function(){};",
             "exports.Test1.prototype.test = function(){};",
             "exports.Test2 = function(){this._test1 = new exports.Test1();};",
@@ -142,6 +156,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testModulePrivate() {
     test(
         module(
+            "'Test1'",
             "exports.Test1 = function(){};",
             "exports.Test1.prototype.test = function(){};",
             "function Test2(){}",
@@ -160,6 +175,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testLocalToExportsAlias() {
     test(
         module(
+            "'Test'",
             "function Test(){}",
             "Test.prototype.test = function(){};",
             "exports.Test = Test;"
@@ -176,6 +192,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testLocalToExportsAliasAndModulePrivate() {
     test(
         module(
+            "'Test'",
             "function Test1(){}",
             "Test1.prototype.test = function(){};",
             "function Test2(){}",
@@ -197,6 +214,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
     test(
         "function Test2(){}" +
             module(
+                "'Test'",
                 "function Test1(){}",
                 "Test1.prototype.test = function(){};",
                 "function Test2(){}",
@@ -218,7 +236,8 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testExportsMain() {
     test(
         module(
-        "exports.main = function(){};"
+            null,
+            "exports.main = function(){};"
         ),
         code(
         "(function(){})();"
@@ -229,6 +248,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testExportsMainVariable() {
     test(
         module(
+            null,
             "var hoge = function(){};",
             "exports.main = hoge"
         ),
@@ -242,6 +262,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testExportsMainLocation() {
     test(
         module(
+            "'Test'",
             "var hoge = function(){};",
             "exports.main = hoge;",
             "exports.Test = function(){}"
@@ -280,6 +301,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testNoAliasUsingCall() {
     test(
         module(
+            "'A'",
             "camp.using('test.foo.Using');",
             "exports.A = function(){};"
         ),
@@ -294,6 +316,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testUsingStatic() {
     test(
         module(
+            null,
             "var utils = camp.using('test.foo.Using').utils",
             "utils.foo();"
         ),
@@ -307,6 +330,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testUsingStatic2Level() {
     test(
         module(
+            null,
             "var b = camp.using('test.foo.Using').a.b",
             "b.foo();"
         ),
@@ -320,6 +344,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testUsingStaticGetElem() {
     test(
         module(
+            null,
             "var a = camp.using('test.foo.Using')['a']",
             "a.foo();"
         ),
@@ -333,6 +358,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testUsingStaticGetElem2Level() {
     test(
         module(
+            null,
             "var b = camp.using('test.foo.Using')['a']['b']",
             "b.foo();"
         ),
@@ -370,6 +396,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   private void testTypeForExports(String tag, String actual, String expected) {
     testTypes(
         module(
+            "'Test'",
             "exports.Test = function(){};",
             String.format("/**@%s {%s} actual*/ var a = 0;", tag, actual),
             String.format("/**@%s {%s} expected*/ var b = 0;", tag, expected)
@@ -397,6 +424,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   private void testTypeForUsing(String tag, String actual, String expected) {
     testTypes(
         module(
+            null,
             "var Test = camp.using('test.foo.bar.baz.Test');",
             String.format("/**@%s {%s} actual*/ var a = 0;", tag, actual),
             String.format("/**@%s {%s} expected*/ var b = 0;", tag, expected)
@@ -423,6 +451,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   private void testTypeForLocal(String tag, String actual, String expected) {
     testTypes(
         module(
+            null,
             "var Test = function(){}",
             String.format("/**@%s {%s} actual*/ var a = 0;", tag, actual),
             String.format("/**@%s {%s} expected*/ var b = 0;", tag, expected)
@@ -433,6 +462,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             "var test_foo_bar_baz_0_b = 0;"
         ));
   }
+
 
   private void testLocalAliasType(String module, String code) {
     test(module, code);
@@ -445,6 +475,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
     new LocalAliasTypeVerifyingPass(lastCompiler).process(lastCompiler.externsRoot,
         lastCompiler.jsRoot);
   }
+
 
   public void testTypeType() {
     testTypeForExports("type");
@@ -715,27 +746,30 @@ public class CampModuleProcessorTest extends CompilerTestCase {
     testTypeForLocal("type", "function():%s");
   }
 
+
   public void testSimpleLocalAlias() {
     testLocalAliasType(
         module(
+            "'Type'",
             "/**@constructor*/",
             "function Type1() {}",
             "/**@type {function(new:Type1):?}*/",
             "var expected;",
             "exports.Type = Type1;"
-            ),
+        ),
         code(
             "goog.provide('test.foo.bar.baz.Type');",
             "function test_foo_bar_baz_0_Type1() {}",
             "var test_foo_bar_baz_0_expected;",
             "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type1;"
-            )
-        );
+        ));
   }
-  
+
+
   public void testMultiLevelLocalAlias() {
     testLocalAliasType(
         module(
+            "'Type'",
             "/**@constructor*/",
             "function Type1() {}",
             "/**@type {function(new:Type1):?}*/",
@@ -744,7 +778,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             "/**@type {function(new:Type2):?}*/",
             "var expected2;",
             "exports.Type = Type2;"
-            ),
+        ),
         code(
             "goog.provide('test.foo.bar.baz.Type');",
             "function test_foo_bar_baz_0_Type1() {}",
@@ -752,13 +786,14 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             "var test_foo_bar_baz_0_Type2 = test_foo_bar_baz_0_Type1;",
             "var test_foo_bar_baz_0_expected2;",
             "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type2;"
-            )
-        );
+        ));
   }
-  
+
+
   public void testMultiLevelLocalAliasAndParamType() {
     testLocalAliasType(
         module(
+            "'Type'",
             "/**",
             " * @constructor",
             " * @param {string} a",
@@ -771,7 +806,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             "/**@type {function(new:Type2,string,number):?}*/",
             "var expected2;",
             "exports.Type = Type2;"
-            ),
+        ),
         code(
             "goog.provide('test.foo.bar.baz.Type');",
             "function test_foo_bar_baz_0_Type1(a,b) {}",
@@ -779,13 +814,14 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             "var test_foo_bar_baz_0_Type2 = test_foo_bar_baz_0_Type1;",
             "var test_foo_bar_baz_0_expected2;",
             "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type2;"
-            )
-        );
+        ));
   }
-  
+
+
   public void testMultiLevelLocalAliasUnattachable() {
     testLocalAliasType(
         module(
+            "'Type'",
             "var Xa = camp.using('a.Xa');",
             "var Ma = Xa;",
             "/**",
@@ -800,7 +836,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             "/**@type {function(new:Type2,string,number):?}*/",
             "var expected2;",
             "exports.Type = Type2;"
-            ),
+        ),
         code(
             "goog.provide('test.foo.bar.baz.Type');",
             "goog.require('a.Xa')",
@@ -810,9 +846,9 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             "var test_foo_bar_baz_0_Type2 = test_foo_bar_baz_0_Type1;",
             "var test_foo_bar_baz_0_expected2;",
             "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type2;"
-            )
-        );
+        ));
   }
+
 
   private void testFailure(String code, DiagnosticType expectedError) {
     test(code, null, expectedError);
@@ -853,7 +889,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
 
 
   public void testMainDuplicate() {
-    testFailure(module("exports.main = function(){};exports.main = function(){};"),
+    testFailure(module(null, "exports.main = function(){};exports.main = function(){};"),
         CampModuleInfoCollector.MESSAGE_MAIN_ALREADY_FOUNDED);
   }
 
@@ -861,7 +897,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testModuleInClosure() {
     testFailure(
         "(function(){" +
-            module("exports.Test = Test2;") + ";})();",
+            module("'Test'","exports.Test = Test2;") + ";})();",
         CampModuleInfoCollector.MESSAGE_MODULE_NOT_ALLOWED_IN_CLOSURE);
   }
 
@@ -874,28 +910,28 @@ public class CampModuleProcessorTest extends CompilerTestCase {
 
   public void testStaticUsingCall() {
     testFailure(
-        module("var a = camp.using('test.Using').a()"),
+        module(null,"var a = camp.using('test.Using').a()"),
         CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
 
 
   public void testStaticUsingCallNotAlias() {
     testFailure(
-        module("camp.using('test.Using').a()"),
+        module(null,"camp.using('test.Using').a()"),
         CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
 
 
   public void testUsingDirectCall() {
     testFailure(
-        module("var Using = camp.using('test.Using')()"),
+        module(null, "var Using = camp.using('test.Using')()"),
         CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
 
 
   public void testUsingDirectCallNotAlias() {
     testFailure(
-        module("camp.using('test.Using')()"),
+        module(null, "camp.using('test.Using')()"),
         CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
 
