@@ -32,7 +32,7 @@ final class AggressiveDIOptimizerInfo {
 
   private ArrayListMultimap<String, MethodInjectionInfo> methodInjectionInfoMap = ArrayListMultimap
       .create();
-  
+
   private Map<String, String> methodInjectionDeclarations = Maps.newHashMap();
 
 
@@ -151,7 +151,8 @@ final class AggressiveDIOptimizerInfo {
     this.methodInjectionInfoMap.put(constructorName, methodInjectionInfo);
     this.methodInjectionDeclarations.put(constructorName, methodInjectionInfo.getMethodName());
   }
-  
+
+
   public boolean hasMethodInjectionInfo(String constructorName, String methodName) {
     String injectionTarget = this.methodInjectionDeclarations.get(constructorName);
     if (!Strings.isNullOrEmpty(injectionTarget)) {
@@ -488,7 +489,7 @@ final class AggressiveDIOptimizerInfo {
     private String methodName;
 
     private List<String> parameterList;
-    
+
     private Node injectionCall;
 
 
@@ -551,6 +552,8 @@ final class AggressiveDIOptimizerInfo {
 
     private List<String> paramList = Lists.newArrayList();
 
+    private List<ConstructorInfo> parentList = Lists.newArrayList();
+
     private List<MethodInjectionInfo> methodInjectionInfoList = Lists.newArrayList();
 
     private boolean hasInterceptor = false;
@@ -572,7 +575,7 @@ final class AggressiveDIOptimizerInfo {
     private Node singletonVariable;
 
     private boolean isDuplicated;
-    
+
     private boolean hasConstructorInjectionSpecification;
 
     private BindingInfo bindingInfo;
@@ -597,9 +600,11 @@ final class AggressiveDIOptimizerInfo {
       paramList.add(name);
     }
 
+
     public void setParamList(List<String> paramList) {
       this.paramList = paramList;
     }
+
 
     public List<String> getParamList() {
       return this.paramList;
@@ -795,10 +800,21 @@ final class AggressiveDIOptimizerInfo {
 
 
     /**
-     * @param hasConstructorInjectionSpecification the hasConstructorInjectionSpecification to set
+     * @param hasConstructorInjectionSpecification
+     *          the hasConstructorInjectionSpecification to set
      */
     public void setConstructorInjectionSpecification(boolean hasConstructorInjectionSpecification) {
       this.hasConstructorInjectionSpecification = hasConstructorInjectionSpecification;
+    }
+
+
+    public void addParent(ConstructorInfo parent) {
+      this.parentList.add(parent);
+    }
+
+
+    public List<ConstructorInfo> getParentList() {
+      return this.parentList;
     }
 
 
@@ -810,7 +826,7 @@ final class AggressiveDIOptimizerInfo {
           PrototypeInfo proto = this.prototypeInfoMap.get(key);
           info.prototypeInfoMap.put(key, (PrototypeInfo) proto.clone());
         }
-        
+
         return info;
       } catch (CloneNotSupportedException e) {
         throw new InternalError(e.toString());
@@ -1018,7 +1034,7 @@ final class AggressiveDIOptimizerInfo {
           .build();
 
 
-  static final class BindingInfo {
+  static final class BindingInfo implements Cloneable {
     private Node bindCallNode;
 
     private String name;
@@ -1036,6 +1052,8 @@ final class AggressiveDIOptimizerInfo {
     private String moduleVariableName;
 
     private boolean isInConditional;
+
+    private boolean isRewrited;
 
 
     public BindingInfo(String name) {
@@ -1179,6 +1197,26 @@ final class AggressiveDIOptimizerInfo {
       return bindingInfo.getBindingType() == getBindingType() &&
           bindingInfo.getScopeType() == scopeType &&
           bindingInfo.getName() == name;
+    }
+
+
+    public boolean isRewrited() {
+      return isRewrited;
+    }
+
+
+    public void setRewrited() {
+      this.isRewrited = true;
+    }
+    
+    
+    @Override
+    public Object clone() {
+      try {
+        return super.clone();
+      } catch (CloneNotSupportedException e) {
+        throw new InternalError(e.toString());
+      }
     }
   }
 

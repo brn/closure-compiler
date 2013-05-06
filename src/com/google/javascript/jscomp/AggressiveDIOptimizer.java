@@ -14,6 +14,7 @@ import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.BindingInfo;
 import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.ConstructorInfo;
 import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.InjectorInfo;
 import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.InterceptorInfo;
+import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.MethodInjectionInfo;
 import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.ModuleInfo;
 import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.ModuleInitializerInfo;
 import com.google.javascript.jscomp.AggressiveDIOptimizerInfo.PrototypeInfo;
@@ -111,6 +112,10 @@ final class AggressiveDIOptimizer {
 
 
   public void optimize() {
+    for (ConstructorInfo constructorInfo : diInfo.getConstructorInfoMap().values()) {
+      new ConstructorRewriter(constructorInfo).rewrite();
+    }
+    
     for (ModuleInfo moduleInfo : diInfo.getModuleInfoMap().values()) {
       rewriteBinding(moduleInfo);
     }
@@ -125,6 +130,63 @@ final class AggressiveDIOptimizer {
    */
   private interface NodeRewriter {
     public void rewrite();
+  }
+
+
+  private final class ConstructorRewriter implements NodeRewriter {
+    private ConstructorInfo constructorInfo;
+
+
+    public ConstructorRewriter(ConstructorInfo constructorInfo) {
+      this.constructorInfo = constructorInfo;
+    }
+
+
+    @Override
+    public void rewrite() {
+      Node constructorNode = constructorInfo.getConstructorNode();
+      if (constructorNode != null) {
+        Node stmtBeginning = DIProcessor.getStatementBeginningNode(constructorNode);
+        Preconditions.checkNotNull(stmtBeginning);
+        String constructorName = constructorInfo.getConstructorName();
+        Node block = IR.block();
+        Node assign = IR.assign(
+            NodeUtil.newQualifiedNameNode(convention, constructorName + "." + "jscomp$newInstance"),
+            IR.function(IR.name(""), IR.paramList(IR.name("bindings")), block));
+        Node newCall = IR.newNode(IR.name(constructorName));
+        for (String param : constructorInfo.getParamList()) {
+          Node getprop = NodeUtil.newQualifiedNameNode(convention, "bindings." + param);
+          Node call = NodeUtil.newCallNode(getprop, IR.name("bindings"));
+          newCall.addChildToBack(call);
+        }
+
+        List<MethodInjectionInfo> methodInjectionInfoList =
+            constructorInfo.getMethodInjectionList();
+        if (methodInjectionInfoList != null) {
+          Node instance = IR.name("instance");
+          block.addChildToBack(NodeUtil.newVarNode("instance", newCall));
+          for (MethodInjectionInfo methodInjectionInfo : methodInjectionInfoList) {
+            String methodName = methodInjectionInfo.getMethodName();
+            Node getprop = NodeUtil.newQualifiedNameNode(convention, "instance." + methodName);
+            Node methodCall = NodeUtil.newCallNode(getprop);
+            for (String param : methodInjectionInfo.getParameterList()) {
+              Node methodParam = NodeUtil.newQualifiedNameNode(convention, "bindings." + param);
+              Node call = NodeUtil.newCallNode(methodParam, IR.name("bindings"));
+              methodCall.addChildToBack(call);
+            }
+            Node and = IR.and(getprop.cloneTree(), methodCall);
+            block.addChildToBack(IR.exprResult(and));
+            block.addChildToBack(IR.returnNode(instance));
+          }
+        } else {
+          block.addChildToBack(IR.returnNode(newCall));
+        }
+        
+        Node expr = IR.exprResult(assign);
+        expr.copyInformationFromForTree(stmtBeginning);
+        stmtBeginning.getParent().addChildAfter(expr, stmtBeginning);
+      }
+    }
   }
 
 
@@ -144,52 +206,55 @@ final class AggressiveDIOptimizer {
 
     @Override
     public void rewrite() {
-      Node n = bindingInfo.getBindCallNode();
-      // The name of the binding.
-      // binder.bind('foo') <- this.
-      String bindingName = bindingInfo.getName();
-      // The value node of binding.
-      // binder.bind('foo').to(foo.bar.baz.Class) <- this.
-      Node expression = bindingInfo.getBindedExpressionNode();
-      
-      Node bindingNameNode = IR.string(bindingName);
+      if (!bindingInfo.isRewrited()) {
+        bindingInfo.setRewrited();
+        Node n = bindingInfo.getBindCallNode();
+        // The name of the binding.
+        // binder.bind('foo') <- this.
+        String bindingName = bindingInfo.getName();
+        // The value node of binding.
+        // binder.bind('foo').to(foo.bar.baz.Class) <- this.
+        Node expression = bindingInfo.getBindedExpressionNode();
 
-      Node propNode = DIProcessor.isValidIdentifier(bindingName)?
-          IR.getprop(IR.thisNode(), bindingNameNode) : IR.getelem(IR.thisNode(), bindingNameNode);
-      Node assign = null;
+        Node bindingNameNode = IR.string(bindingName);
 
-      switch (bindingInfo.getBindingType()) {
-      case TO: {
-        Preconditions.checkArgument(expression.isName() || NodeUtil.isGet(expression));
-        String name = expression.getQualifiedName();
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(name));
-        if (diInfo.getConstructorInfo(name) == null) {
-          DependenciesResolver.reportClassNotFount(compiler, expression, name);
-          return;
+        Node propNode = DIProcessor.isValidIdentifier(bindingName) ?
+            IR.getprop(IR.thisNode(), bindingNameNode) : IR.getelem(IR.thisNode(), bindingNameNode);
+        Node assign = null;
+
+        switch (bindingInfo.getBindingType()) {
+        case TO: {
+          Preconditions.checkArgument(expression.isName() || NodeUtil.isGet(expression));
+          String name = expression.getQualifiedName();
+          Preconditions.checkArgument(!Strings.isNullOrEmpty(name));
+          if (diInfo.getConstructorInfo(name) == null) {
+            DependenciesResolver.reportClassNotFount(compiler, expression, name);
+            return;
+          }
+
+          ConstructorInfo constructorInfo = diInfo.getConstructorInfo(name);
+          Node newCall = IR.newNode(NodeUtil.newQualifiedNameNode(convention, name));
+          Node paramList = IR.paramList();
+          for (String param : constructorInfo.getParamList()) {
+            paramList.addChildToBack(IR.name(param));
+            newCall.addChildToBack(IR.name(param));
+          }
+          assign = IR.assign(propNode,
+              IR.function(IR.name(""), paramList, IR.block(IR.returnNode(newCall))));
+        }
+          break;
+
+        case TO_PROVIDER:
+        case TO_INSTANCE: {
+          assign = IR.assign(propNode, expression.cloneTree());
+        }
         }
 
-        ConstructorInfo constructorInfo = diInfo.getConstructorInfo(name);
-        Node newCall = IR.newNode(NodeUtil.newQualifiedNameNode(convention, name));
-        Node paramList = IR.paramList();
-        for (String param : constructorInfo.getParamList()) {
-          paramList.addChildToBack(IR.name(param));
-          newCall.addChildToBack(IR.name(param));
-        }
-        assign = IR.assign(propNode,
-            IR.function(IR.name(""), paramList, IR.block(IR.returnNode(newCall))));
+        assign.copyInformationFromForTree(n);
+        // Replace a bind call node by a 'this' assignment node.
+        DIProcessor.replaceNode(n, assign);
+        compiler.reportCodeChange();
       }
-        break;
-
-      case TO_PROVIDER:
-      case TO_INSTANCE: {
-        assign = IR.assign(propNode, expression.cloneTree());
-      }
-      }
-
-      assign.copyInformationFromForTree(n);
-      // Replace a bind call node by a 'this' assignment node.
-      DIProcessor.replaceNode(n, assign);
-      compiler.reportCodeChange();
     }
   }
 
@@ -432,8 +497,8 @@ final class AggressiveDIOptimizer {
 
 
       /**
-       * Replace MethodInvocation#getconstructorName call node to a simple variable
-       * reference node.
+       * Replace MethodInvocation#getconstructorName call node to a simple
+       * variable reference node.
        * 
        * @param callNode
        *          A node of 'methodInvocation.getconstructorName' call.
@@ -633,7 +698,8 @@ final class AggressiveDIOptimizer {
         }
 
         case SUB_NAMESPACE: {
-          String reg = "^" + interceptorInfo.getConstructorMatcher().replaceAll("\\.", "\\.") + ".*";
+          String reg = "^" + interceptorInfo.getConstructorMatcher().replaceAll("\\.", "\\.")
+              + ".*";
           return constructorName.matches(reg);
         }
 
@@ -884,7 +950,7 @@ final class AggressiveDIOptimizer {
     }
 
     Node function = moduleInfo.getModuleMethodNode();
-    if (NodeUtil.getFunctionParameters(function).getChildCount() > 0) {
+    if (function != null && NodeUtil.getFunctionParameters(function).getChildCount() > 0) {
       this.addReturn(function);
 
       // This rewriting process is cause the error or warning

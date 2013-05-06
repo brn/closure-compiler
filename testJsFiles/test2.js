@@ -86,7 +86,7 @@ goog.inherits = function(childCtor, parentCtor) {
  */
 goog.DEBUG = false;
 
-camp.module('camp.injections', function (exports) {
+camp.module('camp.injections', ['Injector', 'Module', 'modules', 'Matchers', 'Scopes'], function (exports) {
   //コンパイル後に消える
   if (!goog.DEBUG) {
     /**

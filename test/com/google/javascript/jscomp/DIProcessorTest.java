@@ -64,6 +64,7 @@ public class DIProcessorTest extends CompilerTestCase {
     return moduleByName("Module", codes);
   }
 
+
   private String initModules(String[] modules, String... codes) {
     StringBuilder builder = new StringBuilder();
     StringBuilder codeBodyBuilder = new StringBuilder();
@@ -74,16 +75,17 @@ public class DIProcessorTest extends CompilerTestCase {
     }
     builder.append(MODULE_INIT_PREFIX);
     builder.append(joiner.join(arr));
-    
+
     for (String code : codes) {
       codeBodyBuilder.append(code + "\n");
     }
-    
+
     return builder.toString() + String.format(MODULE_INIT_SUFFIX, codeBodyBuilder.toString());
   }
 
+
   private String initModule(String... codes) {
-    return initModules(new String[]{"Module"}, codes);
+    return initModules(new String[] { "Module" }, codes);
   }
 
 
@@ -107,6 +109,48 @@ public class DIProcessorTest extends CompilerTestCase {
             "(function(){",
             "  var module = (new Module).configure();",
             "  var test = new testNs.foo.bar.Test(module.foo)",
+            "})();"
+        ));
+  }
+
+
+  public void testModuleInheritance() {
+    test(
+        code(
+            "var testNs = {foo:{bar:{}}}",
+            "/**@constructor*/",
+            "function A(a){};",
+            "/**",
+            "*@constructor",
+            "*@implements {camp.injections.Module}",
+            "*/",
+            "function BaseModule(){}",
+            "BaseModule.prototype.configure = function(binder) {",
+            "  binder.bind('a').toInstance('a');",
+            "}",
+            "/**",
+            "*@constructor",
+            "*@extends {BaseModule}",
+            "*/",
+            "function Module(){}",
+            "goog.inherits(Module,BaseModule);",
+            "camp.injections.modules.init([Module], function(injector) {",
+            "  var a = injector.getInstance(A)",
+            "});"
+        ),
+        code(
+            "var testNs = {foo:{bar:{}}}",
+            "function A(a){};",
+            "function BaseModule(){}",
+            "BaseModule.prototype.configure = function() {",
+            "  this.a = 'a'",
+            "  return this;",
+            "}",
+            "function Module(){}",
+            "goog.inherits(Module,BaseModule);",
+            "(function() {",
+            "  var module = new Module().configure();",
+            "  var a = new A(module.a)",
             "})();"
         ));
   }
@@ -1234,7 +1278,7 @@ public class DIProcessorTest extends CompilerTestCase {
                 "binder.bind('binding3').toInstance('binding3');"
             ),
             initModules(
-                new String[]{"Module1", "Module2", "Module3"},
+                new String[] { "Module1", "Module2", "Module3" },
                 "var test = injector.getInstance(testNs.foo.bar.Test)")
         ),
         code(

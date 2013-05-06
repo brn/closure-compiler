@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry including="**/*.java" kind="src" path="lib/google-closure-compiler/src"/>
-	<classpathentry kind="src" path="test"/>
 	<classpathentry including="**/*.java" kind="src" path="lib/google-closure-compiler/test"/>
-	<classpathentry including="**/*" kind="src" path="src"/>
 	<classpathentry including="**/*.java" kind="src" path="lib/google-closure-compiler/gen"/>
+	<classpathentry including="**/*.java" kind="src" path="lib/google-closure-compiler/src"/>
+	<classpathentry including="**/*.java|**/*.zip" kind="src" path="src"/>
+	<classpathentry including="**/*.java" kind="src" path="test"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/ant-launcher.jar"/>
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/ant.jar"/>
@@ -16,6 +16,7 @@
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/jsr305.jar"/>
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/junit.jar"/>
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/protobuf-java.jar"/>
-	<classpathentry kind="lib" path="/Users/aono_taketoshi/github/closure-compiler/lib/rhino.jar"/>
-	<classpathentry kind="output" path="build"/>
+	<classpathentry kind="lib" path="C:/Users/brn/workspace/closure-compiler/lib/rhino.jar"/>
+	<classpathentry kind="lib" path="lib/google-closure-compiler/build/externs.zip"/>
+	<classpathentry kind="output" path="build/classes"/>
 </classpath>

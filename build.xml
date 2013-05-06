@@ -29,10 +29,13 @@
 				<ant antfile="build.xml"
 						 dir="${compiler.dir}"
 						 inheritAll="false"/>
-    	<ant antfile="build.xml"
-    					 target="compile-tests"
+    		<ant antfile="build.xml"
+    				 target="compile-tests"
 						 dir="${compiler.dir}"
 						 inheritAll="false"/>
+				<copy todir="${build.dir}">
+						<fileset dir="${compiler.build.dir}" includes="**/*"/>
+				</copy>
     </target>
 
 		<target name="compile" depends="compiler">

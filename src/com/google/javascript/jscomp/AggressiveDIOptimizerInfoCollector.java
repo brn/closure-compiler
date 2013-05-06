@@ -1,6 +1,5 @@
 package com.google.javascript.jscomp;
 
-
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -321,64 +320,13 @@ final class AggressiveDIOptimizerInfoCollector {
 
   private final class ModuleOrConstructorMarkerProcessor implements MarkerProcessor {
 
+    @Override
     public void processMarker(NodeTraversal t, Node n, Node parent) {
-      if (this.isModule(n)) {
-        this.processModule(t, n);
-      } else {
-        this.processConstructor(t, n);
-      }
-    }
-
-
-    private boolean isModule(Node n) {
-      JSDocInfo info = NodeUtil.getBestJSDocInfo(n);
-      if (info != null && info.isConstructor() && info.getImplementedInterfaceCount() > 0) {
-        List<JSTypeExpression> typeList = info.getImplementedInterfaces();
-        for (JSTypeExpression jsType : typeList) {
-          Node typeNode = jsType.getRoot();
-          if (typeNode != null && typeNode.getType() == Token.BANG) {
-            typeNode = typeNode.getFirstChild();
-            if (typeNode.isString() && typeNode.getString() != null
-                && typeNode.getString().equals(DIConsts.MODULE_INTERFACE)) {
-              return true;
-            }
-          }
-        }
-      }
-      return false;
-    }
-
-
-    private void processModule(NodeTraversal t, Node n) {
-      Node parent = n.getParent();
-      ModuleInfo moduleInfo = null;
-      if (parent.isAssign()) {
-        moduleInfo = new ModuleInfo();
-        moduleInfo.setModuleName(parent.getFirstChild().getQualifiedName());
-      } else if (NodeUtil.isFunctionDeclaration(n)) {
-        moduleInfo = new ModuleInfo();
-        moduleInfo.setModuleName(n.getFirstChild().getString());
-      } else if (NodeUtil.isVarDeclaration(parent)) {
-        moduleInfo = new ModuleInfo();
-        moduleInfo.setModuleName(parent.getString());
-      }
-
-      if (moduleInfo != null) {
-        if (aggressiveDIOptimizerInfo.getModuleInfo(moduleInfo.getModuleName()) != null) {
-          t.report(n, MESSAGE_MODULE_DEFINITION_IS_DUPLICATED, moduleInfo.getModuleName());
-        }
-        aggressiveDIOptimizerInfo.putModuleInfo(moduleInfo);
-      }
-    }
-
-
-    private void processConstructor(NodeTraversal t, Node n) {
       ConstructorInfo constructorInfo = null;
       if (NodeUtil.isFunctionDeclaration(n)) {
         String name = n.getFirstChild().getString();
         constructorInfo = new ConstructorInfo(name);
       } else {
-        Node parent = n.getParent();
         if (parent.isAssign()) {
           String name = parent.getFirstChild().getQualifiedName();
           constructorInfo = new ConstructorInfo(name);
@@ -462,7 +410,7 @@ final class AggressiveDIOptimizerInfoCollector {
 
 
   private final class InjectMarkerProcessor implements MarkerProcessor {
-    
+
     public void processMarker(NodeTraversal t, Node n, Node parent) {
       Node constructorNameNode = n.getFirstChild().getNext();
       Node methodNameNode = constructorNameNode.getNext();
@@ -587,25 +535,6 @@ final class AggressiveDIOptimizerInfoCollector {
       Node rvalue = lvalue.getNext();
       if (lvalue.isName() || NodeUtil.isGet(lvalue)) {
         collectPrototype(lvalue, rvalue);
-      }
-
-      Node getProp = n.getFirstChild();
-      Node constructorNameNode = NodeUtil.getPrototypeClassName(getProp);
-      String methodName = NodeUtil.getPrototypePropertyName(getProp);
-      String qualifiedName = constructorNameNode.getQualifiedName();
-
-      if (!Strings.isNullOrEmpty(qualifiedName) &&
-          aggressiveDIOptimizerInfo.getModuleInfo(qualifiedName) != null &&
-          methodName.equals("configure") &&
-          getProp.getNext().isFunction()) {
-        Node paramList = NodeUtil.getFunctionParameters(rvalue);
-        if (paramList.getChildCount() > 0) {
-          ModuleConfigureInspector inspector = new ModuleConfigureInspector(
-              qualifiedName);
-          ClosureScopeCallback callback = new ClosureScopeCallback(paramList.getFirstChild(),
-              inspector);
-          NodeTraversal.traverseRoots(compiler, Lists.newArrayList(rvalue), callback);
-        }
       }
     }
 
@@ -1246,6 +1175,7 @@ final class AggressiveDIOptimizerInfoCollector {
       bindClassInfo();
       bindModuleInfo();
       bindBindingInfo();
+      propagateModuleInfo();
     }
 
 
@@ -1254,7 +1184,7 @@ final class AggressiveDIOptimizerInfoCollector {
           .getConstructorInfoMap();
       for (String constructorName : constructorInfoMap.keySet()) {
         ConstructorInfo constructorInfo = constructorInfoMap.get(constructorName);
-        propagateBaseTypeInfo(constructorInfo);
+        boolean isModule = propagateBaseTypeInfo(constructorInfo);
         Map<String, PrototypeInfo> prototypeInfoMap = aggressiveDIOptimizerInfo
             .getPrototypeInfo(constructorName);
 
@@ -1293,15 +1223,24 @@ final class AggressiveDIOptimizerInfoCollector {
         if (prototypeInfoMap != null) {
           constructorInfo.setPrototypeInfoMap(prototypeInfoMap);
         }
+
+        if (isModule) {
+          processModule(constructorInfo);
+        }
       }
     }
 
-    private void propagateBaseTypeInfo(ConstructorInfo constructorInfo) {
+
+    private boolean propagateBaseTypeInfo(ConstructorInfo constructorInfo) {
       Map<String, PrototypeInfo> prototypeInfoMap =
           aggressiveDIOptimizerInfo.getPrototypeInfo(constructorInfo.getConstructorName());
       if (prototypeInfoMap == null) {
         prototypeInfoMap = Maps.newHashMap();
       }
+
+      JSDocInfo info = constructorInfo.getJSDocInfo();
+      boolean isModule = false;
+
       for (ConstructorInfo baseTypeInfo : getBaseTypeList(constructorInfo)) {
         Map<String, PrototypeInfo> basePrototypeInfoMap = aggressiveDIOptimizerInfo
             .getPrototypeInfo(baseTypeInfo.getConstructorName());
@@ -1310,6 +1249,73 @@ final class AggressiveDIOptimizerInfoCollector {
             if (!prototypeInfoMap.containsKey(baseMethodName)) {
               prototypeInfoMap.put(baseMethodName,
                   (PrototypeInfo) basePrototypeInfoMap.get(baseMethodName).clone());
+            }
+
+            constructorInfo.addParent(baseTypeInfo);
+
+            JSDocInfo baseJSDocInfo = baseTypeInfo.getJSDocInfo();
+            isModule = isModule(baseJSDocInfo);
+          }
+        }
+      }
+
+      constructorInfo.setPrototypeInfoMap(prototypeInfoMap);
+
+      return isModule || (isModule(info));
+    }
+
+
+    private boolean isModule(JSDocInfo info) {
+      if (info != null && info.isConstructor() && info.getImplementedInterfaceCount() > 0) {
+        List<JSTypeExpression> typeList = info.getImplementedInterfaces();
+        for (JSTypeExpression jsType : typeList) {
+          Node typeNode = jsType.getRoot();
+          if (typeNode != null && typeNode.getType() == Token.BANG) {
+            typeNode = typeNode.getFirstChild();
+            if (typeNode.isString() && typeNode.getString() != null
+                && typeNode.getString().equals(DIConsts.MODULE_INTERFACE)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+
+    private void processModule(ConstructorInfo constructorInfo) {
+      Node n = constructorInfo.getConstructorNode();
+      Node parent = n.getParent();
+      ModuleInfo moduleInfo = null;
+      if (parent.isAssign()) {
+        moduleInfo = new ModuleInfo();
+        moduleInfo.setModuleName(parent.getFirstChild().getQualifiedName());
+      } else if (NodeUtil.isFunctionDeclaration(n)) {
+        moduleInfo = new ModuleInfo();
+        moduleInfo.setModuleName(n.getFirstChild().getString());
+      } else if (NodeUtil.isVarDeclaration(parent)) {
+        moduleInfo = new ModuleInfo();
+        moduleInfo.setModuleName(parent.getString());
+      }
+
+      if (moduleInfo != null) {
+        aggressiveDIOptimizerInfo.putModuleInfo(moduleInfo);
+
+        if (constructorInfo.getParentList().size() == 0) {
+          PrototypeInfo prototypeInfo = constructorInfo.getPrototypeInfo("configure");
+
+          if (prototypeInfo != null) {
+            Node paramList = NodeUtil.getFunctionParameters(prototypeInfo.getFunction());
+            if (paramList.getChildCount() > 0) {
+              ModuleConfigureInspector inspector =
+                  new ModuleConfigureInspector(
+                      constructorInfo.getConstructorName());
+              ClosureScopeCallback callback = new ClosureScopeCallback(paramList.getFirstChild(),
+                  inspector);
+              NodeTraversal.traverseRoots(compiler,
+                  Lists.newArrayList(prototypeInfo.getFunction()),
+                  callback);
+              moduleInfo.setModuleMethodNode(prototypeInfo.getFunction());
             }
           }
         }
@@ -1380,6 +1386,29 @@ final class AggressiveDIOptimizerInfoCollector {
             .getInterceptorInfo(constructorName);
         if (interceptorInfoList != null) {
           moduleInfo.setInterceptorInfoList(interceptorInfoList);
+        }
+      }
+    }
+    
+    private void propagateModuleInfo() {
+      Map<String, ModuleInfo> moduleInfoMap = aggressiveDIOptimizerInfo.getModuleInfoMap();
+      for (ModuleInfo moduleInfo : moduleInfoMap.values()) {
+        String moduleName = moduleInfo.getModuleName();
+        ConstructorInfo constructorInfo = aggressiveDIOptimizerInfo.getConstructorInfo(moduleName);
+        if (constructorInfo != null && constructorInfo.getParentList().size() > 0) {
+          for (ConstructorInfo parentInfo : constructorInfo.getParentList()) {
+            String name = parentInfo.getConstructorName();
+            ModuleInfo parentModuleInfo = moduleInfoMap.get(name);
+            ArrayListMultimap<String, BindingInfo> bindingInfoMap = moduleInfo.getBindingInfoMap();
+            ArrayListMultimap<String, BindingInfo> parentBindingInfoMap = parentModuleInfo.getBindingInfoMap();
+            for (BindingInfo parentBindingInfo : parentBindingInfoMap.values()) {
+              BindingInfo clone = (BindingInfo)parentBindingInfo.clone();
+              clone.setModuleName(moduleName);
+              clone.setRewrited();
+              bindingInfoMap.put(clone.getName(), clone);
+            }
+            moduleInfo.setBindingInfoMap(bindingInfoMap);
+          }
         }
       }
     }
