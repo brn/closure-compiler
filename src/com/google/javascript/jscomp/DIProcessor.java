@@ -149,4 +149,10 @@ public class DIProcessor implements HotSwapCompilerPass {
     }
     return true;
   }
+  
+  static String toGetter(String name) {
+    char h = Character.toUpperCase(name.charAt(0));
+    String subed = name.substring(1, name.length());
+    return "get" + h + subed;
+  }
 }

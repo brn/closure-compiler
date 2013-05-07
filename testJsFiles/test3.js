@@ -311,7 +311,7 @@ camp.module(
 
       binder.bind('node').toInstance(document.getElementById('id'));
       binder.bind('service').to(exports.Service).as(Scopes.EAGER_SINGLETON);
-      binder.bind('test2').to(exports.Test2);
+      binder.bind('test2').to(exports.Test).as(Scopes.SINGLETON);
 
       binder.bind('test4').toProvider(function (name1, name2, test2) {
         var a = new exports.Test4(name1, name2);
@@ -336,7 +336,7 @@ camp.module(
      * @extends {exports.DefaultModule2}
      */
     exports.TestModule = function() {
-      
+
     };
 
     /**

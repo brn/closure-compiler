@@ -1460,6 +1460,8 @@ final class AggressiveDIOptimizerInfoCollector {
       if (aggressiveDIOptimizerInfo.getConstructorInfo(name) == null) {
         ConstructorInfo aliasInfo = new ConstructorInfo(name);
         aggressiveDIOptimizerInfo.putConstructorInfo(aliasInfo);
+        info.setAliasPoint(aliasPoint);
+        info.setHasInstanceFactory();
         aliasInfo.setConstructorNode(info.getConstructorNode());
         aliasInfo.setPrototypeInfoMap(info.getPrototypeInfoMap());
         aliasInfo.setJSDocInfo(info.getJSDocInfo());

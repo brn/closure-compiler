@@ -58,4 +58,5 @@ public class DIConsts {
   static final String GOOG_BASE = "goog.base";
   static final String GOOG_INHERITS = "goog.inherits";
   static final Pattern INJECTON_PARSE_REG = Pattern.compile("([a-zA-Z_$][\\w_$]*)(?:\\(([\\s\\S]+)\\))");
+  static final String BINDINGS_REPO_NAME = "bindings";
 }

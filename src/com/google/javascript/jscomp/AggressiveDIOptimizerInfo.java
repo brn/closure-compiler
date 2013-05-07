@@ -577,6 +577,8 @@ final class AggressiveDIOptimizerInfo {
     private boolean isDuplicated;
 
     private boolean hasConstructorInjectionSpecification;
+    
+    private boolean hasInstanceFactory = false;
 
     private BindingInfo bindingInfo;
 
@@ -831,6 +833,14 @@ final class AggressiveDIOptimizerInfo {
       } catch (CloneNotSupportedException e) {
         throw new InternalError(e.toString());
       }
+    }
+    
+    public void setHasInstanceFactory() {
+      hasInstanceFactory = true;
+    }
+    
+    public boolean hasInstanceFactory() {
+      return hasInstanceFactory;
     }
   }
 
@@ -1179,7 +1189,7 @@ final class AggressiveDIOptimizerInfo {
 
 
     public String getBindingAccessorName() {
-      return moduleVariableName + "." + name;
+      return DIConsts.BINDINGS_REPO_NAME + "." + DIProcessor.toGetter(name);
     }
 
 
