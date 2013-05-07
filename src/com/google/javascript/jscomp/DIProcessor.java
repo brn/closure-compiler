@@ -13,15 +13,18 @@ import com.google.javascript.rhino.Token;
  */
 public class DIProcessor implements HotSwapCompilerPass {
 
+  static final DiagnosticType MESSAGE_CLASS_NOT_FOUND = DiagnosticType.error(
+      "MSG_CLASS_NOT_FOUND", "The class {0} is not defined.");
+  
   private AbstractCompiler compiler;
 
 
   @Override
   public void process(Node extern, Node root) {
-    AggressiveDIOptimizerInfo aggressiveDIOptimizerInfo = new AggressiveDIOptimizerInfo();
-    new AggressiveDIOptimizerInfoCollector(compiler, aggressiveDIOptimizerInfo).collectInfo(root);
+    DIOptimizerInfo dIOptimizerInfo = new DIOptimizerInfo();
+    new DIOptimizerInfoCollector(compiler, dIOptimizerInfo).collectInfo(root);
     if (!compiler.hasHaltingErrors()) {
-      new AggressiveDIOptimizer(compiler, aggressiveDIOptimizerInfo).optimize();
+      new DIOptimizer(compiler, dIOptimizerInfo).optimize();
     }
   }
 
@@ -154,5 +157,10 @@ public class DIProcessor implements HotSwapCompilerPass {
     char h = Character.toUpperCase(name.charAt(0));
     String subed = name.substring(1, name.length());
     return "get" + h + subed;
+  }
+  
+  
+  static void reportClassNotFound(AbstractCompiler compiler, Node n, String name) {
+    report(compiler, n, MESSAGE_CLASS_NOT_FOUND, name);
   }
 }

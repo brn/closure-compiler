@@ -1336,6 +1336,6 @@ public class DIProcessorTest extends CompilerTestCase {
                 "}"
             ),
             initModule("var test = injector.getInstance(testNs.foo.bar.Test)")
-        ), AggressiveDIOptimizerInfoCollector.MESSAGE_CONSTRUCTOR_BINDING_DEFINITION_IS_AMBIGUOUS);
+        ), DIOptimizerInfoCollector.MESSAGE_CONSTRUCTOR_BINDING_DEFINITION_IS_AMBIGUOUS);
   }
 }
