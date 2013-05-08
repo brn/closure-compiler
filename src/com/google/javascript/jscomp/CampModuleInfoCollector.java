@@ -7,6 +7,9 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.javascript.jscomp.CampModuleTransformInfo.JSDocLendsInfoMutator;
+import com.google.javascript.jscomp.CampModuleTransformInfo.JSDocTypeInfoMutator;
+import com.google.javascript.jscomp.CampModuleTransformInfo.LendsType;
 import com.google.javascript.jscomp.CampModuleTransformInfo.LocalAliasInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo.ModuleInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo.TypeInfo;
@@ -28,8 +31,9 @@ final class CampModuleInfoCollector {
   static final DiagnosticType MESSAGE_MODULE_SECOND_ARGUMENT_NOT_VALID = DiagnosticType
       .error(
           "JSC_MSG_MODULE_SECOND_ARGUMENT_NOT_VALID.",
-          "The second argument of the camp.module must be a function which has an argument named <exports> only" +
-          " or array literal which contains exported name.");
+          "The second argument of the camp.module must be a function which has an argument named <exports> only"
+              +
+              " or array literal which contains exported name.");
 
   static final DiagnosticType MESSAGE_USING_FIRST_ARGUMENT_NOT_VALID = DiagnosticType.error(
       "JSC_MSG_USING_FIRST_ARGUMENT_NOT_VALID.",
@@ -491,7 +495,7 @@ final class CampModuleInfoCollector {
 
 
     private List<String> getExportedList(String moduleName, Node maybeArray) {
-      List<String> ret = Lists.newArrayList();  
+      List<String> ret = Lists.newArrayList();
       if (maybeArray.isArrayLit()) {
         for (Node name : maybeArray.children()) {
           if (name.isString()) {
@@ -501,7 +505,8 @@ final class CampModuleInfoCollector {
       }
       return ret;
     }
-    
+
+
     private String createModuleIdFrom(String moduleName) {
       return moduleName.replaceAll("\\.", "_");
     }
@@ -568,14 +573,26 @@ final class CampModuleInfoCollector {
     public void processJSDocInfo(NodeTraversal t, Node n) {
       JSDocInfo jsDocInfo = n.getJSDocInfo();
       if (jsDocInfo != null) {
-        this.checkJSDocType(jsDocInfo, t);
+        this.checkJSDocType(jsDocInfo, t, n);
       }
     }
 
 
-    private void checkJSDocType(JSDocInfo jsDocInfo, NodeTraversal t) {
-      for (Node typeNode : jsDocInfo.getTypeNodes()) {
-        this.checkTypeNodeRecursive(typeNode, t);
+    private void checkJSDocType(JSDocInfo jsDocInfo, NodeTraversal t, Node n) {
+      String lendsName = jsDocInfo.getLendsName();
+      if (!Strings.isNullOrEmpty(lendsName)) {
+        Scope scope = t.getScope();
+        if (isAliasType(t, scope, lendsName)) {
+          moduleInfo.addAliasType(new JSDocLendsInfoMutator(n, lendsName));
+        } else if (isLocalType(scope, lendsName)) {
+          moduleInfo.addLocalType(new JSDocLendsInfoMutator(n, lendsName));
+        } else if (isExportedType(lendsName, scope)) {
+          moduleInfo.addExportedType(new JSDocLendsInfoMutator(n, lendsName));
+        }
+      } else {
+        for (Node typeNode : jsDocInfo.getTypeNodes()) {
+          this.checkTypeNodeRecursive(typeNode, t);
+        }
       }
     }
 
@@ -585,12 +602,12 @@ final class CampModuleInfoCollector {
         String type = typeNode.getString();
         Scope scope = t.getScope();
 
-        if (!isExportedType(type, scope)) {
-          this.processLocalOrAliasType(typeNode, t, type, scope);
-        } else {
-          if (!moduleInfo.hasExportedType(typeNode)) {
-            moduleInfo.addExportedType(typeNode);
-          }
+        if (isAliasType(t, scope, type)) {
+          moduleInfo.addAliasType(new JSDocTypeInfoMutator(typeNode, type));
+        } else if (isLocalType(scope, type)) {
+          moduleInfo.addLocalType(new JSDocTypeInfoMutator(typeNode, type));
+        } else if (isExportedType(type, scope)) {
+          moduleInfo.addExportedType(new JSDocTypeInfoMutator(typeNode, type));
         }
       }
 
@@ -600,33 +617,32 @@ final class CampModuleInfoCollector {
     }
 
 
-    private void processLocalOrAliasType(Node typeNode, NodeTraversal t, String type, Scope scope) {
+    private boolean isAliasType(NodeTraversal t, Scope scope, String type) {
       String[] types = type.split("\\.");
       if (types.length > 1) {
         type = types[0];
       }
       Var var = scope.getVar(type);
       if (var != null && isAliasVar(t, var.getName())) {
-        if (!moduleInfo.hasAliasType(typeNode)) {
-          moduleInfo.addAliasType(typeNode);
-        }
-      } else if (var != null) {
-        processLocalType(typeNode, type, scope, var);
+        return true;
       }
+      return false;
     }
 
 
-    private void processLocalType(Node typeNode, String type, Scope scope, Var var) {
+    private boolean isLocalType(Scope scope, String type) {
+      Var var = scope.getVar(type);
       Scope global = scope;
       while (global.getDepth() > 1) {
         global = global.getParent();
       }
       Var globalVar = global.getOwnSlot(type);
       if (globalVar != null &&
-          globalVar.getNameNode().equals(var.getNameNode()) &&
-          !moduleInfo.hasLocalType(typeNode)) {
-        moduleInfo.addLocalType(typeNode);
+          globalVar.getNameNode().equals(var.getNameNode())) {
+        return true;
       }
+
+      return false;
     }
 
 

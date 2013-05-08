@@ -4,10 +4,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.javascript.rhino.JSDocInfo;
+import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
 
 final class CampModuleTransformInfo {
@@ -35,6 +37,72 @@ final class CampModuleTransformInfo {
     return this.moduleInfoMap;
   }
 
+  
+  interface JSDocMutator {
+    public void mutate(String value);
+    public boolean isCodeChanged();
+    public String getTypeString();
+  }
+  
+  
+  static final class JSDocTypeInfoMutator implements JSDocMutator {
+    private Node node;
+    private boolean isCodeChanged = false;
+    private String type;
+    
+    public JSDocTypeInfoMutator(Node node, String type) {
+      Preconditions.checkNotNull(node);
+      Preconditions.checkNotNull(type);
+      this.node = node;
+      this.type = type;
+    }
+    
+    public void mutate(String value) {
+      Preconditions.checkNotNull(value);
+      this.node.setString(value);
+      isCodeChanged = true;
+    }
+    
+    public boolean isCodeChanged() {
+      return isCodeChanged;
+    }
+    
+    public String getTypeString() {
+      return this.type;
+    }
+  }
+  
+  
+  static final class JSDocLendsInfoMutator implements JSDocMutator {
+    private Node node;
+    private boolean isCodeChanged = false;
+    private String type;
+    
+    public JSDocLendsInfoMutator(Node node, String type) {
+      Preconditions.checkNotNull(node);
+      Preconditions.checkNotNull(type);
+      this.node = node;
+      this.type = type;
+    }
+    
+    public void mutate(String value) {
+      Preconditions.checkNotNull(value);
+      JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
+      builder.recordLends(value);
+      JSDocInfo info = builder.build(node);
+      node.setJSDocInfo(info);
+      isCodeChanged = true;
+    }
+    
+    public boolean isCodeChanged() {
+      return isCodeChanged;
+    }
+    
+    public String getTypeString() {
+      return this.type;
+    }
+  }
+  
 
   public ModuleInfo createModuleInfo(
       String moduleName,
@@ -126,6 +194,12 @@ final class CampModuleTransformInfo {
     
   }
   
+  public enum LendsType {
+    EXPORTS,
+    LOCAL,
+    ALIAS
+  }
+  
   final class ModuleInfo {
     private Node moduleCallNode;
 
@@ -151,17 +225,19 @@ final class CampModuleTransformInfo {
 
     private List<VarRenamePair> renameTargetList = Lists.newArrayList();
 
-    private Set<Node> exportedTypeSet = Sets.newHashSet();
+    private List<JSDocMutator> exportedTypeList = Lists.newArrayList();
 
-    private Set<Node> aliasTypeSet = Sets.newHashSet();
+    private List<JSDocMutator> aliasTypeList = Lists.newArrayList();
 
     private List<Node> aliasVarList = Lists.newArrayList();
 
-    private Set<Node> localTypeSet = Sets.newHashSet();
+    private List<JSDocMutator> localTypeList = Lists.newArrayList();
     
     private Map<String, TypeInfo> typeMap = Maps.newHashMap();
 
     private List<LocalAliasInfo> localAliasInfoList = Lists.newArrayList();
+    
+    private Map<Node, LendsType> lendsMap = Maps.newHashMap();
 
     private ModuleInfo(String moduleName, String moduleId, Node moduleCallNode, Node nra) {
       this.moduleCallNode = moduleCallNode;
@@ -268,18 +344,13 @@ final class CampModuleTransformInfo {
     }
 
 
-    public void addAliasType(Node type) {
-      this.aliasTypeSet.add(type);
+    public void addAliasType(JSDocMutator mutator) {
+      this.aliasTypeList.add(mutator);
     }
 
 
-    public boolean hasAliasType(Node aliasType) {
-      return this.aliasTypeSet.contains(aliasType);
-    }
-
-
-    public Set<Node> getAliasTypeSet() {
-      return this.aliasTypeSet;
+    public List<JSDocMutator> getAliasTypeList() {
+      return this.aliasTypeList;
     }
 
 
@@ -298,33 +369,23 @@ final class CampModuleTransformInfo {
     }
 
 
-    public void addExportedType(Node type) {
-      this.exportedTypeSet.add(type);
+    public void addExportedType(JSDocMutator mutator) {
+      this.exportedTypeList.add(mutator);
     }
 
 
-    public Set<Node> getExportedTypeSet() {
-      return this.exportedTypeSet;
+    public List<JSDocMutator> getExportedTypeList() {
+      return this.exportedTypeList;
     }
 
 
-    public boolean hasExportedType(Node n) {
-      return this.exportedTypeSet.contains(n);
+    public void addLocalType(JSDocMutator mutator) {
+      this.localTypeList.add(mutator);
     }
 
 
-    public void addLocalType(Node localTypeNode) {
-      this.localTypeSet.add(localTypeNode);
-    }
-
-
-    public boolean hasLocalType(Node localTypeNode) {
-      return this.localTypeSet.contains(localTypeNode);
-    }
-
-
-    public Set<Node> getLocalTypeSet() {
-      return this.localTypeSet;
+    public List<JSDocMutator> getLocalTypeList() {
+      return this.localTypeList;
     }
 
 
@@ -351,6 +412,14 @@ final class CampModuleTransformInfo {
     
     public List<LocalAliasInfo> getLocalAliasInfoList() {
       return this.localAliasInfoList;
+    }
+    
+    public void addLendsType(Node n, LendsType type) {
+      this.lendsMap.put(n, type);
+    }
+    
+    public Map<Node, LendsType> getLendsTypeMap() {
+      return this.lendsMap;
     }
   }
 }

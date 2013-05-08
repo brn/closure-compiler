@@ -173,6 +173,7 @@ final class DIOptimizer {
 
       if (constructorNode != null) {
         insertFactory(constructorNode);
+        compiler.reportCodeChange();
       }
     }
 
@@ -194,6 +195,7 @@ final class DIOptimizer {
       addParameters(newCall, constructorInfo.getParamList());
       addMethodInjections(block, newCall);
 
+      NodeUtil.setDebugInformation(assign.getLastChild(), constructorNode, constructorName);
       Node expr = NodeUtil.newExpr(assign);
       expr.copyInformationFromForTree(stmtBeginning);
       stmtBeginning.getParent().addChildAfter(expr, stmtBeginning);
@@ -354,7 +356,7 @@ final class DIOptimizer {
         }
 
         assign.copyInformationFromForTree(n);
-        // Replace a bind call node by a 'this' assignment node.
+        // Replace a bind call node by an assignment node.
         DIProcessor.replaceNode(n, assign);
         compiler.reportCodeChange();
       }
@@ -479,15 +481,6 @@ final class DIOptimizer {
       Node statementBeginningNode = DIProcessor.getStatementBeginningNode(n);
       Preconditions.checkNotNull(statementBeginningNode);
 
-      // Rewrite all methodInvocation access.
-      MethodInvocationRewriter methodInvocationRewriter = new MethodInvocationRewriter(
-          interceptorInfo);
-      methodInvocationRewriter.rewrite();
-
-      if (methodInvocationRewriter.isRewrited()) {
-        compiler.reportCodeChange();
-      }
-
       String interceptorName = DIConsts.INTERCEPTOR_NAME + interceptorId;
       replaceInterceptorCallToAssignment(statementBeginningNode, interceptorName);
 
@@ -512,219 +505,13 @@ final class DIOptimizer {
     private void replaceInterceptorCallToAssignment(Node statementBeginningNode,
         String interceptorName) {
       Node function = interceptorInfo.getInterceptorNode();
-      Node interceptorNameNode = IR.getprop(IR.thisNode(), IR.string(interceptorName));
+      String propName = DIConsts.BINDINGS_REPO_NAME + "." + interceptorName;
+      Node interceptorNameNode =
+          NodeUtil.newQualifiedNameNode(convention, propName);
       function.detachFromParent();
       Node expr = NodeUtil.newExpr(IR.assign(interceptorNameNode, function));
       expr.copyInformationFromForTree(statementBeginningNode);
       DIProcessor.replaceNode(statementBeginningNode, expr);
-    }
-
-
-    private final class MethodInvocationRewriter implements NodeRewriter {
-      private static final String CONTEXT = "jscomp$methodInvocation$context";
-
-      private static final String ARGS = "jscomp$methodInvocation$args";
-
-      private static final String CLASS_NAME = "jscomp$methodInvocation$constructorName";
-
-      private static final String METHOD_NAME = "jscomp$methodInvocation$methodName";
-
-      private static final String PROCEED = "jscomp$methodInvocation$proceed";
-
-      private boolean isRewrited = false;
-
-      // The new parameters of replaced interceptor function.
-      private final ImmutableList<Node> paramList = new ImmutableList.Builder<Node>()
-          .add(IR.name(CONTEXT))
-          .add(IR.name(ARGS))
-          .add(IR.name(CLASS_NAME))
-          .add(IR.name(METHOD_NAME))
-          .add(IR.name(PROCEED))
-          .build();
-
-      private InterceptorInfo interceptorInfo;
-
-
-      public MethodInvocationRewriter(InterceptorInfo interceptorInfo) {
-        this.interceptorInfo = interceptorInfo;
-        Node interceptorNode = interceptorInfo.getInterceptorNode();
-        attatchJSDocInfo(interceptorNode);
-        replaceParamList();
-      }
-
-
-      /**
-       * Attach JSDocInfo to a interceptor function node.
-       * 
-       * @param interceptorNode
-       */
-      private void attatchJSDocInfo(Node interceptorNode) {
-        JSDocInfoBuilder jsdocInfoBuilder = new JSDocInfoBuilder(false);
-        Node anyType = IR.string("*");
-        Node stringType = IR.string("string");
-        Node arrayType = IR.string("Array");
-        Node functionType = IR.string("Function");
-
-        String sourceFileName = interceptorNode.getSourceFileName();
-        jsdocInfoBuilder.recordParameter(CONTEXT,
-            new JSTypeExpression(anyType, sourceFileName));
-        jsdocInfoBuilder.recordParameter(ARGS,
-            new JSTypeExpression(arrayType, sourceFileName));
-        jsdocInfoBuilder.recordParameter(CLASS_NAME,
-            new JSTypeExpression(stringType, sourceFileName));
-        jsdocInfoBuilder.recordParameter(METHOD_NAME, new JSTypeExpression(stringType.cloneNode(),
-            sourceFileName));
-        jsdocInfoBuilder.recordParameter(PROCEED, new JSTypeExpression(functionType.cloneNode(),
-            sourceFileName));
-
-        jsdocInfoBuilder.build(interceptorNode);
-      }
-
-
-      /**
-       * Replace all parameters of a interceptor function node to the new
-       * parameters.
-       */
-      private void replaceParamList() {
-        Node function = interceptorInfo.getInterceptorNode();
-        Preconditions.checkArgument(function.isFunction());
-        Node paramListNode = NodeUtil.getFunctionParameters(function);
-        paramListNode.detachChildren();
-        for (Node param : paramList) {
-          paramListNode.addChildToBack(param);
-        }
-      }
-
-
-      @Override
-      public void rewrite() {
-        // methodInvocation.proceed()
-        for (Node callNode : interceptorInfo.getProceedNodeList()) {
-          this.replaceProceed(callNode);
-        }
-
-        // methodInvocation.getThis()
-        for (Node callNode : interceptorInfo.getThisNodeList()) {
-          this.replaceThis(callNode);
-        }
-
-        // methodInvocation.getQualifiedName()
-        for (Node callNode : interceptorInfo.getQualifiedNameNodeList()) {
-          this.replaceGetQualifiedName(callNode);
-        }
-
-        // methodInvocation.getMethodName()
-        for (Node callNode : interceptorInfo.getMethodNameNodeList()) {
-          this.replaceGetMethodName(callNode);
-        }
-
-        // methodInvocation.getconstructorName()
-        for (Node callNode : interceptorInfo.getConstructorNameNodeList()) {
-          this.replaceGetconstructorName(callNode);
-        }
-
-        // methodInvocation.getArguments()
-        for (Node callNode : interceptorInfo.getArgumentsNodeList()) {
-          this.replaceArguments(callNode);
-        }
-      }
-
-
-      public boolean isRewrited() {
-        return this.isRewrited;
-      }
-
-
-      /**
-       * Replace MethodInvocation#proceed call node to simple function applying.
-       * 
-       * @param callNode
-       *          A node of 'methodInvocation.proceed' call.
-       */
-      private void replaceProceed(Node callNode) {
-        isRewrited = true;
-        Node call = NodeUtil.newCallNode(
-            NodeUtil.newQualifiedNameNode(convention, PROCEED + "." + "apply"),
-            IR.name(CONTEXT),
-            IR.name(ARGS));
-        call.copyInformationFromForTree(callNode);
-        DIProcessor.replaceNode(callNode, call);
-      }
-
-
-      /**
-       * Replace MethodInvocation#getThis call node to a simple this reference.
-       * 
-       * @param callNode
-       *          A node of 'methodInvocation.getThis' call.
-       */
-      private void replaceThis(Node callNode) {
-        isRewrited = true;
-        Node thisNode = IR.name(CONTEXT);
-        thisNode.copyInformationFromForTree(callNode);
-        DIProcessor.replaceNode(callNode, thisNode);
-      }
-
-
-      /**
-       * Replace MethodInvocation#getQualifiedName call node to the simple
-       * string concatenations node.
-       * 
-       * @param callNode
-       *          A node of 'methodInvocation.getQualifiedName' call.
-       */
-      private void replaceGetQualifiedName(Node callNode) {
-        isRewrited = true;
-        Node prefix = IR.add(IR.name(CLASS_NAME), IR.string("."));
-        Node add = IR.add(prefix, IR.name(METHOD_NAME));
-        add.copyInformationFromForTree(callNode);
-        DIProcessor.replaceNode(callNode, add);
-      }
-
-
-      /**
-       * Replace MethodInvocation#getMethodName call node to a simple variable
-       * reference node.
-       * 
-       * @param callNode
-       *          A node of 'methodInvocation.getMethodName' call.
-       */
-      private void replaceGetMethodName(Node callNode) {
-        isRewrited = true;
-        Node name = IR.name(METHOD_NAME);
-        name.copyInformationFromForTree(callNode);
-        DIProcessor.replaceNode(callNode, name);
-      }
-
-
-      /**
-       * Replace MethodInvocation#getconstructorName call node to a simple
-       * variable reference node.
-       * 
-       * @param callNode
-       *          A node of 'methodInvocation.getconstructorName' call.
-       */
-      private void replaceGetconstructorName(Node callNode) {
-        isRewrited = true;
-        Node name = IR.name(CLASS_NAME);
-        name.copyInformationFromForTree(callNode);
-        DIProcessor.replaceNode(callNode, name);
-      }
-
-
-      /**
-       * Replace MethodInvocation#getArguments call node to a simple variable
-       * reference node.
-       * 
-       * @param callNode
-       *          A node of 'methodInvocation.getArguments' call.
-       */
-      private void replaceArguments(Node callNode) {
-        isRewrited = true;
-        Node name = IR.name(ARGS);
-        name.copyInformationFromForTree(callNode);
-        DIProcessor.replaceNode(callNode, name);
-      }
     }
   }
 
@@ -1136,8 +923,10 @@ final class DIOptimizer {
       // because rewritten method is called with no arguments.
       // So remove all parameters and jsdocs from this method.
       Node paramList = NodeUtil.getFunctionParameters(function);
+      Node paramName = IR.name(DIConsts.BINDINGS_REPO_NAME);
+      paramName.copyInformationFromForTree(paramList);
       paramList.detachChildren();
-      paramList.addChildToBack(IR.name(DIConsts.BINDINGS_REPO_NAME));
+      paramList.addChildToBack(paramName);
 
       this.removeJSDocInfoFromBindingMethod(function);
       compiler.reportCodeChange();

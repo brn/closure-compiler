@@ -4,9 +4,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.javascript.jscomp.CampModuleTransformInfo.JSDocMutator;
+import com.google.javascript.jscomp.CampModuleTransformInfo.JSDocTypeInfoMutator;
+import com.google.javascript.jscomp.CampModuleTransformInfo.LendsType;
 import com.google.javascript.jscomp.CampModuleTransformInfo.LocalAliasInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo.ModuleInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo.TypeInfo;
@@ -191,7 +195,8 @@ public class CampModuleRewriter {
         functionType.copyInformationFromForTree(assign);
         builder.recordType(new JSTypeExpression(functionType, assign.getSourceFileName()));
         assign.setJSDocInfo(builder.build(assign));
-        moduleInfo.addLocalType(functionType.getFirstChild().getFirstChild());
+        Node target = functionType.getFirstChild().getFirstChild();
+        moduleInfo.addLocalType(new JSDocTypeInfoMutator(target, rvalueName));
         compiler.reportCodeChange();
       }
 
@@ -318,25 +323,25 @@ public class CampModuleRewriter {
 
     @Override
     public void rewrite(ModuleInfo moduleInfo) {
-      Set<Node> targetTypeSet = this.getTypeSet(moduleInfo);
-      for (Node typeNode : targetTypeSet) {
-        String type = typeNode.getString();
-        this.rewriteType(type, typeNode, moduleInfo);
+      List<JSDocMutator> jsDocMutatorList = this.getMutatorList(moduleInfo);
+      for (JSDocMutator jsDocMutator : jsDocMutatorList) {
+        String type = jsDocMutator.getTypeString();
+        this.rewriteType(type, jsDocMutator, moduleInfo);
       }
     }
 
 
-    protected abstract void rewriteType(String type, Node typeNode, ModuleInfo moduleInfo);
+    protected abstract void rewriteType(String type, JSDocMutator mutator, ModuleInfo moduleInfo);
 
 
-    protected abstract Set<Node> getTypeSet(ModuleInfo moduleInfo);
+    protected abstract List<JSDocMutator> getMutatorList(ModuleInfo moduleInfo);
   }
 
 
   private final class AliasTypeRewriter extends AbstractJSDocRewriter {
 
     @Override
-    protected void rewriteType(String type, Node typeNode, ModuleInfo moduleInfo) {
+    protected void rewriteType(String type, JSDocMutator mutator, ModuleInfo moduleInfo) {
       int index = type.indexOf(".");
       String prop = "";
 
@@ -348,15 +353,17 @@ public class CampModuleRewriter {
 
       String renamed = moduleInfo.getAliasName(type);
       if (renamed != null) {
-        typeNode.setString(renamed + prop);
-        compiler.reportCodeChange();
+        mutator.mutate(renamed + prop);
+        if (mutator.isCodeChanged()) {
+          compiler.reportCodeChange();
+        }
       }
     }
 
 
     @Override
-    protected Set<Node> getTypeSet(ModuleInfo moduleInfo) {
-      return moduleInfo.getAliasTypeSet();
+    protected List<JSDocMutator> getMutatorList(ModuleInfo moduleInfo) {
+      return moduleInfo.getAliasTypeList();
     }
   }
 
@@ -364,17 +371,19 @@ public class CampModuleRewriter {
   private final class ExportedTypeRewriter extends AbstractJSDocRewriter {
 
     @Override
-    protected void rewriteType(String type, Node typeNode, ModuleInfo moduleInfo) {
+    protected void rewriteType(String type, JSDocMutator mutator, ModuleInfo moduleInfo) {
       Node nra = moduleInfo.getNamespaceReferenceArgument();
       String nraName = nra.getString();
-      typeNode.setString(type.replaceFirst(nraName, moduleInfo.getModuleName()));
-      compiler.reportCodeChange();
+      mutator.mutate(type.replaceFirst(nraName, moduleInfo.getModuleName()));
+      if (mutator.isCodeChanged()) {
+        compiler.reportCodeChange();
+      }
     }
 
 
     @Override
-    protected Set<Node> getTypeSet(ModuleInfo moduleInfo) {
-      return moduleInfo.getExportedTypeSet();
+    protected List<JSDocMutator> getMutatorList(ModuleInfo moduleInfo) {
+      return moduleInfo.getExportedTypeList();
     }
   }
 
@@ -382,15 +391,17 @@ public class CampModuleRewriter {
   private final class LocalTypeRewriter extends AbstractJSDocRewriter {
 
     @Override
-    protected void rewriteType(String type, Node typeNode, ModuleInfo moduleInfo) {
-      typeNode.setString(moduleInfo.getModuleId() + "_" + type);
-      compiler.reportCodeChange();
+    protected void rewriteType(String type, JSDocMutator mutator, ModuleInfo moduleInfo) {
+      mutator.mutate(moduleInfo.getModuleId() + "_" + type);
+      if (mutator.isCodeChanged()) {
+        compiler.reportCodeChange();
+      }
     }
 
 
     @Override
-    protected Set<Node> getTypeSet(ModuleInfo moduleInfo) {
-      return moduleInfo.getLocalTypeSet();
+    protected List<JSDocMutator> getMutatorList(ModuleInfo moduleInfo) {
+      return moduleInfo.getLocalTypeList();
     }
   }
 

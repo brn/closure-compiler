@@ -980,29 +980,22 @@ final class DIOptimizerInfoCollector {
       Node classMatcher = n.getNext();
       if (classMatcher != null && classMatcher.isCall()
           && classMatcher.getFirstChild().isGetProp()) {
-        Node methodMatcher = classMatcher.getNext();
-        if (methodMatcher != null && methodMatcher.isCall()
-            && methodMatcher.getFirstChild().isGetProp()) {
-          Node interceptor = methodMatcher.getNext();
-          if (interceptor != null && interceptor.isFunction()) {
-            InterceptorInfo interceptorInfo = this.getInterceptorInfo(t,
-                classMatcher.getFirstChild(),
-                methodMatcher.getFirstChild(), interceptor);
-            Node paramList = interceptor.getFirstChild().getNext();
-            Node methodInvocation = paramList.getFirstChild();
-            if (methodInvocation != null) {
-              interceptorInfo.setInConditional(isBindingCalledInConditional(t, n, firstArgument));
-              interceptorInfo.setInterceptorCallNode(n.getParent());
-              InterceptorClosureScopeInspector inspector = new InterceptorClosureScopeInspector(
-                  methodInvocation, interceptorInfo);
-              ClosureScopeCallback callback = new ClosureScopeCallback(methodInvocation, inspector);
-              NodeTraversal.traverseRoots(compiler, Lists.newArrayList(interceptor), callback);
-            }
-          } else {
-            t.report(n, MESSAGE_BIND_INTERCEPTOR_THIRD_ARGUMENT_IS_INVALID);
+        Node interceptor = classMatcher.getNext();
+        if (interceptor != null && interceptor.isFunction()) {
+          InterceptorInfo interceptorInfo = 
+              getInterceptorInfo(t, classMatcher.getFirstChild(), interceptor);
+          Node paramList = interceptor.getFirstChild().getNext();
+          Node methodInvocation = paramList.getFirstChild();
+          if (methodInvocation != null) {
+            interceptorInfo.setInConditional(isBindingCalledInConditional(t, n, firstArgument));
+            interceptorInfo.setInterceptorCallNode(n.getParent());
+            InterceptorClosureScopeInspector inspector = new InterceptorClosureScopeInspector(
+                methodInvocation, interceptorInfo);
+            ClosureScopeCallback callback = new ClosureScopeCallback(methodInvocation, inspector);
+            NodeTraversal.traverseRoots(compiler, Lists.newArrayList(interceptor), callback);
           }
         } else {
-          t.report(n, MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID);
+          t.report(n, MESSAGE_BIND_INTERCEPTOR_THIRD_ARGUMENT_IS_INVALID);
         }
       } else {
         t.report(n, MESSAGE_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID);
@@ -1010,26 +1003,26 @@ final class DIOptimizerInfoCollector {
     }
 
 
-    private InterceptorInfo getInterceptorInfo(NodeTraversal t, Node classMatcher,
-        Node methodMatcher, Node interceptor) {
+    private InterceptorInfo getInterceptorInfo(NodeTraversal t, Node classMatcher, Node interceptor) {
       InterceptorInfo interceptorInfo = new InterceptorInfo();
       String classMatchTypeCallName = classMatcher.getQualifiedName();
-      this.setClassMatchType(t, classMatchTypeCallName, classMatcher, interceptorInfo);
-      String methodMatchTypeCallName = methodMatcher.getQualifiedName();
-      this.setMethodMatchType(t, methodMatchTypeCallName, methodMatcher, interceptorInfo);
+      setClassMatchType(t, classMatchTypeCallName, classMatcher, interceptorInfo);
       interceptorInfo.setInterceptorNode(interceptor);
       dIOptimizerInfo.putInterceptorInfo(this.constructorName, interceptorInfo);
       return interceptorInfo;
     }
 
 
-    private void setClassMatchType(NodeTraversal t, String matchTypeCallName, Node classMatcher,
+    private void setClassMatchType(
+        NodeTraversal t,
+        String matchTypeCallName,
+        Node classMatcher,
         InterceptorInfo interceptorInfo) {
       Node node = classMatcher.getNext();
       if (node != null) {
         if (matchTypeCallName.equals(DIConsts.CLASS_MATCHERS_IN_NAMESPACE)) {
-          if (node.isString()) {
-            String name = node.getString();
+          if (NodeUtil.isGet(node) || node.isName()) {
+            String name = node.getQualifiedName();
             if (!Strings.isNullOrEmpty(name)) {
               interceptorInfo.setClassMatchType(ClassMatchType.IN_NAMESPACE);
               interceptorInfo.setClassMatcher(name);
@@ -1052,8 +1045,8 @@ final class DIOptimizerInfoCollector {
             t.report(node, MESSAGE_MATCHER_SUBCLASS_OF_ARGUMENT_IS_INVALID);
           }
         } else if (matchTypeCallName.equals(DIConsts.CLASS_MATCHERS_IN_SUBNAMESPACE)) {
-          if (node.isString()) {
-            String name = node.getString();
+          if (NodeUtil.isGet(node) || node.isName()) {
+            String name = node.getQualifiedName();
             if (name != null) {
               interceptorInfo.setClassMatchType(ClassMatchType.SUB_NAMESPACE);
               interceptorInfo.setClassMatcher(name);
@@ -1086,35 +1079,6 @@ final class DIOptimizerInfoCollector {
         } else {
           t.report(classMatcher, MESSAGE_BIND_INTERCEPTOR_FIRST_ARGUMENT_IS_INVALID);
         }
-      }
-    }
-
-
-    private void setMethodMatchType(NodeTraversal t, String matchTypeCallName, Node classMatcher,
-        InterceptorInfo interceptorInfo) {
-      Node node = classMatcher.getNext();
-      if (node != null) {
-        if (matchTypeCallName.equals(DIConsts.METHOD_MATCHER_LIKE)) {
-          if (node.isString()) {
-            String name = node.getString();
-            if (!Strings.isNullOrEmpty(name)) {
-              interceptorInfo.setMethodMatchType(MethodMatchType.LIKE);
-              interceptorInfo.setMethodMatcher(name);
-            } else {
-              t.report(node, MESSAGE_MATCHER_LIKE_ARGUMENT_IS_INVALID);
-            }
-          } else {
-            t.report(node, MESSAGE_MATCHER_LIKE_ARGUMENT_IS_INVALID);
-          }
-        } else if (matchTypeCallName.equals(DIConsts.MATCHERS_ANY)) {
-          t.report(classMatcher, MESSAGE_MATCHER_ANY_HAS_NO_ARGUMENT);
-        } else {
-          t.report(node, MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID);
-        }
-      } else if (matchTypeCallName.equals(DIConsts.MATCHERS_ANY)) {
-        interceptorInfo.setMethodMatchType(MethodMatchType.ANY);
-      } else {
-        t.report(node, MESSAGE_BIND_INTERCEPTOR_SECOND_ARGUMENT_IS_INVALID);
       }
     }
   }
@@ -1389,7 +1353,8 @@ final class DIOptimizerInfoCollector {
         }
       }
     }
-    
+
+
     private void propagateModuleInfo() {
       Map<String, ModuleInfo> moduleInfoMap = dIOptimizerInfo.getModuleInfoMap();
       for (ModuleInfo moduleInfo : moduleInfoMap.values()) {
@@ -1400,9 +1365,10 @@ final class DIOptimizerInfoCollector {
             String name = parentInfo.getConstructorName();
             ModuleInfo parentModuleInfo = moduleInfoMap.get(name);
             ArrayListMultimap<String, BindingInfo> bindingInfoMap = moduleInfo.getBindingInfoMap();
-            ArrayListMultimap<String, BindingInfo> parentBindingInfoMap = parentModuleInfo.getBindingInfoMap();
+            ArrayListMultimap<String, BindingInfo> parentBindingInfoMap = parentModuleInfo
+                .getBindingInfoMap();
             for (BindingInfo parentBindingInfo : parentBindingInfoMap.values()) {
-              BindingInfo clone = (BindingInfo)parentBindingInfo.clone();
+              BindingInfo clone = (BindingInfo) parentBindingInfo.clone();
               clone.setModuleName(moduleName);
               clone.setRewrited();
               bindingInfoMap.put(clone.getName(), clone);
