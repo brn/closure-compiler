@@ -1,10 +1,7 @@
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CampModuleProcessor;
-import com.google.common.collect.HashMultimap;
 import com.google.javascript.jscomp.CommandLineRunner;
 import com.google.javascript.jscomp.CompilerOptions;
-import com.google.javascript.jscomp.CustomPassExecutionTime;
 
 public class CampCommandLineRunner extends CommandLineRunner {
 

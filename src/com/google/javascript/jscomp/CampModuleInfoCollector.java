@@ -9,7 +9,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.CampModuleTransformInfo.JSDocLendsInfoMutator;
 import com.google.javascript.jscomp.CampModuleTransformInfo.JSDocTypeInfoMutator;
-import com.google.javascript.jscomp.CampModuleTransformInfo.LendsType;
 import com.google.javascript.jscomp.CampModuleTransformInfo.LocalAliasInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo.ModuleInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo.TypeInfo;
@@ -38,6 +37,10 @@ final class CampModuleInfoCollector {
   static final DiagnosticType MESSAGE_USING_FIRST_ARGUMENT_NOT_VALID = DiagnosticType.error(
       "JSC_MSG_USING_FIRST_ARGUMENT_NOT_VALID.",
       "The first argument of the camp.using must be a string expression of a module name.");
+
+  static final DiagnosticType MESSAGE_USING_SCOPE_IS_INVALID = DiagnosticType.error(
+      "JSC_MSG_USING_SCOPE_IS_INVALID",
+      "The camp.using must be called directly under the camp.module scope.");
 
   static final DiagnosticType MESSAGE_DUPLICATE_USING = DiagnosticType.error(
       "JSC_MSG_USING_FIRST_ARGUMENT_NOT_VALID.",
@@ -112,7 +115,7 @@ final class CampModuleInfoCollector {
   }
 
 
-  private boolean isAliasVar(NodeTraversal t, String varName) {
+  private boolean isAliasVar(ModuleInfo moduleInfo, NodeTraversal t, String varName) {
     Scope scope = t.getScope();
     Var var = scope.getVar(varName);
     if (var != null) {
@@ -189,11 +192,19 @@ final class CampModuleInfoCollector {
         }
       } else if (n.isName() &&
           !n.getParent().isParamList()) {
-        if (NodeUtil.isGet(parent)) {
+        if (parent.isGetProp()) {
           if (!parent.getFirstChild().equals(n)) {
             return null;
           }
         }
+
+        if (parent.isGetElem()) {
+          if (!parent.getLastChild().equals(n) &&
+              !parent.getFirstChild().equals(n)) {
+            return null;
+          }
+        }
+
         Scope scope = t.getScope();
         Var var = scope.getVar(n.getString());
         if (var != null) {
@@ -230,6 +241,10 @@ final class CampModuleInfoCollector {
 
     @Override
     public void processMarker(NodeTraversal t, Node n, Node parent) {
+      if (t.getScopeDepth() != 2) {
+        t.report(n, MESSAGE_USING_SCOPE_IS_INVALID);
+        return;
+      }
       Node stringNode = n.getFirstChild().getNext();
       if (stringNode == null ||
           !stringNode.isString() ||
@@ -324,7 +339,6 @@ final class CampModuleInfoCollector {
           }
         } else if (n.isVar()) {
           Node rvalue = lvalue.getFirstChild();
-
           if (rvalue != null && (rvalue.isName() || NodeUtil.isGet(rvalue))) {
             addLocalAliasInfo(scope, n, lvalue, rvalue);
           }
@@ -399,7 +413,20 @@ final class CampModuleInfoCollector {
     @Override
     public void processMarker(NodeTraversal t, Node n, Node parent) {
       String varName = n.getString();
-      boolean isAlias = isAliasVar(t, varName);
+      boolean isAlias = isAliasVar(moduleInfo, t, varName);
+
+      if (t.getScopeDepth() == 2 &&
+          (parent.isFunction() ||
+          (parent.isVar() && !isAliasDecl(n.getFirstChild())))) {
+        Scope scope = t.getScope();
+        Var var = scope.getVar(varName);
+        if (var != null && !var.getNameNode().equals(n) && isAliasDecl(var.getInitialValue())) {
+          scope.undeclare(var);
+          scope.declare(varName, n, null, compiler.getInput(n.getInputId()));
+          isAlias = false;
+        }
+      }
+
       if (!parent.isVar() && !parent.isFunction() && isAlias) {
         moduleInfo.addAliasVar(n);
       } else if (!isAlias) {
@@ -419,6 +446,30 @@ final class CampModuleInfoCollector {
           moduleInfo.addRenameTarget(var.getNameNode(), n);
         }
       }
+    }
+
+
+    private boolean isAliasDecl(Node rvalue) {
+      if (rvalue == null) {
+        return false;
+      }
+      Node tmp = rvalue;
+      while (true) {
+        if (tmp.isCall()) {
+          Node getprop = tmp.getFirstChild();
+          if (getprop.isGetProp()) {
+            String qualifiedName = getprop.getQualifiedName();
+            if (qualifiedName != null && qualifiedName.equals(CampModuleConsts.USING_CALL)) {
+              return true;
+            }
+          }
+        }
+        tmp = tmp.getFirstChild();
+        if (tmp == null) {
+          break;
+        }
+      }
+      return false;
     }
   }
 
@@ -604,10 +655,10 @@ final class CampModuleInfoCollector {
 
         if (isAliasType(t, scope, type)) {
           moduleInfo.addAliasType(new JSDocTypeInfoMutator(typeNode, type));
-        } else if (isLocalType(scope, type)) {
-          moduleInfo.addLocalType(new JSDocTypeInfoMutator(typeNode, type));
         } else if (isExportedType(type, scope)) {
           moduleInfo.addExportedType(new JSDocTypeInfoMutator(typeNode, type));
+        } else if (isLocalType(scope, type)) {
+          moduleInfo.addLocalType(new JSDocTypeInfoMutator(typeNode, type));
         }
       }
 
@@ -617,20 +668,20 @@ final class CampModuleInfoCollector {
     }
 
 
-    private boolean isAliasType(NodeTraversal t, Scope scope, String type) {
-      String[] types = type.split("\\.");
-      if (types.length > 1) {
-        type = types[0];
-      }
+    private boolean isAliasType(NodeTraversal t, Scope scope, String typeName) {
+      String type = getTopLevelName(typeName);
+
       Var var = scope.getVar(type);
-      if (var != null && isAliasVar(t, var.getName())) {
+      if (var != null && isAliasVar(moduleInfo, t, var.getName())) {
         return true;
       }
       return false;
     }
 
 
-    private boolean isLocalType(Scope scope, String type) {
+    private boolean isLocalType(Scope scope, String typeName) {
+      String type = getTopLevelName(typeName);
+      
       Var var = scope.getVar(type);
       Scope global = scope;
       while (global.getDepth() > 1) {
@@ -643,6 +694,12 @@ final class CampModuleInfoCollector {
       }
 
       return false;
+    }
+
+
+    private String getTopLevelName(String type) {
+      String[] types = type.split("\\.");
+      return types[0];
     }
 
 

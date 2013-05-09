@@ -1,5 +1,5 @@
 goog.provide('goog.reflect');
-goog.provide('goog.object');
+goog.provide('Interface');
 
 
 /**
@@ -19,9 +19,15 @@ goog.reflect.object = function(type, object) {
   return object;
 };
 
-goog.object.extend = function(a,b) {
+goog.mixin = function(a,b) {
   for (var prop in b) {
     a[prop] = b[prop];
+  }
+};
+
+var Interface = {
+  addImplementations : function(iface, impl) {
+    iface.prototype = impl;
   }
 };
 
@@ -36,20 +42,51 @@ camp.module("camp.test.main", function (exports) {
   var Service = camp.using('camp.vm.interaction.Service');
   var Hoge = camp.using('camp.vm.interaction.Hoge');
   var Base3 = camp.using('camp.vm.interaction.Base3');
+  var CalendarCacheManager = camp.using('camp.vm.interaction.CalendarCacheManager');
+
 
   /**
-   * @export
+   * @interface
    */
-  function Hoge() {
+  function InterfaceDef() {
 
   }
 
+  InterfaceDef.prototype.test = function() {};
+
+  Interface.addImplementations(InterfaceDef, {
+    test : function() {window.console.log('ok!')}
+  });
+
   /**
-   * @export
+   * @interface
    */
-  Hoge.prototype.setService = function() {
+  function InterfaceDef2() {
+
+  }
+
+  InterfaceDef2.prototype.test2 = function() {
 
   };
+
+  Interface.addImplementations(InterfaceDef2, {
+    test2 : function() {
+      window.console.log('ok2!');
+    }
+  });
+
+
+
+  /**
+   * @constructor
+   * @implements {InterfaceDef}
+   */
+  function Hoge() {
+  }
+
+  Hoge.prototype.test = InterfaceDef.prototype.test;
+  Hoge.prototype.test2 = InterfaceDef2.prototype.test2;
+
 
   exports.main = function () {
     modules.init([DefaultModule, DefaultModule2], function (injector) {
@@ -57,6 +94,7 @@ camp.module("camp.test.main", function (exports) {
       var v = injector.getInstance(Test);
       var o = injector.getInstanceByName('dataSourceManager');
       var x = injector.getInstance(Base3);
+      var m = injector.getInstance(CalendarCacheManager);
       o.echo(l.getName() + v.getName());
       window.localStorage['foo'] = l.getName() + v.getName();
       window.console.log(injector.getInstance(Test4));
@@ -67,7 +105,6 @@ camp.module("camp.test.main", function (exports) {
       o.getNode().innerHTML = 'hogehoge';
     });
 
-    goog.object.extend(DefaultModule.prototype, /**@lends {DefaultModule.prototype}*/({test : function() {window.console.log('ok!')}}));
-    new DefaultModule().test();
+    new Hoge().test();
   };
 });

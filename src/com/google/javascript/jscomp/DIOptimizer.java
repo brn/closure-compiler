@@ -3,6 +3,7 @@ package com.google.javascript.jscomp;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -10,6 +11,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.DIOptimizerInfo.BindingInfo;
 import com.google.javascript.jscomp.DIOptimizerInfo.ConstructorInfo;
 import com.google.javascript.jscomp.DIOptimizerInfo.InjectorInfo;
@@ -100,6 +102,10 @@ final class DIOptimizer {
   private final CodingConvention convention;
 
   private int interceptorId = 0;
+  
+  private final Set<String> requiredBinding = Sets.newHashSet();
+  
+  private final Set<String> findedBinding = Sets.newHashSet();
 
 
   public DIOptimizer(AbstractCompiler compiler,
@@ -177,14 +183,32 @@ final class DIOptimizer {
       }
     }
 
-    
+
     /**
-     * Insert a factory method to the node trees. 
+     * Insert a factory method to the node trees.
      */
     private void insertFactory(Node constructorNode) {
       Node stmtBeginning =
           DIProcessor.getStatementBeginningNode(constructorNode);
       Preconditions.checkNotNull(stmtBeginning);
+
+      if (stmtBeginning.getNext() != null) {
+        Node next = stmtBeginning.getNext();
+        while (true) {
+          if (next.isCall() && next.getFirstChild().isGetProp()) {
+            String qname = next.getFirstChild().getQualifiedName();
+            if (qname != null && qname.equals("goog.inherits")) {
+              stmtBeginning = stmtBeginning.getNext();
+              break;
+            }
+          }
+
+          next = next.getFirstChild();
+          if (next == null) {
+            break;
+          }
+        }
+      }
 
       String constructorName = constructorInfo.getConstructorName();
 
@@ -198,20 +222,25 @@ final class DIOptimizer {
       NodeUtil.setDebugInformation(assign.getLastChild(), constructorNode, constructorName);
       Node expr = NodeUtil.newExpr(assign);
       expr.copyInformationFromForTree(stmtBeginning);
-      stmtBeginning.getParent().addChildAfter(expr, stmtBeginning);
+      if (stmtBeginning.getParent() == null) {
+        stmtBeginning.addChildAfter(expr, stmtBeginning.getFirstChild());
+      } else {
+        stmtBeginning.getParent().addChildAfter(expr, stmtBeginning);
+      }
     }
 
 
     /**
-     * Create a factory method assignment node.
-     * e.g.
-     * <code>
+     * Create a factory method assignment node. e.g. <code>
      * function Foo(){}
      * Foo.jsomp$newInstance = function() {...
      * ---------------------^
      * </code>
-     * @param constructorName The qualified name of the constructor function.
-     * @param block The factory method body node.
+     * 
+     * @param constructorName
+     *          The qualified name of the constructor function.
+     * @param block
+     *          The factory method body node.
      * @return An assignment node.
      */
     private Node createFactoryAssignmentNode(String constructorName, Node block) {
@@ -229,7 +258,9 @@ final class DIOptimizer {
 
     /**
      * Make the factory method name.
-     * @param constructorName The qualified name of the constructor function. 
+     * 
+     * @param constructorName
+     *          The qualified name of the constructor function.
      * @return The factory method name.
      */
     private String createFactoryMethodName(String constructorName) {
@@ -238,20 +269,21 @@ final class DIOptimizer {
 
 
     /**
-     * Insert method injection calls to the factory method body.
-     * This method generate the or-expression here
-     * because the compiler can not determine which method is has been
-     * the subject of dependency injection.
+     * Insert method injection calls to the factory method body. This method
+     * generate the or-expression here because the compiler can not determine
+     * which method is has been the subject of dependency injection.
      * 
-     * @param block The factory method body.
-     * @param newCall The new call expression.
+     * @param block
+     *          The factory method body.
+     * @param newCall
+     *          The new call expression.
      */
     private void addMethodInjections(Node block, Node newCall) {
       List<MethodInjectionInfo> methodInjectionInfoList =
           constructorInfo.getMethodInjectionList();
-      
-      //If the method injection target is not specified
-      //create a simple return statement.
+
+      // If the method injection target is not specified
+      // create a simple return statement.
       if (methodInjectionInfoList.size() > 0) {
         Node instance = IR.name(INSTANCE_NAME);
         block.addChildToBack(NodeUtil.newVarNode(INSTANCE_NAME, newCall));
@@ -265,8 +297,11 @@ final class DIOptimizer {
 
     /**
      * Create and-expression including a method calling.
-     * @param block The factory method body.
-     * @param methodInjectionInfoList The list of the target method name.
+     * 
+     * @param block
+     *          The factory method body.
+     * @param methodInjectionInfoList
+     *          The list of the target method name.
      */
     private void addMethodCalls(Node block, List<MethodInjectionInfo> methodInjectionInfoList) {
       for (MethodInjectionInfo methodInjectionInfo : methodInjectionInfoList) {
@@ -282,28 +317,42 @@ final class DIOptimizer {
 
     /**
      * Append parameter nodes to a call node.
-     * @param callNode A function call node.
-     * @param paramList The list of parameter names.
+     * 
+     * @param callNode
+     *          A function call node.
+     * @param paramList
+     *          The list of parameter names.
      */
     private void addParameters(Node callNode, List<String> paramList) {
       for (String param : paramList) {
-        Node getprop = NodeUtil.newQualifiedNameNode(convention, DIConsts.BINDINGS_REPO_NAME + "."
-            + DIProcessor.toGetter(param));
-        Node call = NodeUtil.newCallNode(getprop);
 
-        //If a parameter name is ends with "Provider",
-        //the compiler create code which pass the factory method itself directly.
-        //e.g.
-        //function Foo(barProvider){}
-        //Foo.jscomp$newInstance = function(bindings) {
-        //  return new Foo(bindings.getBar);
-        //}
+        // If a parameter name is ends with "Provider",
+        // the compiler create code which pass the factory method itself
+        // directly.
+        // e.g.
+        // function Foo(barProvider){}
+        // Foo.jscomp$newInstance = function(bindings) {
+        // return new Foo(bindings.getBar);
+        // }
+        String paramName;
         if (param.endsWith("Provider")) {
-          callNode.addChildToBack(call.getFirstChild());
+          paramName = param.replaceFirst("Provider", "");
+          Node getprop = getBindingGetterMethodName(paramName);
+          callNode.addChildToBack(getprop);
         } else {
+          paramName = param;
+          Node getprop = getBindingGetterMethodName(param);
+          Node call = NodeUtil.newCallNode(getprop);
           callNode.addChildToBack(call);
         }
+        requiredBinding.add(paramName);
       }
+    }
+
+
+    private Node getBindingGetterMethodName(String name) {
+      return NodeUtil.newQualifiedNameNode(convention, DIConsts.BINDINGS_REPO_NAME + "."
+          + DIProcessor.toGetter(name));
     }
   }
 
@@ -330,6 +379,9 @@ final class DIOptimizer {
         // The name of the binding.
         // binder.bind('foo') <- this.
         String bindingName = bindingInfo.getName();
+        
+        findedBinding.add(bindingName);
+        
         // The value node of binding.
         // binder.bind('foo').to(foo.bar.baz.Class) <- this.
         Node expression = bindingInfo.getBindedExpressionNode();
@@ -452,6 +504,12 @@ final class DIOptimizer {
       Node paramList = NodeUtil.getFunctionParameters(expression);
       for (Node paramNode : paramList.children()) {
         String param = paramNode.getString();
+        if (param.endsWith("Provider")) {
+          param = param.replaceFirst("Provider", "");
+        }
+        
+        requiredBinding.add(param);
+        
         Node bindingGet = NodeUtil.newQualifiedNameNode(convention,
             DIConsts.BINDINGS_REPO_NAME + "." + DIProcessor.toGetter(param));
         providerCall.addChildToBack(NodeUtil.newCallNode(bindingGet));
@@ -1007,6 +1065,23 @@ final class DIOptimizer {
     }
 
     block.addChildToFront(bindingsDef);
+    
+    checkBinding(block, bindingsDef);
+    
     compiler.reportCodeChange();
+  }
+  
+  
+  private void checkBinding(Node block, Node bindingsDef) {
+    for (String bindingName : requiredBinding) {
+      if (!findedBinding.contains(bindingName)) {
+        Node function = IR.function(IR.name(""), IR.paramList(), IR.block(IR.returnNode(IR.nullNode())));
+        Node nameNode = NodeUtil.newQualifiedNameNode(convention, bindingsDef.getFirstChild().getString() + "." + DIProcessor.toGetter(bindingName));
+        Node assign = IR.assign(nameNode, function);
+        Node expr = NodeUtil.newExpr(assign);
+        expr.copyInformationFromForTree(bindingsDef);
+        block.addChildAfter(expr, bindingsDef);
+      }
+    }
   }
 }

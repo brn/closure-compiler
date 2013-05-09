@@ -3,14 +3,11 @@ package com.google.javascript.jscomp;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.CampModuleTransformInfo.JSDocMutator;
 import com.google.javascript.jscomp.CampModuleTransformInfo.JSDocTypeInfoMutator;
-import com.google.javascript.jscomp.CampModuleTransformInfo.LendsType;
 import com.google.javascript.jscomp.CampModuleTransformInfo.LocalAliasInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo.ModuleInfo;
 import com.google.javascript.jscomp.CampModuleTransformInfo.TypeInfo;
@@ -115,6 +112,7 @@ public class CampModuleRewriter {
 
       expr.copyInformationFromForTree(parent);
       parent.getParent().addChildAfter(expr, parent);
+      compiler.reportCodeChange();
       return nameNode;
     }
 
@@ -127,7 +125,8 @@ public class CampModuleRewriter {
         List<Node> aliasVarList = moduleInfo.getAliasVarList();
         for (Node target : aliasVarList) {
           String name = target.getString();
-          if (name.equals(varName) && !replacedSet.contains(target)) {
+          if (!moduleInfo.isForbiddenAlias(name) &&
+              name.equals(varName) && !replacedSet.contains(target)) {
             this.replaceAlias(moduleInfo, nameNode, varNameNode, varName, target);
             replacedSet.add(target);
           }
@@ -153,8 +152,6 @@ public class CampModuleRewriter {
 
 
   private final class ExportsRewriter implements Rewriter {
-
-    private final Set<String> fqnSet = Sets.newHashSet();
 
     private final LocalAliasResolver localAliasResolver = new LocalAliasResolver();
 
@@ -259,6 +256,7 @@ public class CampModuleRewriter {
       Node fqn = NodeUtil.newQualifiedNameNode(convention, moduleInfo.getModuleName());
       fqn.copyInformationFromForTree(exports);
       exports.getParent().replaceChild(exports, fqn);
+      compiler.reportCodeChange();
     }
 
 
@@ -273,6 +271,7 @@ public class CampModuleRewriter {
         Node expr = call.getParent();
         expr.detachFromParent();
         moduleInfo.getModuleCallNode().getLastChild().getLastChild().addChildToBack(expr);
+        compiler.reportCodeChange();
       }
     }
   }
@@ -296,6 +295,7 @@ public class CampModuleRewriter {
         String after = moduleInfo.getRenamedVar(target.getString());
         if (after != null) {
           target.setString(after);
+          compiler.reportCodeChange();
         }
       }
     }
@@ -392,9 +392,21 @@ public class CampModuleRewriter {
 
     @Override
     protected void rewriteType(String type, JSDocMutator mutator, ModuleInfo moduleInfo) {
-      mutator.mutate(moduleInfo.getModuleId() + "_" + type);
-      if (mutator.isCodeChanged()) {
-        compiler.reportCodeChange();
+      int index = type.indexOf(".");
+      String prop = "";
+
+      if (index != -1) {
+        String top = type.substring(0, index);
+        prop = type.substring(index);
+        type = top;
+      }
+
+      String renamed = moduleInfo.getModuleId() + "_" + type;
+      if (renamed != null) {
+        mutator.mutate(renamed + prop);
+        if (mutator.isCodeChanged()) {
+          compiler.reportCodeChange();
+        }
       }
     }
 

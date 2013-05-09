@@ -19,12 +19,33 @@ camp.module(
    'Base3',
    'DefaultModule',
    'DefaultModule2',
+   'CalendarCacheManager',
    'TestModule'],
   function (exports) {
+    var Disposable = camp.using('camp.injections.Disposable');
     var Injector = camp.using('camp.injections.Injector');
     var Module = camp.using('camp.injections.Module');
     var Matchers = camp.using('camp.injections.Matchers');
     var Scopes = camp.using('camp.injections.Scopes');
+
+    /**
+     * @constructor
+     * @extends {Disposable}
+     */
+    exports.CalendarCacheManager = function(calendarCacheSize) {
+      goog.base(this);
+
+      /**
+       * @type {Array.<string>}
+       */
+      this._keyList = [];
+
+      /**
+       * @type {Object}
+       */
+      this._caches = {};
+    };
+    goog.inherits(exports.CalendarCacheManager, Disposable);
 
     /**
      * @constructor
@@ -154,6 +175,7 @@ camp.module(
     };
 
     exports.Test4.prototype.c = '';
+
 
     /**
      * @param {camp.vm.interaction.Test2} c
@@ -299,6 +321,10 @@ camp.module(
 
        return ret? ret : null;
        });*/
+
+      binder.bind('calendarCacheManager').toProvider(function (calendarCacheSize) {
+        return new exports.CalendarCacheManager(calendarCacheSize);
+      });
 
       binder.bind('dataSourceManager').toProvider(function() {
         return new exports.DataSourceManager(new PubSub);

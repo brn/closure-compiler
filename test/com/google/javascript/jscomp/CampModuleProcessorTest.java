@@ -567,6 +567,11 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   }
 
 
+  public void testLends() {
+    testTypeForExports("lends", "%s.prototoype");
+  }
+
+
   public void testUsingTypeType() {
     testTypeForUsing("type");
   }
@@ -657,6 +662,11 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   }
 
 
+  public void testUsingLends() {
+    testTypeForUsing("lends", "%s.prototoype");
+  }
+
+
   public void testLocalTypeType() {
     testTypeForLocal("type");
   }
@@ -744,6 +754,11 @@ public class CampModuleProcessorTest extends CompilerTestCase {
 
   public void testLocalFunctionReturnType() {
     testTypeForLocal("type", "function():%s");
+  }
+
+
+  public void testLocalLends() {
+    testTypeForExports("lends", "%s.prototoype");
   }
 
 
@@ -897,7 +912,7 @@ public class CampModuleProcessorTest extends CompilerTestCase {
   public void testModuleInClosure() {
     testFailure(
         "(function(){" +
-            module("'Test'","exports.Test = Test2;") + ";})();",
+            module("'Test'", "exports.Test = Test2;") + ";})();",
         CampModuleInfoCollector.MESSAGE_MODULE_NOT_ALLOWED_IN_CLOSURE);
   }
 
@@ -910,14 +925,14 @@ public class CampModuleProcessorTest extends CompilerTestCase {
 
   public void testStaticUsingCall() {
     testFailure(
-        module(null,"var a = camp.using('test.Using').a()"),
+        module(null, "var a = camp.using('test.Using').a()"),
         CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
 
 
   public void testStaticUsingCallNotAlias() {
     testFailure(
-        module(null,"camp.using('test.Using').a()"),
+        module(null, "camp.using('test.Using').a()"),
         CampModuleInfoCollector.MESSAGE_INVALID_PARENT_OF_USING);
   }
 

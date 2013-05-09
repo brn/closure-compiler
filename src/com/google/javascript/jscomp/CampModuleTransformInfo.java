@@ -194,11 +194,6 @@ final class CampModuleTransformInfo {
     
   }
   
-  public enum LendsType {
-    EXPORTS,
-    LOCAL,
-    ALIAS
-  }
   
   final class ModuleInfo {
     private Node moduleCallNode;
@@ -237,7 +232,8 @@ final class CampModuleTransformInfo {
 
     private List<LocalAliasInfo> localAliasInfoList = Lists.newArrayList();
     
-    private Map<Node, LendsType> lendsMap = Maps.newHashMap();
+    private Set<String> forbiddenAliasSet = Sets.newHashSet();
+    
 
     private ModuleInfo(String moduleName, String moduleId, Node moduleCallNode, Node nra) {
       this.moduleCallNode = moduleCallNode;
@@ -414,12 +410,16 @@ final class CampModuleTransformInfo {
       return this.localAliasInfoList;
     }
     
-    public void addLendsType(Node n, LendsType type) {
-      this.lendsMap.put(n, type);
+    public void addForbiddenAlias(String name) {
+      this.forbiddenAliasSet.add(name);
     }
     
-    public Map<Node, LendsType> getLendsTypeMap() {
-      return this.lendsMap;
+    public boolean isForbiddenAlias(String name) {
+      return this.forbiddenAliasSet.contains(name);
+    }
+    
+    public Set<String> getForbiddenAliasSet() {
+      return this.forbiddenAliasSet;
     }
   }
 }
