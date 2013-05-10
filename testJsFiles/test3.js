@@ -322,9 +322,11 @@ camp.module(
        return ret? ret : null;
        });*/
 
-      binder.bind('calendarCacheManager').toProvider(function (calendarCacheSize) {
-        return new exports.CalendarCacheManager(calendarCacheSize);
-      });
+      if (!COMPILED) {
+        binder.bind('calendarCacheManager').toProvider(function (calendarCacheSize) {
+          return new exports.CalendarCacheManager(calendarCacheSize);
+        });
+      }
 
       binder.bind('dataSourceManager').toProvider(function() {
         return new exports.DataSourceManager(new PubSub);

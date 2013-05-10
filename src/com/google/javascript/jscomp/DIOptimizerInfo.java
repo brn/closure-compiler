@@ -448,16 +448,6 @@ final class DIOptimizerInfo {
     }
 
 
-    public boolean isInConditional() {
-      return isInConditional;
-    }
-
-
-    public void setInConditional(boolean isInConditional) {
-      this.isInConditional = isInConditional;
-    }
-
-
     /**
      * @param methodNameNode
      *          the methodNameNodeList to set
@@ -1195,18 +1185,6 @@ final class DIOptimizerInfo {
 
     public void setInConditional(boolean isInConditional) {
       this.isInConditional = isInConditional;
-    }
-
-
-    public boolean isInConditional() {
-      return isInConditional;
-    }
-
-
-    public boolean hasSameAttributes(BindingInfo bindingInfo) {
-      return bindingInfo.getBindingType() == getBindingType() &&
-          bindingInfo.getScopeType() == scopeType &&
-          bindingInfo.getName() == name;
     }
 
 

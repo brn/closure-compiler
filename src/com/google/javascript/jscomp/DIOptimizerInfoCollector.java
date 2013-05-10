@@ -921,60 +921,19 @@ final class DIOptimizerInfoCollector {
     }
 
 
-    private boolean isBindingCalledInConditional(NodeTraversal t, Node n, Node firstArgument) {
-      Node block = NodeUtil.getFunctionBody(firstArgument.getParent().getParent());
-      Preconditions.checkNotNull(block);
-      while (n != null && !n.equals(block)) {
-        n = n.getParent();
-        if (n.isAnd() || n.isIf() || n.isOr() || n.isSwitch()) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-
     private void caseBind(NodeTraversal t, Node n, Node firstArgument) {
       Node bindNameNode = n.getNext();
       if (bindNameNode != null && bindNameNode.isString()) {
         String bindingName = bindNameNode.getString();
         BindingInfo bindingInfo = new BindingBuilder(bindingName, t, n).build();
         if (bindingInfo != null) {
-          if (dIOptimizerInfo.hasBindingInfo(constructorName, bindingName)) {
-            List<BindingInfo> duplicated = dIOptimizerInfo.getBindingInfoMap(
-                constructorName)
-                .get(bindingName);
-            if (duplicated.size() > 0) {
-              if (bindingInfo.getBindingType() == BindingType.TO) {
-                t.report(n, MESSAGE_CONSTRUCTOR_BINDING_DEFINITION_IS_AMBIGUOUS, bindingName,
-                    constructorName);
-                return;
-              } else if (!isBindingListHasSameAttributes(duplicated, bindingInfo)) {
-                t.report(n, MESSAGE_BINDING_DEFINITION_IS_AMBIGUOUS, bindingName, constructorName);
-                return;
-              }
-            }
-          }
-          bindingInfo.setInConditional(isBindingCalledInConditional(t, n, firstArgument));
           dIOptimizerInfo.putBindingInfo(constructorName, bindingInfo);
         }
       } else {
         t.report(n, MESSAGE_BIND_CALL_FIRST_ARGUMENT_IS_INVALID);
       }
     }
-
-
-    private boolean isBindingListHasSameAttributes(
-        List<BindingInfo> duplicatedList,
-        BindingInfo bindingInfo) {
-      for (BindingInfo duplicatedInfo : duplicatedList) {
-        if (!duplicatedInfo.hasSameAttributes(bindingInfo)) {
-          return false;
-        }
-      }
-      return true;
-    }
-
+    
 
     private void caseInterceptor(NodeTraversal t, Node n, Node firstArgument) {
       Node classMatcher = n.getNext();
@@ -987,7 +946,6 @@ final class DIOptimizerInfoCollector {
           Node paramList = interceptor.getFirstChild().getNext();
           Node methodInvocation = paramList.getFirstChild();
           if (methodInvocation != null) {
-            interceptorInfo.setInConditional(isBindingCalledInConditional(t, n, firstArgument));
             interceptorInfo.setInterceptorCallNode(n.getParent());
             InterceptorClosureScopeInspector inspector = new InterceptorClosureScopeInspector(
                 methodInvocation, interceptorInfo);
@@ -1144,10 +1102,8 @@ final class DIOptimizerInfoCollector {
 
 
     private void bindClassInfo() {
-      Map<String, ConstructorInfo> constructorInfoMap = dIOptimizerInfo
-          .getConstructorInfoMap();
-      for (String constructorName : constructorInfoMap.keySet()) {
-        ConstructorInfo constructorInfo = constructorInfoMap.get(constructorName);
+      for (ConstructorInfo constructorInfo : dIOptimizerInfo.getConstructorInfoMap().values()) {
+        String constructorName = constructorInfo.getConstructorName();
         boolean isModule = propagateBaseTypeInfo(constructorInfo);
         Map<String, PrototypeInfo> prototypeInfoMap = dIOptimizerInfo
             .getPrototypeInfo(constructorName);

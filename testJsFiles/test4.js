@@ -49,7 +49,7 @@ camp.module("camp.test.main", function (exports) {
    * @interface
    */
   function InterfaceDef() {
-
+    this.x = function(){};
   }
 
   InterfaceDef.prototype.test = function() {};
@@ -62,7 +62,6 @@ camp.module("camp.test.main", function (exports) {
    * @interface
    */
   function InterfaceDef2() {
-
   }
 
   InterfaceDef2.prototype.test2 = function() {
@@ -75,17 +74,30 @@ camp.module("camp.test.main", function (exports) {
     }
   });
 
+  /**
+   * @template T
+   * @this {T}
+   */
+  function trait() {
+    this.test = function() {
+      window.console.log('ok');
+    };
+  }
 
 
   /**
    * @constructor
-   * @implements {InterfaceDef}
    */
   function Hoge() {
+    trait.call(this);
   }
 
-  Hoge.prototype.test = InterfaceDef.prototype.test;
-  Hoge.prototype.test2 = InterfaceDef2.prototype.test2;
+  /**
+   * @param {InterfaceDef} a
+   */
+  function xxx(a) {
+    a.test();
+  }
 
 
   exports.main = function () {
