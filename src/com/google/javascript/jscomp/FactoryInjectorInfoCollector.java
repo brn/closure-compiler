@@ -319,16 +319,20 @@ public class FactoryInjectorInfoCollector {
 
 
     private void checkAssignment(NodeTraversal t, Node n) {
-      Node child = n.getFirstChild();
-      String qualifiedName = child.getQualifiedName();
+      if (t.getScopeDepth() == 1) {
+        Node child = n.getFirstChild();
+        String qualifiedName = child.getQualifiedName();
 
-      if (qualifiedName != null) {
+        if (qualifiedName != null) {
 
-        Node rvalue = child.getNext();
-        if (NodeUtil.isGet(rvalue) || rvalue.isName()) {
-          String name = rvalue.getQualifiedName();
-          List<TypeInfo> info = factoryInjectorInfo.getTypeInfoMap().get(name);
-          this.createAliasTypeInfoFrom(n, info, name, qualifiedName);
+          Node rvalue = child.getNext();
+          if (NodeUtil.isGet(rvalue) || rvalue.isName()) {
+            String name = rvalue.getQualifiedName();
+            List<TypeInfo> info = factoryInjectorInfo.getTypeInfoMap().get(name);
+            if (info.size() > 0) {
+              this.createAliasTypeInfoFrom(n, info, name, qualifiedName);
+            }
+          }
         }
       }
     }
@@ -345,12 +349,16 @@ public class FactoryInjectorInfoCollector {
 
 
     private void checkVar(NodeTraversal t, Node n) {
-      Node nameNode = n.getFirstChild();
-      Node rvalue = nameNode.getFirstChild();
-      if (rvalue != null && (rvalue.isName() || NodeUtil.isGet(rvalue))) {
-        String name = rvalue.getQualifiedName();
-        List<TypeInfo> info = factoryInjectorInfo.getTypeInfoMap().get(name);
-        createAliasTypeInfoFrom(n, info, name, nameNode.getString());
+      if (t.getScopeDepth() == 1) {
+        Node nameNode = n.getFirstChild();
+        Node rvalue = nameNode.getFirstChild();
+        if (rvalue != null && (rvalue.isName() || NodeUtil.isGet(rvalue))) {
+          String name = rvalue.getQualifiedName();
+          List<TypeInfo> info = factoryInjectorInfo.getTypeInfoMap().get(name);
+          if (info.size() > 0) {
+            createAliasTypeInfoFrom(n, info, name, nameNode.getString());
+          }
+        }
       }
     }
   }
