@@ -86,7 +86,7 @@ goog.inherits = function(childCtor, parentCtor) {
  */
 goog.DEBUG = false;
 
-camp.module('camp.injections', ['Injector', 'Module', 'modules', 'Matchers', 'Scopes', 'Disposable'], function (exports) {
+camp.module('camp.dependencies', ['Disposable', 'injector'], function (exports) {
   /**
    * @constructor
    */
@@ -94,51 +94,15 @@ camp.module('camp.injections', ['Injector', 'Module', 'modules', 'Matchers', 'Sc
 
   };
 
-  //コンパイル後に消える
-  if (!goog.DEBUG) {
-    /**
-     * コンパイル後にグローバルな型以外はここに集められる。
-     * @type {Object}
-     */
-    exports.injectionRegistry = {};
-  } else {
-    /**
-     * @constructor
-     * @param {Binder} binderList
-     */
-    exports.Injector = function(binderList) {
-      this._injections = {};
-      this._interceptors = [];
-      binderList.forEach(function(binder) {
-        var injections = binder.getInjections();
-        for (var prop in injections) {
-          this._injections[prop] = injections[prop];
-        }
-        this._interceptors = this._interceptors.concat(binder.getInterceptors());
-      }, this);
-    };
-    exports.Injector.prototype.createInstance = function(classConstructor) {
-      return this._doCreate(classConstructor);
-    };
-    exports.Injector.inject = function(classConstructor, var_args) {
-    };
+  exports.injector.newInstance = function() {
 
-    /**
-     * @interface
-     */
-    exports.Module = function() {};
+  };
 
-    exports.Module.prototype.configure = function(binder) {};
+  exports.injector.getInstance = function() {
 
-    exports.modules = {
-      init : function() {}
-    };
-    exports.Matchers = function(){};
-    exports.JointPoint = function(){};
+  };
 
-    exports.Scopes = {
-      SINGLETON : 'singleton',
-      EAGER_SINGLETON : 'eagerSingleton'
-    };
-  }
+  exports.injector.declInjections = function() {
+
+  };
 });

@@ -32,9 +32,8 @@ var Interface = {
 };
 
 camp.module("camp.test.main", function (exports) {
-  var modules = camp.using('camp.injections.modules');
-  var DefaultModule = camp.using('camp.vm.interaction.DefaultModule');
-  var DefaultModule2 = camp.using('camp.vm.interaction.DefaultModule2');
+  var injector = camp.using('camp.dependencies.newInstanceor');
+  var Module = camp.using('camp.vm.interaction.Module');
   var Test3 = camp.using('camp.vm.interaction.Test3');
   var Test = camp.using('camp.vm.interaction.Test');
   var DataSourceManager = camp.using('camp.vm.interaction.DataSourceManager');
@@ -101,22 +100,16 @@ camp.module("camp.test.main", function (exports) {
 
 
   exports.main = function () {
-    modules.init([DefaultModule, DefaultModule2], function (injector) {
-      var l = injector.getInstance(Test3);
-      var v = injector.getInstance(Test);
-      var o = injector.getInstanceByName('dataSourceManager');
-      var x = injector.getInstance(Base3);
-      var m = injector.getInstance(CalendarCacheManager);
-      o.echo(l.getName() + v.getName());
-      window.localStorage['foo'] = l.getName() + v.getName();
-      window.console.log(injector.getInstance(Test4));
-      x.insert();
-    });
-    modules.init([DefaultModule], function (injector) {
-      var o = injector.getInstance(Service);
-      o.getNode().innerHTML = 'hogehoge';
-    });
+    var module = new Module();
 
-    new Hoge().test();
+    var l = injector.newInstance(Test3, module);
+    var v = injector.newInstance(Test, module);
+    var o = module.getDataSourceManager();
+    var x = injector.newInstance(Base3, module);
+    var m = injector.newInstance(CalendarCacheManager, module);
+    o.echo(l.getName() + v.getName());
+    window.localStorage['foo'] = l.getName() + v.getName();
+    window.console.log(injector.newInstance(Test4, module));
+    x.insert();
   };
 });

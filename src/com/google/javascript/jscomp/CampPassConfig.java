@@ -20,10 +20,10 @@ public class CampPassConfig extends DefaultPassConfig {
             }
           })
       .add(
-          new HotSwapPassFactory("campInjectionProcessor", true) {
+          new HotSwapPassFactory("campFactoryInjector", true) {
             @Override
             protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-              return new DIProcessor(compiler);
+              return new FactoryInjectorProcessor(compiler);
             }
           })
       .build();
@@ -50,8 +50,6 @@ public class CampPassConfig extends DefaultPassConfig {
       }
       specialPass.add(passFactory);
     }
-    options.setDefineToBooleanLiteral("IS_PROCESS_AGGRESSIVE_DI", true);
-
     return specialPass;
   }
 }

@@ -18,21 +18,17 @@ camp.module(
    'Base2',
    'Base3',
    'DefaultModule',
-   'DefaultModule2',
-   'CalendarCacheManager',
-   'TestModule'],
+   'Module',
+   'CalendarCacheManager'],
   function (exports) {
-    var Disposable = camp.using('camp.injections.Disposable');
-    var Injector = camp.using('camp.injections.Injector');
-    var Module = camp.using('camp.injections.Module');
-    var Matchers = camp.using('camp.injections.Matchers');
-    var Scopes = camp.using('camp.injections.Scopes');
+    var Disposable = camp.using('camp.dependencies.Disposable');
+    var injector = camp.using('camp.dependencies.newInstanceor');
 
     /**
      * @constructor
      * @extends {Disposable}
      */
-    exports.CalendarCacheManager = function(calendarCacheSize) {
+    exports.CalendarCacheManager = function(calendarCacheSize, serviceProvider) {
       goog.base(this);
 
       /**
@@ -52,7 +48,7 @@ camp.module(
      */
     function Service() {}
     goog.addSingletonGetter(Service);
-    Injector.inject(Service, 'setNode');
+    injector.declInjections(Service, 'setNode(node)');
     Service.prototype._node = null;
 
     /**
@@ -96,7 +92,7 @@ camp.module(
       this._x = name1;
       this._test2 = test2;
     };
-    Injector.inject(exports.Test, 'setService');
+    injector.declInjections(exports.Test, 'setService(service)');
 
 
     exports.Test.prototype = {
@@ -236,7 +232,7 @@ camp.module(
         this._service = service;
       };
     }();
-    Injector.inject(exports.Test3, "setService(service)");
+    injector.declInjections(exports.Test3, "setService(service)");
 
     /**
      * @constructor
@@ -265,7 +261,7 @@ camp.module(
     exports.Base3 = function() {
 
     };
-    Injector.inject(exports.Base3, "setName");
+    injector.declInjections(exports.Base3, "setName(name1)");
 
     exports.Base3.prototype.insert = function() {
       document.getElementById('test').innertHTML = "test";
@@ -273,133 +269,99 @@ camp.module(
 
     /**
      * @constructor
-     * @implements {Module}
      */
     exports.DefaultModule = function() {};
 
-    exports.DefaultModule.prototype.configure = function(binder) {
-      /* if (!COMPILED) {
-       binder.bindInterceptor(
-       Matchers.inNamespace('camp.vm.interaction'),
-       Matchers.like("set*"),
-       function(methodInvocation) {
-       window.console.log('call before ' + methodInvocation.getQualifiedName());
-       return methodInvocation.proceed();
-       }
-       );
+    /**
+     * calendarCacheManagerの取得
+     * @return {exports.CalendarCacheManager} calendarCacheManager
+     */
+    exports.DefaultModule.prototype.getCalendarCacheManager = function() {
+      return injector.getInstance(exports.CalendarCacheManager, this);
+    };
 
-       binder.bindInterceptor(
-       Matchers.inNamespace('camp.vm.interaction'),
-       Matchers.like("set*"),
-       function(methodInvocation) {
-       var ret = methodInvocation.proceed();
-       window.console.log('call after ' + methodInvocation.getQualifiedName());
-       return ret;
-       }
-       );
-
-       binder.bindInterceptor(
-       Matchers.subclassOf(exports.Base1),
-       Matchers.like("insert"),
-       function(methodInvocation) {
-       var ret = methodInvocation.proceed();
-       window.console.log('ok !' + ret);
-       return ret;
-       }
-       );
-       }
-
-       binder.bindInterceptor("camp.*", "*", function nullify(methodInvocation) {
-       var ret = methodInvocation.proceed();
-
-       return ret? ret : null;
-       });
+    /**
+     * calendarCacheSizeの取得
+     * @return {number} calendarCacheSize
+     */
+    exports.DefaultModule.prototype.getCalendarCacheSize = function() {
+      return 20;
+    };
 
 
-       binder.bindInterceptor("goog.*", "*", function nullify(methodInvocation) {
-       var ret = methodInvocation.proceed();
+    /**
+     * dataSourceManagerの取得
+     * @return {exports.DataSourceManager} dataSourceManager
+     */
+    exports.DefaultModule.prototype.getDataSourceManager = function() {
+      return injector.newInstance(exports.DataSourceManager, this);
+    };
 
-       return ret? ret : null;
-       });*/
+    /**
+     * pubSubの取得
+     * @return {PubSub} pubSub
+     */
+    exports.DefaultModule.prototype.getPubsub = function() {
+      return new PubSub;
+    };
 
-      if (!COMPILED) {
-        binder.bind('calendarCacheManager').toProvider(function (calendarCacheSize) {
-          return new exports.CalendarCacheManager(calendarCacheSize);
-        });
-      }
+    /**
+     * serviceの取得
+     * @return {exports.Service} service
+     */
+    exports.DefaultModule.prototype.getService = function() {
+      return injector.getInstance(exports.Service, this);
+    };
 
-      binder.bind('dataSourceManager').toProvider(function() {
-        return new exports.DataSourceManager(new PubSub);
-      });
-      var m = {
-            a : 1,
-            b : 2,
-            c : 3
-          };
+    /**
+     * testの取得
+     * @return {exports.Test} test
+     */
+    exports.DefaultModule.prototype.getTest = function() {
+      return injector.getInstance(exports.Test, this);
+    };
 
-      binder.bind('node').toInstance(document.getElementById('id'));
-      binder.bind('service').to(exports.Service).as(Scopes.EAGER_SINGLETON);
-      binder.bind('test2').to(exports.Test).as(Scopes.SINGLETON);
+    /**
+     * test2の取得
+     * @return {exports.Test2} test2
+     */
+    exports.DefaultModule.prototype.getTest2 = function() {
+      return injector.newInstance(exports.Test2, this);
+    };
 
-      binder.bind('test4').toProvider(function (name1, name2, test2) {
-        var a = new exports.Test4(name1, name2);
-        a.setC(test2);
-        return a;
-      });
+
+    /**
+     * test4の取得
+     * @return {exports.Test4} test4
+     */
+    exports.DefaultModule.prototype.getTest4 = function() {
+      var ret = new exports.Test4(this.getName1(), this.getName2());
+      ret.setC(this.getTest2());
+      return ret;
     };
 
     /**
      * @constructor
-     * @implements {Module}
+     * @extends {exports.DefaultModule}
      */
-    exports.DefaultModule2 = function() {};
+    exports.Module = function() {
+      goog.base(this);
+    };
+    goog.inherits(exports.DefaultModule);
 
-    exports.DefaultModule2.prototype.configure = function(binder) {
-      binder.bind('name1').toInstance('name1');
-      binder.bind('name2').toInstance('name2');
+    /**
+     * name1の取得
+     * @return {string} name1
+     */
+    exports.Module.prototype.getName1 = function() {
+      return 'name1';
     };
 
     /**
-     * @constructor
-     * @extends {exports.DefaultModule2}
+     * name2の取得
+     * @return {string} name2
      */
-    exports.TestModule = function() {
-
+    exports.Module.prototype.getName2 = function() {
+      return 'name2';
     };
-
-    /**
-     * @interface
-     */
-    function Aa() {
-    }
-
-    Aa.prototype.b = function(){};
-
-    /**
-     * @constructor
-     * @implements Aa
-     */
-    function Ba() {
-    }
-
-    Ba.prototype.b = function(){};
-
-    /**
-     * @constructor
-     * @extends {Ba}
-     */
-    function Ca() {
-    }
-    goog.inherits(Ca, Ba);
-
-
-
-    /**
-     * @param {Aa} a
-     */
-    function da(a) {
-      window.console.log(a);
-    }
-
-    da(new Ca());
   });
