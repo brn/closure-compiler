@@ -103,18 +103,21 @@ public class FactoryInjectorInfoCollector {
       if (firstChild.isGetProp()) {
         String qname = firstChild.getQualifiedName();
         ResolvePoints resolvePoints = null;
+        Node target = firstChild.getNext();
+        CallType callType = null;
         if (qname != null && qname.equals(NEW_INSTANCE)) {
           if (isValidResolveCall(t, n, NEW_INSTANCE)) {
-            Node target = firstChild.getNext();
-            resolvePoints = new ResolvePoints(n, target.getQualifiedName(), target.getNext(),
-                CallType.RESOLVE);
+            callType = CallType.RESOLVE; 
           }
         } else if (qname != null && qname.equals(GET_INSTANCE)) {
           if (isValidResolveCall(t, n, GET_INSTANCE)) {
-            Node target = firstChild.getNext();
-            resolvePoints = new ResolvePoints(n, target.getQualifiedName(), firstChild.getNext(),
-                CallType.RESOLVE_ONCE);
+            callType = CallType.RESOLVE_ONCE;
           }
+        }
+
+        if (callType != null && target != null) {
+          resolvePoints =
+              new ResolvePoints(n, target.getQualifiedName(), target.getNext(), callType);
         }
 
         if (resolvePoints != null) {
