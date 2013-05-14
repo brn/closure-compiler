@@ -1,6 +1,13 @@
 camp.module("test.module", function (exports) {
 
   /**
+   * @constructor
+   */
+  function Bindings() {
+
+  }
+
+  /**
    * @interface
    */
   function Module() {
@@ -8,7 +15,7 @@ camp.module("test.module", function (exports) {
   }
 
   /**
-   * @param {Object} bindings
+   * @this {Bindings}
    */
   Module.prototype.configure = function(bindings) {
 
@@ -16,12 +23,12 @@ camp.module("test.module", function (exports) {
 
   /**
    * @param {...Module} var_args
-   * @return {Object}
+   * @return {Bindings}
    */
   function configure(var_args) {
-    var bindings = {};
+    var bindings = new Bindings();
     for (var i = 0, len = arguments.length;i < len;i++) {
-      new arguments[i]().configure(bindings);
+      new arguments[i]().configure.call(bindings);
     }
     return bindings;
   }
@@ -32,6 +39,7 @@ camp.module("test.module", function (exports) {
 
   /**
    * @constructor
+   * @param {string} fooName
    */
   function Foo(fooName) {
     this._name = fooName;
@@ -75,11 +83,15 @@ camp.module("test.module", function (exports) {
    * @implements {Module}
    */
   function Module1() {};
-  Module1.prototype.configure = function(bindings) {
+
+  /**
+   * @this {Bindings}
+   */
+  Module1.prototype.configure = function() {
     /**
      * @returns {string}
      */
-    bindings.getItem1 = function() {
+    this.getItem1 = function() {
       return getItemOf();
     };
   };
@@ -92,29 +104,32 @@ camp.module("test.module", function (exports) {
 
   }
 
-  Module2.prototype.configure = function(bindings) {
+  /**
+   * @this {Bindings}
+   */
+  Module2.prototype.configure = function() {
     /**
      * @returns {string}
      */
-    bindings.getItem2 = function() {
+    this.getItem2 = function() {
       return 'item2';
     };
 
     /**
      * @return {Foo}
      */
-    bindings.getFoo = function() {
+    this.getFoo = function() {
       return camp.dependencies.injector.newInstance(Foo, bindings);
     };
 
     /**
      * @return {string}
      */
-    bindings.getFooName = function() {
+    this.getFooName = function() {
       return 'fooName';
     };
 
-    bindings.getItem1 = function() {
+    this.getItem1 = function() {
       return 'not test 1';
     };
   };
