@@ -4,6 +4,14 @@ camp.module("camp.test.module", ['deps'], function (exports) {
 
   /**
    * @constructor
+   * @param {{test:Object, test2:string}} a
+   */
+  function Test(a) {
+
+  }
+
+  /**
+   * @constructor
    */
   function PubSub() {
 
@@ -16,6 +24,9 @@ camp.module("camp.test.module", ['deps'], function (exports) {
     this._node = document.getElementById('aaa');
   }
 
+  /**
+   * @param {SDKListViewModel} inst
+   */
   DataSourceManager.prototype.registerDataSource = function(inst) {
     this._node.innerHTML = inst.getMessage();
   };
@@ -101,8 +112,8 @@ camp.module("camp.test.module", ['deps'], function (exports) {
         dataSourceManager : DataSourceManager
       });
 
+  
   var dataSourceManager = injector.dataSourceManager();
   dataSourceManager.registerDataSource(newWith(SDKListViewModel, exports.deps.sdkListViewModel));
-
-
+  window['dataSourceManager'] = dataSourceManager;
 });

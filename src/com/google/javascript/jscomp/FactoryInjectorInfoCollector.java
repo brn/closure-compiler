@@ -1,17 +1,10 @@
 package com.google.javascript.jscomp;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 import com.google.javascript.jscomp.FactoryInjectorInfo.BinderInfo;
-import com.google.javascript.jscomp.FactoryInjectorInfo.CallType;
-import com.google.javascript.jscomp.FactoryInjectorInfo.MethodInjectionInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.NewWithInfo;
-import com.google.javascript.jscomp.FactoryInjectorInfo.ResolvePoints;
 import com.google.javascript.jscomp.FactoryInjectorInfo.TypeInfo;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.JSDocInfo;
@@ -19,23 +12,12 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
 public class FactoryInjectorInfoCollector {
-
-  private static final String MODULE_NAME = "camp.dependencies.injector";
-
-  private static final String NEW_INSTANCE = MODULE_NAME + "." + "newInstance";
-
-  private static final String GET_INSTANCE = MODULE_NAME + "." + "getInstance";
-
-  private static final String DECL_INJECTIONS = "camp.dependencies.declInjections";
   
   private static final String NEW_WITH = "camp.dependencies.newWith";
   
   private static final String BINDER = "camp.dependencies.binder.bind";
   
   private static final String BINDER_SINGLETON = "camp.dependencies.binder.bindSingleton";
-
-  private static final Pattern INJECTON_PARSE_REG = Pattern
-      .compile("([a-zA-Z_$][\\w_$]*)(?:\\(([\\s\\S]+)\\))");
 
   static final DiagnosticType MESSAGE_RESOLVE_FIRST_ARGUMENT_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
@@ -110,68 +92,7 @@ public class FactoryInjectorInfoCollector {
 
   public void process(Node externRoot, Node root) {
     NodeTraversal.traverse(compiler, root, new MarkerProcessCallback());
-    bindInfo();
     NodeTraversal.traverse(compiler, root, new InjectionAliasFinder());
-  }
-
-
-  private void bindInfo() {
-    for (TypeInfo typeInfo : factoryInjectorInfo.getTypeInfoMap().values()) {
-      String name = typeInfo.getName();
-      List<MethodInjectionInfo> methodInjectionInfoList =
-          factoryInjectorInfo.getMethodInjectionInfo().get(name);
-      if (methodInjectionInfoList.size() > 0) {
-        typeInfo.setMethodInjectionList(methodInjectionInfoList);
-      }
-    }
-  }
-
-
-  private final class ResolveMarkerProcessor {
-    public void process(NodeTraversal t, Node n, Node parent) {
-      Node firstChild = n.getFirstChild();
-      if (firstChild.isGetProp()) {
-        String qname = firstChild.getQualifiedName();
-        ResolvePoints resolvePoints = null;
-        Node target = firstChild.getNext();
-        CallType callType = null;
-        if (qname != null && qname.equals(NEW_INSTANCE)) {
-          if (isValidResolveCall(t, n, NEW_INSTANCE)) {
-            callType = CallType.RESOLVE; 
-          }
-        } else if (qname != null && qname.equals(GET_INSTANCE)) {
-          if (isValidResolveCall(t, n, GET_INSTANCE)) {
-            callType = CallType.RESOLVE_ONCE;
-          }
-        }
-
-        if (callType != null && target != null) {
-          resolvePoints =
-              new ResolvePoints(n, target.getQualifiedName(), target.getNext(), callType);
-        }
-
-        if (resolvePoints != null) {
-          factoryInjectorInfo.addResolvePoints(resolvePoints);
-        }
-      }
-    }
-
-
-    private boolean isValidResolveCall(NodeTraversal t, Node resolveCall, String name) {
-      Node maybeConstructor = resolveCall.getFirstChild().getNext();
-      if (maybeConstructor == null
-          || (!maybeConstructor.isName() && !NodeUtil.isGet(maybeConstructor))) {
-        t.report(resolveCall, MESSAGE_RESOLVE_FIRST_ARGUMENT_IS_INVALID, name);
-        return false;
-      }
-
-      Node bindings = maybeConstructor.getNext();
-      if (bindings == null) {
-        t.report(resolveCall, MESSAGE_RESOLVE_SECOND_ARGUMENT_IS_INVALID, name);
-        return false;
-      }
-      return true;
-    }
   }
 
 
@@ -190,119 +111,14 @@ public class FactoryInjectorInfoCollector {
       }
 
       if (name != null) {
-        typeInfo = new TypeInfo(name, n);
+        JSDocInfo info = NodeUtil.getBestJSDocInfo(n);
+        typeInfo = new TypeInfo(name, n, info);
         factoryInjectorInfo.putTypeInfo(typeInfo);
       }
     }
   }
 
 
-  private final class MethodInjectionMarkerProcessor {
-    public void process(NodeTraversal t, Node n, Node parent) {
-      Node constructorNameNode = n.getFirstChild().getNext();
-      Node methodNameNode = constructorNameNode.getNext();
-      String methodName = getSetterName(methodNameNode);
-      String constructorName = getConstructorName(constructorNameNode);
-      if (constructorName != null && methodName != null) {
-        parseMethodInjectionInfo(t, methodNameNode, constructorNameNode, constructorName,
-            methodName);
-        Node setterNameNode = constructorNameNode.getNext();
-        while (setterNameNode != null) {
-          setterNameNode = setterNameNode.getNext();
-          methodName = getSetterName(setterNameNode);
-          if (methodName != null) {
-            parseMethodInjectionInfo(t, setterNameNode, constructorNameNode, constructorName,
-                methodName);
-          } else {
-            break;
-          }
-        }
-        Node stmtBeginning = FactoryInjectorProcessor.getStatementBeginningNode(n);
-        Preconditions.checkNotNull(stmtBeginning);
-        stmtBeginning.detachFromParent();
-        compiler.reportCodeChange();
-      } else {
-        if (constructorName == null) {
-          t.report(n, MESSAGE_FIRST_ARGUMENT_OF_INJECT_IS_INVALID);
-        }
-        if (methodName == null) {
-          t.report(n, MESSAGE_SECOND_ARGUMENT_OF_INJECT_IS_INVALID);
-        }
-      }
-    }
-
-
-    private void parseMethodInjectionInfo(
-        NodeTraversal t,
-        Node n,
-        Node constructorNameNode,
-        String constructorName,
-        String methodName) {
-      MethodInjectionInfo methodInjectionInfo = null;
-      if (methodName.indexOf("(") > -1) {
-        Matcher matcher = INJECTON_PARSE_REG.matcher(methodName);
-        if (matcher.find()) {
-          if (matcher.groupCount() == 2) {
-            String paramStr = matcher.group(2);
-
-            if (!Strings.isNullOrEmpty(paramStr)) {
-              methodName = matcher.group(1).trim();
-              String[] params = paramStr.split(",");
-              List<String> parameterList = Lists.newArrayList();
-
-              for (String param : params) {
-                parameterList.add(param.trim());
-              }
-
-              if (methodName.equals("constructor")) {
-                TypeInfo typeInfo = new TypeInfo(constructorName, n);
-                factoryInjectorInfo.putTypeInfo(typeInfo);
-              } else {
-                methodInjectionInfo = new MethodInjectionInfo(constructorName, matcher.group(1)
-                    .trim(), n);
-                methodInjectionInfo.setParameterList(parameterList);
-              }
-
-              factoryInjectorInfo.putMethodInjectionInfo(methodInjectionInfo);
-
-            } else {
-              t.report(n, MESSAGE_INVALID_METHOD_INJECTION_SPECIFICATION, methodName);
-            }
-          } else {
-            t.report(n, MESSAGE_INVALID_METHOD_INJECTION_SPECIFICATION, methodName);
-          }
-        } else {
-          t.report(n, MESSAGE_INVALID_METHOD_INJECTION_SPECIFICATION, methodName);
-        }
-      } else {
-        t.report(n, MESSAGE_INVALID_METHOD_INJECTION_SPECIFICATION, methodName);
-      }
-    }
-
-
-    private String getConstructorName(Node constructorNameNode) {
-      if (constructorNameNode != null) {
-        String constructorName = constructorNameNode.getQualifiedName();
-        if (!Strings.isNullOrEmpty(constructorName)) {
-          return constructorName;
-        }
-      }
-      return null;
-    }
-
-
-    private String getSetterName(Node setterNameNode) {
-      if (setterNameNode != null && setterNameNode.isString()) {
-        String name = setterNameNode.getString();
-        if (!Strings.isNullOrEmpty(name)) {
-          return name;
-        }
-      }
-      return null;
-    }
-  }
-
-  
   private final class NewWtihMarkerProcessor {
     public void process(NodeTraversal t, Node n, Node parent) {
       if (isValidNewWithCall(t, n)) {
@@ -363,11 +179,7 @@ public class FactoryInjectorInfoCollector {
 
   private final class MarkerProcessCallback extends AbstractPostOrderCallback {
 
-    private ResolveMarkerProcessor resolveMarkerProcessor = new ResolveMarkerProcessor();
-
     private TypeMarkerProcessor typeMarkerProcessor = new TypeMarkerProcessor();
-
-    private MethodInjectionMarkerProcessor methodInjectionMarkerProcessor = new MethodInjectionMarkerProcessor();
     
     private NewWtihMarkerProcessor newWithMarkerProcessor = new NewWtihMarkerProcessor();
     
@@ -384,10 +196,6 @@ public class FactoryInjectorInfoCollector {
               newWithMarkerProcessor.process(t, n, parent);
             } else if (qname.equals(BINDER) || qname.equals(BINDER_SINGLETON)) {
               binderMarkerProcessor.process(t, n, parent, qname.equals(BINDER_SINGLETON));
-            } else if (qname.equals(NEW_INSTANCE) || qname.equals(GET_INSTANCE)) {
-              resolveMarkerProcessor.process(t, n, parent);
-            } else if (qname.equals(DECL_INJECTIONS)) {
-              methodInjectionMarkerProcessor.process(t, n, parent);
             }
           }
         }
@@ -439,9 +247,8 @@ public class FactoryInjectorInfoCollector {
 
     private void createAliasTypeInfoFrom(Node aliasPoint, List<TypeInfo> info, String aliasName,
         String name) {
-      TypeInfo aliasInfo = new TypeInfo(name, aliasPoint);
+      TypeInfo aliasInfo = new TypeInfo(name, aliasPoint, null);
       factoryInjectorInfo.putTypeInfo(aliasInfo);
-      aliasInfo.setMethodInjectionList(info.get(0).getMethodInjectionList());
       aliasInfo.setAlias();
       aliasInfo.setAliasName(aliasName);
     }
