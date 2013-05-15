@@ -7,8 +7,10 @@ import java.util.regex.Pattern;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.javascript.jscomp.FactoryInjectorInfo.BinderInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.CallType;
 import com.google.javascript.jscomp.FactoryInjectorInfo.MethodInjectionInfo;
+import com.google.javascript.jscomp.FactoryInjectorInfo.NewWithInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.ResolvePoints;
 import com.google.javascript.jscomp.FactoryInjectorInfo.TypeInfo;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
@@ -25,6 +27,12 @@ public class FactoryInjectorInfoCollector {
   private static final String GET_INSTANCE = MODULE_NAME + "." + "getInstance";
 
   private static final String DECL_INJECTIONS = "camp.dependencies.declInjections";
+  
+  private static final String NEW_WITH = "camp.dependencies.newWith";
+  
+  private static final String BINDER = "camp.dependencies.binder.bind";
+  
+  private static final String BINDER_SINGLETON = "camp.dependencies.binder.bindSingleton";
 
   private static final Pattern INJECTON_PARSE_REG = Pattern
       .compile("([a-zA-Z_$][\\w_$]*)(?:\\(([\\s\\S]+)\\))");
@@ -66,6 +74,28 @@ public class FactoryInjectorInfoCollector {
           "JSC_MSG_SECOND_ARGUMENT_OF_INJECT_IS_INVALID.",
           "The second argument and rest of camp.injections.Injector.inject must be a string expression which is method name of injection target.");
 
+  
+  static final DiagnosticType MESSAGE_NEW_WITH_FIRST_ARGUMENT_IS_INVALID =
+      DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
+          "A first argument of " + NEW_WITH + " is must be a constructor.");
+  
+  static final DiagnosticType MESSAGE_NEW_WITH_SECOND_ARGUMENT_IS_INVALID =
+      DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
+          "A first argument of " + NEW_WITH + " is must be a function which return the dependencies.");
+  
+  static final DiagnosticType MESSAGE_BIND_FIRST_ARGUMENT_IS_INVALID =
+      DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
+          "A first argument of " + BINDER + " is must be a bindings.");
+  
+  static final DiagnosticType MESSAGE_BIND_SECOND_ARGUMENT_IS_INVALID =
+      DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
+          "A first argument of " + BINDER + " is must be an object literal.");
+  
+  static final DiagnosticType MESSAGE_BIND_OBJECT_LITERAL_MEMBER_IS_INVALID =
+      DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
+          "The members of object literal of " + BINDER + " is must be a constructor.");
+  
+  
   private AbstractCompiler compiler;
 
   private FactoryInjectorInfo factoryInjectorInfo;
@@ -272,6 +302,64 @@ public class FactoryInjectorInfoCollector {
     }
   }
 
+  
+  private final class NewWtihMarkerProcessor {
+    public void process(NodeTraversal t, Node n, Node parent) {
+      if (isValidNewWithCall(t, n)) {
+        factoryInjectorInfo.addNewWtihInfo(new NewWithInfo(n));
+      }
+    }
+    
+    private boolean isValidNewWithCall(NodeTraversal t, Node n) {
+      Node firstChild = n.getFirstChild().getNext();
+      if (firstChild == null || (!firstChild.isName() && !NodeUtil.isGet(firstChild))) {
+        t.report(n, MESSAGE_NEW_WITH_FIRST_ARGUMENT_IS_INVALID);
+        return false;
+      }
+      
+      Node secondArg = firstChild.getNext();
+      if (secondArg == null) {
+        t.report(n, MESSAGE_NEW_WITH_SECOND_ARGUMENT_IS_INVALID);
+        return false;
+      }
+      
+      return true;
+    }
+  }
+  
+  private final class BinderMarkerProcessor {
+    public void process(NodeTraversal t, Node n, Node parent, boolean isSingleton) {
+      if (isValidBind(t, n)) {
+        factoryInjectorInfo.addBinderInfo(new BinderInfo(n, isSingleton));
+      }
+    }
+    
+    private boolean isValidBind(NodeTraversal t, Node n) {
+      Node firstArg = n.getFirstChild().getNext();
+      if (firstArg == null) {
+        t.report(n, MESSAGE_BIND_FIRST_ARGUMENT_IS_INVALID);
+        return false;
+      }
+      
+      Node secondArg = firstArg.getNext();
+      if (secondArg == null || !secondArg.isObjectLit()) {
+        t.report(n, MESSAGE_BIND_SECOND_ARGUMENT_IS_INVALID);
+      }
+      
+      for (Node keyNode : secondArg.children()) {
+        Node value = keyNode.getFirstChild();
+        if (value.isName() || NodeUtil.isGet(value)) {
+          String name = value.getQualifiedName();
+          if (name == null) {
+            t.report(value, MESSAGE_BIND_OBJECT_LITERAL_MEMBER_IS_INVALID);
+          }
+        }
+      }
+      
+      return true;
+    }
+  }
+  
 
   private final class MarkerProcessCallback extends AbstractPostOrderCallback {
 
@@ -280,6 +368,10 @@ public class FactoryInjectorInfoCollector {
     private TypeMarkerProcessor typeMarkerProcessor = new TypeMarkerProcessor();
 
     private MethodInjectionMarkerProcessor methodInjectionMarkerProcessor = new MethodInjectionMarkerProcessor();
+    
+    private NewWtihMarkerProcessor newWithMarkerProcessor = new NewWtihMarkerProcessor();
+    
+    private BinderMarkerProcessor binderMarkerProcessor = new BinderMarkerProcessor();
 
 
     public void visit(NodeTraversal t, Node n, Node parent) {
@@ -288,7 +380,11 @@ public class FactoryInjectorInfoCollector {
         if (getprop.isGetProp()) {
           String qname = getprop.getQualifiedName();
           if (qname != null) {
-            if (qname.equals(NEW_INSTANCE) || qname.equals(GET_INSTANCE)) {
+            if (qname.equals(NEW_WITH)) {
+              newWithMarkerProcessor.process(t, n, parent);
+            } else if (qname.equals(BINDER) || qname.equals(BINDER_SINGLETON)) {
+              binderMarkerProcessor.process(t, n, parent, qname.equals(BINDER_SINGLETON));
+            } else if (qname.equals(NEW_INSTANCE) || qname.equals(GET_INSTANCE)) {
               resolveMarkerProcessor.process(t, n, parent);
             } else if (qname.equals(DECL_INJECTIONS)) {
               methodInjectionMarkerProcessor.process(t, n, parent);

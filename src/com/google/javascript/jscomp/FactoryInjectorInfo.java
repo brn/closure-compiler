@@ -14,6 +14,8 @@ public class FactoryInjectorInfo {
 
   private ArrayListMultimap<String, TypeInfo> typeInfoMap = ArrayListMultimap.create();
   private List<ResolvePoints> resolvePointsList = Lists.newArrayList();
+  private List<NewWithInfo> newWithInfoList = Lists.newArrayList();
+  private List<BinderInfo> binderInfoList = Lists.newArrayList();
   private ArrayListMultimap<String, MethodInjectionInfo> methodInjectionInfoMap = ArrayListMultimap.create();
   
   public void putTypeInfo(TypeInfo typeInfo) {
@@ -39,6 +41,53 @@ public class FactoryInjectorInfo {
   
   public ArrayListMultimap<String, MethodInjectionInfo> getMethodInjectionInfo() {
     return this.methodInjectionInfoMap;
+  }
+  
+  public void addNewWtihInfo(NewWithInfo newWithInfo) {
+    this.newWithInfoList.add(newWithInfo);
+  }
+  
+  public List<NewWithInfo> getNewWithInfoList() {
+    return this.newWithInfoList;
+  }
+  
+  public void addBinderInfo(BinderInfo binderInfo) {
+    this.binderInfoList.add(binderInfo);
+  }
+  
+  public List<BinderInfo> getBinderInfoList() {
+    return this.binderInfoList;
+  }
+  
+  public static final class BinderInfo {
+    private Node node;
+    
+    private boolean isSingleton;
+    
+    public BinderInfo(Node node, boolean isSingleton) {
+      this.node = node;
+      this.isSingleton = isSingleton;
+    }
+    
+    public Node getNode() {
+      return this.node;
+    }
+    
+    public boolean isSingleton() {
+      return this.isSingleton;
+    }
+  }
+  
+  public static final class NewWithInfo {
+    private Node node;
+    
+    public NewWithInfo(Node node) {
+      this.node = node;
+    }
+    
+    public Node getNode() {
+      return this.node;
+    }
   }
   
   
