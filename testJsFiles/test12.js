@@ -4,7 +4,7 @@ camp.module("camp.test.module", ['deps'], function (exports) {
 
   /**
    * @constructor
-   * @param {{test:Object, test2:string}} a
+   * @param {{test:Object, newWith:string}} a
    */
   function Test(a) {
 
@@ -112,8 +112,9 @@ camp.module("camp.test.module", ['deps'], function (exports) {
         dataSourceManager : DataSourceManager
       });
 
-  
+
   var dataSourceManager = injector.dataSourceManager();
   dataSourceManager.registerDataSource(newWith(SDKListViewModel, exports.deps.sdkListViewModel));
   window['dataSourceManager'] = dataSourceManager;
+  new Test({test : {}, newWith : 'a'});
 });
