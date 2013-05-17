@@ -1,40 +1,41 @@
 var goog = {
-      inherits : function() {
+      mixin : function(a,b) {
+        for (var prop in b) {
+          a[prop] = b[prop];
+        }
       }
     };
-
-camp.module('test.foo.bar.baz', function(exports) {
+camp.module("test.module", ['bindings', 'bindings2'], function (exports) {
 
   /**
-   * @constructor
+   * @returns {{item : string, item2 : string}}
    */
-  var Test = function() {
-      };
-
-  Test.prototype.hoge = function() {
-
+  exports.bindings.items = function() {
+    return {
+      item : 'item',
+      item2 : 'item2'
+    };
   };
 
   /**
-   * @template T
-   * @param {function(new:T, ...):?} m
-   * @return {T}
+   * @returns {{item3 : string}}
    */
-  function interceptor(m) {
-    var arg = Array.prototype.slice.call(m);
-    /**
-     * @constructor
-     */
-    function Proxy(){}
-    goog.inherits(Test, arg.shift());
-    Proxy.prototype.hoge = function() {
-      window.console.log('a');
+  exports.bindings2.items2 = function(bindings) {
+    return {
+      item3 : 'item3'
     };
-    var i = new Proxy;
-    m.apply(i, arg);
-    return i;
+  };
+
+
+  var x = {};
+  var m = exports.bindings.items();
+  var n = exports.bindings2.items2();
+  for (var prop in m) {
+    x[prop] = m[prop];
+  }
+  for (prop in n) {
+    x[prop] = n[prop];
   }
 
-  var i = interceptor(Test);
-  i.hoge();
+  document.getElementById('aaaaa').innerHTML = x.item + x.item2 + x.item3;
 });
