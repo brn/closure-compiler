@@ -3,6 +3,8 @@ package com.google.javascript.jscomp;
 import java.util.List;
 
 import com.google.common.base.Preconditions;
+import com.google.javascript.jscomp.FactoryInjectorInfo.BindedConstructorInfo;
+import com.google.javascript.jscomp.FactoryInjectorInfo.BindedKeyInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.BinderInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.NewWithInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.TypeInfo;
@@ -12,12 +14,18 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
 public class FactoryInjectorInfoCollector {
-  
+
   private static final String NEW_WITH = "camp.dependencies.newWith";
-  
+
   private static final String BINDER = "camp.dependencies.binder.bind";
-  
+
   private static final String BINDER_SINGLETON = "camp.dependencies.binder.bindSingleton";
+
+  private static final String KEY_TO = "to";
+
+  private static final String KEY_AS = "as";
+
+  private static final String SINGLETON_SCOPES = "camp.dependencies.Scopes.SINGLETON";
 
   static final DiagnosticType MESSAGE_RESOLVE_FIRST_ARGUMENT_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
@@ -56,28 +64,44 @@ public class FactoryInjectorInfoCollector {
           "JSC_MSG_SECOND_ARGUMENT_OF_INJECT_IS_INVALID.",
           "The second argument and rest of camp.injections.Injector.inject must be a string expression which is method name of injection target.");
 
-  
   static final DiagnosticType MESSAGE_NEW_WITH_FIRST_ARGUMENT_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
           "A first argument of " + NEW_WITH + " is must be a constructor.");
-  
+
   static final DiagnosticType MESSAGE_NEW_WITH_SECOND_ARGUMENT_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
-          "A first argument of " + NEW_WITH + " is must be a function which return the dependencies.");
-  
+          "A first argument of " + NEW_WITH
+              + " is must be a function which return the dependencies.");
+
   static final DiagnosticType MESSAGE_BIND_FIRST_ARGUMENT_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
           "A first argument of " + BINDER + " is must be a bindings.");
-  
+
   static final DiagnosticType MESSAGE_BIND_SECOND_ARGUMENT_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
           "A first argument of " + BINDER + " is must be an object literal.");
-  
+
   static final DiagnosticType MESSAGE_BIND_OBJECT_LITERAL_MEMBER_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
-          "The members of object literal of " + BINDER + " is must be a constructor.");
+          "The properties of object literal of " + BINDER + " is must be a constructor.");
+
+  static final DiagnosticType MESSAGE_BIND_OBJECT_LITERAL_TO_MEMBER_IS_INVALID =
+      DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
+          "The value of 'to : ...' key of object literal of " + BINDER + " is must be a constructor.");
+
+  static final DiagnosticType MESSAGE_BIND_OBJECT_LITERAL_AS_MEMBER_IS_INVALID =
+      DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
+          "The value of 'as : ...' key of object literal of " + BINDER + " is must be a "
+              + SINGLETON_SCOPES);
+
+  static final DiagnosticType MESSAGE_BIND_OBJECT_LITERAL_INNER_PROPERTY_IS_INVALID =
+      DiagnosticType.error("JSC_MSG_BIND_OBJECT_LITERAL_INNER_PROPERTY_IS_INVALID",
+          "The keys of object literal of " + BINDER + " are only allowed 'to : ...' and 'as : ...'.");
   
-  
+  static final DiagnosticType MESSAGE_BIND_MUST_SPECIFY_CONSTRUCTOR =
+      DiagnosticType.error("JSC_MSG_BIND_MUST_SPECIFY_CONSTRUCTOR",
+          "The " + BINDER + " must sepcify the constructor.");
+
   private AbstractCompiler compiler;
 
   private FactoryInjectorInfo factoryInjectorInfo;
@@ -125,64 +149,116 @@ public class FactoryInjectorInfoCollector {
         factoryInjectorInfo.addNewWtihInfo(new NewWithInfo(n));
       }
     }
-    
+
+
     private boolean isValidNewWithCall(NodeTraversal t, Node n) {
       Node firstChild = n.getFirstChild().getNext();
       if (firstChild == null || (!firstChild.isName() && !NodeUtil.isGet(firstChild))) {
         t.report(n, MESSAGE_NEW_WITH_FIRST_ARGUMENT_IS_INVALID);
         return false;
       }
-      
+
       Node secondArg = firstChild.getNext();
       if (secondArg == null) {
         t.report(n, MESSAGE_NEW_WITH_SECOND_ARGUMENT_IS_INVALID);
         return false;
       }
-      
+
       return true;
     }
   }
-  
+
+
   private final class BinderMarkerProcessor {
     public void process(NodeTraversal t, Node n, Node parent, boolean isSingleton) {
       if (isValidBind(t, n)) {
-        factoryInjectorInfo.addBinderInfo(new BinderInfo(n, isSingleton));
+        BinderInfo binderInfo = createBinderInfo(t, n, isSingleton);
+        factoryInjectorInfo.addBinderInfo(binderInfo);
       }
     }
-    
+
+
     private boolean isValidBind(NodeTraversal t, Node n) {
       Node firstArg = n.getFirstChild().getNext();
       if (firstArg == null) {
         t.report(n, MESSAGE_BIND_FIRST_ARGUMENT_IS_INVALID);
         return false;
       }
-      
+
       Node secondArg = firstArg.getNext();
       if (secondArg == null || !secondArg.isObjectLit()) {
         t.report(n, MESSAGE_BIND_SECOND_ARGUMENT_IS_INVALID);
       }
-      
+
+      return true;
+    }
+
+
+    private BinderInfo createBinderInfo(NodeTraversal t, Node n, boolean isSingleton) {
+      BinderInfo binderInfo = new BinderInfo(n);
+      Node firstArg = n.getFirstChild().getNext();
+      Node secondArg = firstArg.getNext();
       for (Node keyNode : secondArg.children()) {
+        BindedKeyInfo keyInfo = new BindedKeyInfo(keyNode, keyNode.getString());
         Node value = keyNode.getFirstChild();
         if (value.isName() || NodeUtil.isGet(value)) {
           String name = value.getQualifiedName();
           if (name == null) {
             t.report(value, MESSAGE_BIND_OBJECT_LITERAL_MEMBER_IS_INVALID);
+            return binderInfo;
+          } else {
+            BindedConstructorInfo ctorInfo = new BindedConstructorInfo(isSingleton, value, name);
+            binderInfo.putBindingInfo(keyInfo, ctorInfo);
+          }
+        } else if (value.isObjectLit()) {
+          boolean isSpecifiedSingleton = false;
+          Node ctorNode = null;
+          String ctorName = null;
+          for (Node key : value.children()) {
+            String keyStr = key.getString();
+            if (keyStr.equals(KEY_TO)) {
+              Node ctor = key.getFirstChild();
+              if (!ctor.isName() && !NodeUtil.isGet(ctor)) {
+                t.report(ctor, MESSAGE_BIND_OBJECT_LITERAL_TO_MEMBER_IS_INVALID);
+                return binderInfo;
+              }
+              ctorNode = ctor;
+              ctorName = ctor.getQualifiedName();
+            } else if (keyStr.equals(KEY_AS)) {
+              Node scope = key.getFirstChild();
+              String qname = scope.getQualifiedName();
+              if (!qname.equals(SINGLETON_SCOPES)) {
+                t.report(scope, MESSAGE_BIND_OBJECT_LITERAL_AS_MEMBER_IS_INVALID);
+                return binderInfo;
+              }
+              isSpecifiedSingleton = true;
+            } else {
+              t.report(key, MESSAGE_BIND_OBJECT_LITERAL_INNER_PROPERTY_IS_INVALID);
+              return binderInfo;
+            }
+          }
+          
+          if (ctorNode != null && ctorName != null) {
+            BindedConstructorInfo ctorInfo = new BindedConstructorInfo(isSingleton
+                || isSpecifiedSingleton,
+                ctorNode, ctorName);
+            binderInfo.putBindingInfo(keyInfo, ctorInfo);
+          } else {
+            t.report(value, MESSAGE_BIND_MUST_SPECIFY_CONSTRUCTOR);
           }
         }
       }
-      
-      return true;
+      return binderInfo;
     }
   }
-  
+
 
   private final class MarkerProcessCallback extends AbstractPostOrderCallback {
 
     private TypeMarkerProcessor typeMarkerProcessor = new TypeMarkerProcessor();
-    
+
     private NewWtihMarkerProcessor newWithMarkerProcessor = new NewWtihMarkerProcessor();
-    
+
     private BinderMarkerProcessor binderMarkerProcessor = new BinderMarkerProcessor();
 
 

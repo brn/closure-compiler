@@ -1,9 +1,11 @@
 package com.google.javascript.jscomp;
 
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 
@@ -37,22 +39,69 @@ public class FactoryInjectorInfo {
     return this.binderInfoList;
   }
   
+  
+  public static final class BindedConstructorInfo {
+    private boolean isSingleton;
+    private Node node;
+    private String name;
+    
+    public BindedConstructorInfo(boolean isSingleton, Node node, String name) {
+      this.isSingleton = isSingleton;
+      this.node = node;
+      this.name = name;
+    }
+    
+    public boolean isSingleton() {
+      return isSingleton;
+    }
+    
+    public Node getNode() {
+      return node;
+    }
+    
+    public String getName() {
+      return name;
+    }
+  }
+  
+  public static final class BindedKeyInfo {
+    private Node node;
+    private String name;
+    
+    public BindedKeyInfo(Node node, String name) {
+      this.node = node;
+      this.name = name;
+    }
+    
+    public Node getNode() {
+      return node;
+    }
+    
+    public String getName() {
+      return name;
+    }
+  }
+  
   public static final class BinderInfo {
     private Node node;
+   
     
-    private boolean isSingleton;
+    private Map<BindedKeyInfo, BindedConstructorInfo> bindingInfoMap = Maps.newHashMap(); 
     
-    public BinderInfo(Node node, boolean isSingleton) {
+    public BinderInfo(Node node) {
       this.node = node;
-      this.isSingleton = isSingleton;
     }
     
     public Node getNode() {
       return this.node;
     }
     
-    public boolean isSingleton() {
-      return this.isSingleton;
+    public void putBindingInfo(BindedKeyInfo keyInfo, BindedConstructorInfo constructorInfo) {
+      this.bindingInfoMap.put(keyInfo, constructorInfo);
+    }
+    
+    public Map<BindedKeyInfo, BindedConstructorInfo> getBindingInfoMap() {
+      return this.bindingInfoMap;
     }
   }
   

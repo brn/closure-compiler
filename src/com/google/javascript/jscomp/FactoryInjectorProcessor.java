@@ -8,6 +8,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.javascript.jscomp.FactoryInjectorInfo.BindedKeyInfo;
+import com.google.javascript.jscomp.FactoryInjectorInfo.BindedConstructorInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.BinderInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.NewWithInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.TypeInfo;
@@ -336,10 +338,12 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
       Node objLit = binding.getNext();
       Node ret = IR.objectlit();
 
-      for (Node keyNode : objLit.children()) {
-        String key = keyNode.getString();
-        Node value = keyNode.getFirstChild();
-        String name = value.getQualifiedName();
+      Map<BindedKeyInfo, BindedConstructorInfo> bindingInfoMap = binderInfo.getBindingInfoMap();
+      for (BindedKeyInfo keyInfo : bindingInfoMap.keySet()) {
+        BindedConstructorInfo ctorInfo = bindingInfoMap.get(keyInfo);
+        String key = keyInfo.getName();
+        Node value = ctorInfo.getNode();
+        String name = ctorInfo.getName();
         List<TypeInfo> typeInfoList = factoryInjectorInfo.getTypeInfoMap().get(name);
         if (typeInfoList.size() == 0) {
           report(value, FactoryInjectorInfoCollector.MESSAGE_BIND_OBJECT_LITERAL_MEMBER_IS_INVALID);
@@ -349,12 +353,13 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
         Node getprop = NodeUtil.newQualifiedNameNode(convention, name + "." + FACTORY_NAME);
         Node target = IR.getprop(binding.cloneTree(), IR.string(key));
         Node call = NodeUtil.newCallNode(getprop, NodeUtil.newCallNode(target));
-        if (binderInfo.isSingleton()) {
+        if (ctorInfo.isSingleton()) {
           Node instanceVar = IR.getprop(target.cloneTree(), IR.string(INSTANCE_VAR));
           call = IR.or(instanceVar, IR.assign(instanceVar.cloneTree(), call));
         }
         Node fn = buildFunctionExpression(call);
         Node newKeyNode = IR.stringKey(key);
+        Node keyNode = keyInfo.getNode();
         createReturnJSDocInfo(name, keyNode, newKeyNode);
         newKeyNode.copyInformationFromForTree(keyNode);
         fn.copyInformationFromForTree(value);
@@ -364,7 +369,8 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
       ret.copyInformationFromForTree(objLit);
       bindCall.getParent().replaceChild(bindCall, ret);
     }
-
+ 
+    
 
     private Node buildFunctionExpression(Node call) {
       return IR.function(IR.name(""), IR.paramList(),

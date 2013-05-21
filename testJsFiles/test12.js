@@ -1,6 +1,7 @@
 camp.module("camp.test.module", ['deps'], function (exports) {
   var binder = camp.using('camp.dependencies.binder');
   var newWith = camp.using('camp.dependencies.newWith');
+  var Scopes = camp.using('camp.dependencies.Scopes');
 
   /**
    * @constructor
@@ -109,7 +110,7 @@ camp.module("camp.test.module", ['deps'], function (exports) {
 
 
   var injector = binder.bind(exports.deps, {
-        dataSourceManager : DataSourceManager
+        dataSourceManager : {to : DataSourceManager, as : Scopes.SINGLETON}
       });
 
 
