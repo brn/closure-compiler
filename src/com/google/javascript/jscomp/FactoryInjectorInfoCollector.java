@@ -15,17 +15,17 @@ import com.google.javascript.rhino.Token;
 
 public class FactoryInjectorInfoCollector {
 
-  private static final String NEW_WITH = "camp.dependencies.newWith";
+  private static final String NEW_WITH = "camp.utils.dependencies.newWith";
 
-  private static final String BINDER = "camp.dependencies.binder.bind";
+  private static final String BINDER = "camp.utils.dependencies.binder.bind";
 
-  private static final String BINDER_SINGLETON = "camp.dependencies.binder.bindSingleton";
+  private static final String BINDER_SINGLETON = "camp.utils.dependencies.binder.bindSingleton";
 
   private static final String KEY_TO = "to";
 
   private static final String KEY_AS = "as";
 
-  private static final String SINGLETON_SCOPES = "camp.dependencies.Scopes.SINGLETON";
+  private static final String SINGLETON_SCOPES = "camp.utils.dependencies.Scopes.SINGLETON";
 
   static final DiagnosticType MESSAGE_RESOLVE_FIRST_ARGUMENT_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
