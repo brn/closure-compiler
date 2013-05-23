@@ -15,17 +15,15 @@ import com.google.javascript.rhino.Token;
 
 public class FactoryInjectorInfoCollector {
 
-  private static final String NEW_WITH = "camp.utils.dependencies.newWith";
+  private static final String NEW_WITH = "camp.utils.providers.hotSwapProvider.newWith";
 
-  private static final String BINDER = "camp.utils.dependencies.binder.bind";
-
-  private static final String BINDER_SINGLETON = "camp.utils.dependencies.binder.bindSingleton";
+  private static final String BINDER = "camp.utils.providers.hotSwapProvider.from";
 
   private static final String KEY_TO = "to";
 
   private static final String KEY_AS = "as";
 
-  private static final String SINGLETON_SCOPES = "camp.utils.dependencies.Scopes.SINGLETON";
+  private static final String SINGLETON_SCOPES = "camp.utils.providers.Scopes.SINGLETON";
 
   static final DiagnosticType MESSAGE_RESOLVE_FIRST_ARGUMENT_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
@@ -43,26 +41,6 @@ public class FactoryInjectorInfoCollector {
       .error(
           "JSC_MSG_INVALID_METHOD_SPECIFICATION",
           "The string expression '{0}' is invalid method injection specification.");
-
-  static final DiagnosticType MESSAGE_INJECTION_TARGET_NOT_EXISTS_OR_PARSABLE = DiagnosticType
-      .error(
-          "JSC_MSG_METHOD_NOT_FOUND",
-          "The injection target {0} of the constructor {1} is not exists in prototype chain or is not parsable. "
-              +
-              "Compiler is parse only the prototypes which are the function directly assigned. " +
-              "If you declare prototype which is non-trivial style, " +
-              "you should specify not only a method name but also parameters " +
-              "in 'camp.injections.Injector.inject' call, like 'setFoo(foo,bar,baz)'.");
-
-  static final DiagnosticType MESSAGE_FIRST_ARGUMENT_OF_INJECT_IS_INVALID = DiagnosticType
-      .error(
-          "JSC_MSG_FIRST_ARGUMENT_OF_INJECT_IS_INVALID.",
-          "The first argument of camp.injections.Injector.inject must be a constructor function.");
-
-  static final DiagnosticType MESSAGE_SECOND_ARGUMENT_OF_INJECT_IS_INVALID = DiagnosticType
-      .error(
-          "JSC_MSG_SECOND_ARGUMENT_OF_INJECT_IS_INVALID.",
-          "The second argument and rest of camp.injections.Injector.inject must be a string expression which is method name of injection target.");
 
   static final DiagnosticType MESSAGE_NEW_WITH_FIRST_ARGUMENT_IS_INVALID =
       DiagnosticType.error("JSC_MSG_RESOLVE_FIRST_ARGUMENT_IS_INVALID",
@@ -170,9 +148,9 @@ public class FactoryInjectorInfoCollector {
 
 
   private final class BinderMarkerProcessor {
-    public void process(NodeTraversal t, Node n, Node parent, boolean isSingleton) {
+    public void process(NodeTraversal t, Node n, Node parent) {
       if (isValidBind(t, n)) {
-        BinderInfo binderInfo = createBinderInfo(t, n, isSingleton);
+        BinderInfo binderInfo = createBinderInfo(t, n);
         factoryInjectorInfo.addBinderInfo(binderInfo);
       }
     }
@@ -194,7 +172,7 @@ public class FactoryInjectorInfoCollector {
     }
 
 
-    private BinderInfo createBinderInfo(NodeTraversal t, Node n, boolean isSingleton) {
+    private BinderInfo createBinderInfo(NodeTraversal t, Node n) {
       BinderInfo binderInfo = new BinderInfo(n);
       Node firstArg = n.getFirstChild().getNext();
       Node secondArg = firstArg.getNext();
@@ -207,7 +185,7 @@ public class FactoryInjectorInfoCollector {
             t.report(value, MESSAGE_BIND_OBJECT_LITERAL_MEMBER_IS_INVALID);
             return binderInfo;
           } else {
-            BindedConstructorInfo ctorInfo = new BindedConstructorInfo(isSingleton, value, name);
+            BindedConstructorInfo ctorInfo = new BindedConstructorInfo(false, value, name);
             binderInfo.putBindingInfo(keyInfo, ctorInfo);
           }
         } else if (value.isObjectLit()) {
@@ -239,8 +217,7 @@ public class FactoryInjectorInfoCollector {
           }
           
           if (ctorNode != null && ctorName != null) {
-            BindedConstructorInfo ctorInfo = new BindedConstructorInfo(isSingleton
-                || isSpecifiedSingleton,
+            BindedConstructorInfo ctorInfo = new BindedConstructorInfo(isSpecifiedSingleton,
                 ctorNode, ctorName);
             binderInfo.putBindingInfo(keyInfo, ctorInfo);
           } else {
@@ -270,8 +247,8 @@ public class FactoryInjectorInfoCollector {
           if (qname != null) {
             if (qname.equals(NEW_WITH)) {
               newWithMarkerProcessor.process(t, n, parent);
-            } else if (qname.equals(BINDER) || qname.equals(BINDER_SINGLETON)) {
-              binderMarkerProcessor.process(t, n, parent, qname.equals(BINDER_SINGLETON));
+            } else if (qname.equals(BINDER)) {
+              binderMarkerProcessor.process(t, n, parent);
             }
           }
         }
