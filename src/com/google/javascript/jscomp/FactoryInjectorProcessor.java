@@ -1,17 +1,12 @@
 package com.google.javascript.jscomp;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.javascript.jscomp.FactoryInjectorInfo.BindedKeyInfo;
-import com.google.javascript.jscomp.FactoryInjectorInfo.BindedConstructorInfo;
-import com.google.javascript.jscomp.FactoryInjectorInfo.BinderInfo;
-import com.google.javascript.jscomp.FactoryInjectorInfo.NewWithInfo;
+import com.google.javascript.jscomp.FactoryInjectorInfo.InjectInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.TypeInfo;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
@@ -27,6 +22,8 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
   private static String INSTANCE_VAR = "jscomp$instanceVar";
   
   private static String BINDINGS = "bindings";
+  
+  private long instanceId = 0;
 
   private AbstractCompiler compiler;
 
@@ -220,36 +217,9 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
       if (paramList.size() > 0) {
         JSDocInfo info = constructorInfo.getJSDocInfo();
         JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
-        Map<String, Node> typeMap = Maps.newHashMap();
-        for (String param : paramList) {
-          typeMap.put(param, null);
-        }
-        if (info != null) {
-          for (String paramName : info.getParameterNames()) {
-            JSTypeExpression paramType = info.getParameterType(paramName);
-            if (paramType != null) {
-              if (typeMap.containsKey(paramName)) {
-                typeMap.put(paramName, paramType.getRoot().cloneTree());
-              }
-            }
-          }
-        }
-        
-        Node lb = new Node(Token.LB);
-        Node obj = new Node(Token.LC, lb);
-        for (String paramName : paramList) {
-          Node key = IR.string(paramName);
-          if (typeMap.get(key) != null) {
-            lb.addChildToBack(new Node(Token.COLON, key, typeMap.get(key)));
-          } else {
-            lb.addChildToBack(key);
-          }
-        }
         String sourceFileName = assign.getSourceFileName();
-        JSTypeExpression recordType = new JSTypeExpression(obj, sourceFileName);
         Node name = IR.string(constructorInfo.getName());
         JSTypeExpression returnType = new JSTypeExpression(name, sourceFileName);
-        builder.recordParameter(BINDINGS, recordType);
         builder.recordReturnType(returnType);
         assign.setJSDocInfo(builder.build(assign));
       }
@@ -278,14 +248,15 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
      */
     private void addParameters(Node callNode, List<String> paramList) {
       for (String param : paramList) {
-        Node getprop = getBindingName(param);
-        callNode.addChildToBack(getprop);
+        Node call = getBindingMethodCallNode(param);
+        callNode.addChildToBack(call);
       }
     }
 
 
-    private Node getBindingName(String name) {
-      return NodeUtil.newQualifiedNameNode(convention, DIConsts.BINDINGS_REPO_NAME + "." + name);
+    private Node getBindingMethodCallNode(String name) {
+      Node getprop = NodeUtil.newQualifiedNameNode(convention, DIConsts.BINDINGS_REPO_NAME + "." + name);
+      return NodeUtil.newCallNode(getprop);
     }
   }
 
@@ -297,12 +268,8 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
 
 
     private void rewriteResolveCalls() {
-      for (NewWithInfo newWithInfo : factoryInjectorInfo.getNewWithInfoList()) {
-        createInlineBindingInjector(newWithInfo);
-      }
-
-      for (BinderInfo binderInfo : factoryInjectorInfo.getBinderInfoList()) {
-        createBindingInjector(binderInfo);
+      for (InjectInfo injectInfo : factoryInjectorInfo.getInjectInfoList()) {
+        createInlineBindingInjector(injectInfo);
       }
     }
 
@@ -314,9 +281,9 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
     }
 
 
-    private void createInlineBindingInjector(NewWithInfo newWithInfo) {
-      Node newWithCall = newWithInfo.getNode();
-      Node target = newWithCall.getFirstChild().getNext();
+    private void createInlineBindingInjector(InjectInfo injectInfo) {
+      Node injectCall = injectInfo.getNode();
+      Node target = injectCall.getFirstChild().getNext();
       Node inject = target.getNext();
       String name = target.getQualifiedName();
       if (name != null) {
@@ -324,65 +291,18 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
         if (typeInfoList.size() > 0) {
           injectFactory(typeInfoList);
           Node getprop = NodeUtil.newQualifiedNameNode(convention, name + "." + FACTORY_NAME);
-          Node call = NodeUtil.newCallNode(getprop, NodeUtil.newCallNode(inject.cloneTree()));
-          call.copyInformationFromForTree(newWithCall);
-          newWithCall.getParent().replaceChild(newWithCall, call);
+          Node call = NodeUtil.newCallNode(getprop, inject.cloneTree());
+          if (injectInfo.isInjectOnce()) {
+            Node instanceVar = IR.getprop(inject.cloneTree(), IR.string(INSTANCE_VAR + instanceId));
+            instanceId++;
+            Node assign = IR.assign(instanceVar.cloneTree(), call);
+            Node or = IR.or(instanceVar, assign);
+            call = or;
+          }
+          call.copyInformationFromForTree(injectCall);
+          injectCall.getParent().replaceChild(injectCall, call);
         }
       }
-    }
-
-
-    private void createBindingInjector(BinderInfo binderInfo) {
-      Node bindCall = binderInfo.getNode();
-      Node binding = bindCall.getFirstChild().getNext();
-      Node objLit = binding.getNext();
-      Node ret = IR.objectlit();
-
-      Map<BindedKeyInfo, BindedConstructorInfo> bindingInfoMap = binderInfo.getBindingInfoMap();
-      for (BindedKeyInfo keyInfo : bindingInfoMap.keySet()) {
-        BindedConstructorInfo ctorInfo = bindingInfoMap.get(keyInfo);
-        String key = keyInfo.getName();
-        Node value = ctorInfo.getNode();
-        String name = ctorInfo.getName();
-        List<TypeInfo> typeInfoList = factoryInjectorInfo.getTypeInfoMap().get(name);
-        if (typeInfoList.size() == 0) {
-          report(value, FactoryInjectorInfoCollector.MESSAGE_BIND_OBJECT_LITERAL_MEMBER_IS_INVALID);
-          continue;
-        }
-        injectFactory(typeInfoList);
-        Node getprop = NodeUtil.newQualifiedNameNode(convention, name + "." + FACTORY_NAME);
-        Node target = IR.getprop(binding.cloneTree(), IR.string(key));
-        Node call = NodeUtil.newCallNode(getprop, NodeUtil.newCallNode(target));
-        if (ctorInfo.isSingleton()) {
-          Node instanceVar = IR.getprop(target.cloneTree(), IR.string(INSTANCE_VAR));
-          call = IR.or(instanceVar, IR.assign(instanceVar.cloneTree(), call));
-        }
-        Node fn = buildFunctionExpression(call);
-        Node newKeyNode = IR.stringKey(key);
-        Node keyNode = keyInfo.getNode();
-        createReturnJSDocInfo(name, keyNode, newKeyNode);
-        newKeyNode.copyInformationFromForTree(keyNode);
-        fn.copyInformationFromForTree(value);
-        newKeyNode.addChildToBack(fn);
-        ret.addChildToBack(newKeyNode);
-      }
-      ret.copyInformationFromForTree(objLit);
-      bindCall.getParent().replaceChild(bindCall, ret);
-    }
- 
-    
-
-    private Node buildFunctionExpression(Node call) {
-      return IR.function(IR.name(""), IR.paramList(),
-          IR.block(IR.returnNode(call)));
-    }
-
-
-    private void createReturnJSDocInfo(String name, Node keyNode, Node newKeyNode) {
-      Node retType = IR.string(name);
-      JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
-      builder.recordReturnType(new JSTypeExpression(retType, keyNode.getSourceFileName()));
-      newKeyNode.setJSDocInfo(builder.build(newKeyNode));
     }
   }
 
