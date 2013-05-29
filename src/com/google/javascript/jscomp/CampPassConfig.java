@@ -31,7 +31,7 @@ public class CampPassConfig extends DefaultPassConfig {
   private HotSwapPassFactory mixinProcessor = new HotSwapPassFactory("mixinProcessor", true) {
     @Override
     protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-      return new MixinProcessor(compiler);
+      return new MixinProcessor(compiler, options);
     }
   };
 

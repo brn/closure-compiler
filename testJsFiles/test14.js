@@ -88,10 +88,12 @@ function Config2() {
 
 }
 
+var x = {};
+
 /**
  * @return {string}
  */
-Config2.prototype.userAge = function () {
+Config2.prototype.userAge__ = function () {
   return '12';
 };
 
@@ -102,20 +104,20 @@ camp = {
    * @param {Object=} opt_rename
    */
   mixin : function(a, b, opt_rename){
-    if (opt_rename) {
-      for (var prop in opt_rename) {
-        a.prototype[prop] = opt_rename[prop];
-      }
-    }
-    for (prop in b.prototype) {
-      if (!(prop in a.prototype)) {
-        a.prototype[prop] = b.prototype[prop];
+    opt_rename = opt_rename || {};
+    for (var prop in b.prototype) {
+      var newProp = opt_rename[prop] || prop;
+      if (!(newProp in a.prototype)) {
+        a.prototype[newProp] = b.prototype[prop];
       }
     }
   }
 };
 
-camp.mixin(Config1, Config2);
+
+camp.mixin(Config1, Config2, {
+  userAge__ : 'userAge'
+});
 
 
 /**
@@ -129,6 +131,8 @@ function TestBuilder() {
 
 }
 
+//TestBuilder.prototype.userAge = function(){};
+
 /**
  * @return {Test}
  */
@@ -139,5 +143,6 @@ TestBuilder.prototype.newInstance = function() {
 
 var test = new TestBuilder().newInstance();
 var userInfo = test.getUserInfo();
-document.getElementById('aaa').innerHTML = userInfo;
-document.getElementById('baaa').innerHTML = userInfo;
+document.body.innerHTML = userInfo;
+document.body.innerHTML = userInfo;
+document.body.innerHTML = x;

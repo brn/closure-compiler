@@ -234,7 +234,7 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
      * @return The factory method name.
      */
     private String createFactoryMethodName(String constructorName) {
-      return constructorName + "." + DIConsts.FACTORY_METHOD_NAME;
+      return constructorName + "." + FACTORY_NAME;
     }
 
 
@@ -255,7 +255,7 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
 
 
     private Node getBindingMethodCallNode(String name) {
-      Node getprop = NodeUtil.newQualifiedNameNode(convention, DIConsts.BINDINGS_REPO_NAME + "." + name);
+      Node getprop = NodeUtil.newQualifiedNameNode(convention, BINDINGS + "." + name);
       return NodeUtil.newCallNode(getprop);
     }
   }
