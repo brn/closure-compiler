@@ -238,7 +238,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
     if (comma != null) {
       isChanged = true;
       Node top = getStatementBeginningNode(n);
-      top.getParent().addChildAfter(top, IR.exprResult(comma));
+      top.getParent().addChildAfter(IR.exprResult(comma), top);
     }
 
     return isChanged;
