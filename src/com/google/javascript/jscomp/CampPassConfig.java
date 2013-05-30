@@ -9,6 +9,8 @@ public class CampPassConfig extends DefaultPassConfig {
 
   private boolean inserted = false;
 
+  private boolean mixinInserted = false;
+  
   private CompilerOptions options;
 
   ImmutableList<HotSwapPassFactory> SPECIAL_PASSES = new ImmutableList.Builder<HotSwapPassFactory>()
@@ -31,7 +33,7 @@ public class CampPassConfig extends DefaultPassConfig {
   private HotSwapPassFactory mixinProcessor = new HotSwapPassFactory("mixinProcessor", true) {
     @Override
     protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-      return new MixinProcessor(compiler, options);
+      return new MixinProcessor(compiler);
     }
   };
 
@@ -45,7 +47,7 @@ public class CampPassConfig extends DefaultPassConfig {
   protected List<PassFactory> getChecks() {
     List<PassFactory> ret = super.getChecks();
     List<PassFactory> specialPass = Lists.newArrayList();
-    boolean mixinInserted = false;
+    
     for (PassFactory passFactory : ret) {
       if (passFactory.equals(closureRewriteGoogClass) && !inserted) {
         inserted = true;

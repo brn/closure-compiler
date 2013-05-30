@@ -1,13 +1,12 @@
 package com.google.javascript.jscomp;
 
 import java.util.List;
-import java.util.Map;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+
 
 public class FactoryInjectorInfo {
 

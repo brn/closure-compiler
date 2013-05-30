@@ -9,7 +9,6 @@ import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.FactoryInjectorInfo.InjectInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.TypeInfo;
 import com.google.javascript.rhino.IR;
-import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
@@ -215,7 +214,6 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
 
     private void addJSDocInfo(List<String> paramList, Node assign) {
       if (paramList.size() > 0) {
-        JSDocInfo info = constructorInfo.getJSDocInfo();
         JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
         String sourceFileName = assign.getSourceFileName();
         Node name = IR.string(constructorInfo.getName());
@@ -304,12 +302,5 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
         }
       }
     }
-  }
-
-
-  private void report(Node n, DiagnosticType message, String... arguments) {
-    JSError error = JSError.make(n.getSourceFileName(),
-        n, message, arguments);
-    compiler.report(error);
   }
 }

@@ -1,5 +1,13 @@
 goog.provide('camp');
 
+/**
+ * @template T
+ * @param {T} obj
+ * @returns {T}
+ */
+function t(obj) {
+  return obj;
+}
 
 /**
  * @constructor
@@ -88,14 +96,17 @@ function Config2() {
 
 }
 
-var x = {};
+
 
 /**
  * @return {string}
  */
-Config2.prototype.userAge__ = function () {
+Config2.prototype.userAge = function () {
+  t(this);
   return '12';
 };
+
+Config2.prototype.hoge = 'aaaaa';
 
 camp = {
   /**
@@ -105,19 +116,22 @@ camp = {
    */
   mixin : function(a, b, opt_rename){
     opt_rename = opt_rename || {};
-    for (var prop in b.prototype) {
-      var newProp = opt_rename[prop] || prop;
-      if (!(newProp in a.prototype)) {
-        a.prototype[newProp] = b.prototype[prop];
+    var prop;
+
+    for (prop in opt_rename) {
+      a.prototype[prop] = b.prototype[opt_rename[prop]];
+    }
+
+    for (prop in b.prototype) {
+      if (!(prop in a.prototype)) {
+        a.prototype[prop] = b.prototype[prop];
       }
     }
   }
 };
 
 
-camp.mixin(Config1, Config2, {
-  userAge__ : 'userAge'
-});
+camp.mixin(Config1, Config2);
 
 
 /**
@@ -145,4 +159,3 @@ var test = new TestBuilder().newInstance();
 var userInfo = test.getUserInfo();
 document.body.innerHTML = userInfo;
 document.body.innerHTML = userInfo;
-document.body.innerHTML = x;
