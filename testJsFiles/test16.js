@@ -8,106 +8,136 @@ camp.module("camp.test.foo.bar", ['SDKListConfig', 'DefaultConfig'], function (e
 
   }
 
-  camp.mixin = function(a, b, opt_rename){
-    opt_rename = opt_rename || {};
+  /**
+   * @template T
+   * @param {function(new:T, ...):?} dst
+   * @param {Object} src
+   * @param {Object=} opt_override
+   */
+  camp.mixin = function(dst, src, opt_override) {
+    opt_override = opt_override || {};
     var prop;
+    var target = typeof dst === 'function'? dst.prototype :
+          dst.__trait__? dst : null;
 
-    for (prop in opt_rename) {
-      a.prototype[prop] = b.prototype[opt_rename[prop]];
+    if (target === null) {
+      throw new Error('camp.mixin is appliable only trait or constructor');
     }
 
-    for (prop in b.prototype) {
-      if (!(prop in a.prototype)) {
-        a.prototype[prop] = b.prototype[prop];
-      }
+    for (prop in opt_override) {
+      dst.prototype[prop] = opt_override[prop];
     }
-  }
 
-
-  /**
-   * @constructor
-   */
-  exports.DefaultConfig = function() {};
-
-
-  exports.DefaultConfig.prototype.cookies = function() {
-    return camp.utils.dependencies.inject(Test, this);
-  };
-
-
-  exports.DefaultConfig.prototype.tooltip = function() {
-    return 1;
-  };
-
-  exports.DefaultConfig.prototype.pubsub = function() {
-    return 1;
-  };
-
-
-  exports.DefaultConfig.prototype.requestManager = function() {
-    return 1;
-  };
-
-
-  exports.DefaultConfig.prototype.isolate = function() {
-    return '1';
-  };
-
-  exports.DefaultConfig.prototype.tokenUtil = function() {
-    return '1';
-  };
-
-  /**
-   * @constructor
-   */
-  exports.SDKListConfig = function() {};
-  camp.mixin(exports.SDKListConfig, exports.DefaultConfig);
-
-  exports.SDKListConfig.prototype.sdkListRequest = function() {
-    return 1;
-  };
-
-
-  /**
-   * @return {Object}
-   */
-  exports.SDKListConfig.prototype.bindingResources = function() {
-    return {
-
+    for (prop in src) {
+      if (prop === '__trait__') continue;
+      !(prop in opt_override) &&
+        (dst.prototype[prop] = src.prototype[prop]);
     };
   };
 
 
-  /**
-   * @return {string}
-   */
-  exports.SDKListConfig.prototype.sdkDeleteUrl = function() {
-    return 'a';
-  };
-
-
-
-  exports.SDKListConfig.prototype.sdkListRequestService = function() {
-    return 'a';
-  };
-
-
-
-  exports.SDKListConfig.prototype.tokenUtil = function() {
-    return 'a';
-  };
-
-
-  /**
-   * @return {function():string}
-   */
-  exports.SDKListConfig.prototype.resultProvider = function() {
+  exports.DefaultConfig = camp.trait({
     /**
-     *
-     * @return {string}
+     * @return {number}
      */
-    return function() {
-      return 'aa';
-    };
-  };
+    cookies : function() {
+      return 1;
+    },
+
+
+    /**
+     * @return {number}
+     */
+    tooltip : function() {
+      return 1;
+    },
+
+
+    /**
+     * @return {number}
+     */
+    pubsub : function() {
+      return 1;
+    },
+
+
+    /**
+     * @return {number}
+     */
+    requestManager : function() {
+      return 1;
+    },
+
+
+    /**
+     * @return {number}
+     */
+    isolate : function() {
+      return 1;
+    },
+
+
+    /**
+     * @return {number}
+     */
+    tokenUtil : function() {
+      return 1;
+    },
+
+    /**
+     * @return {number}
+     */
+    snapshotRecorder : function() {
+      return 1;
+    }
+  });
+
+  exports.SDKListConfig = camp.trait({});
+  camp.mixin(exports.SDKListConfig, [exports.DefaultConfig], {
+    /**
+     * @return {number}
+     */
+    sdkListRequest : function() {
+      return 1;
+    },
+
+
+    /**
+     * @return {number}
+     */
+    bindingResources : function() {
+      return 1;
+    },
+
+
+    /**
+     * @return {number}
+     */
+    sdkDeleteUrl : function() {
+      return 1;
+    },
+
+
+    /**
+     * @return {number}
+     */
+    sdkListRequestService : function() {
+      return 1;
+    },
+
+
+    /**
+     * @return {number}
+     */
+    resultProvider : function() {
+      return 1;
+    }
+  });
+
+
+  /**
+   * @constructor
+   */
+  exports.SDKListVMConfig = function() {};
+  camp.mixin(exports.SDKListVMConfig, [exports.SDKListConfig]);
 });
