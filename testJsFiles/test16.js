@@ -92,8 +92,18 @@ camp.module("camp.test.foo.bar", ['SDKListConfig', 'DefaultConfig'], function (e
     }
   });
 
-  exports.SDKListConfig = camp.trait({});
-  camp.mixin(exports.SDKListConfig, [exports.DefaultConfig], {
+
+  exports.CalendarConfig = camp.trait({
+
+    /**
+     * @return {number}
+     */
+    calendarType : function() {
+      return 1;
+    }
+  });
+
+  exports.SDKListConfig = camp.trait([exports.DefaultConfig, exports.CalendarConfig], {
     /**
      * @return {number}
      */
@@ -130,6 +140,10 @@ camp.module("camp.test.foo.bar", ['SDKListConfig', 'DefaultConfig'], function (e
      * @return {number}
      */
     resultProvider : function() {
+      return 1;
+    },
+
+    calendarType : function() {
       return 1;
     }
   });

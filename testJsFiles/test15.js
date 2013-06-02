@@ -16,7 +16,18 @@ camp = {
     }
   },
 
-  trait : function(def) {
+  trait : function(ext, def) {
+    if (Array.isArray(ext)) {
+      ext.forEach(function(item) {
+        for (var prop in item) {
+          if (!(item in def) && Object.prototype.hasOwnProperty.call(ext, prop)) {
+            def[prop] = item[prop];
+          }
+        }
+      });
+    } else {
+      def = ext || {};
+    }
     return def;
   }
 };
@@ -141,13 +152,19 @@ var trait = camp.trait({
 
 
 var trait2 = camp.trait({
+      /**
+       * @return {string}
+       */
       hoge : function() {
         return '1000';
+      },
+
+      setMessage : function() {
+
       }
     });
 
-var trait3 = camp.trait({});
-camp.mixin(trait3, [trait, trait2], {
+var trait3 = camp.trait([trait, trait2], {
   foo : function() {
     return 2000;
   },
@@ -162,14 +179,7 @@ camp.mixin(trait3, [trait, trait2], {
 function Test() {
   this._state = false;
 }
-camp.mixin(Test, [trait, trait2], {
-  /**
-   * @return {Object}
-   */
-  getItems : function() {
-    return {mstDeviceList : 'OK!'};
-  }
-});
+camp.mixin(Test, [trait, trait2]);
 
 /**
  * @param {string} message
