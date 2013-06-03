@@ -1,41 +1,115 @@
 var goog = {
-      mixin : function(a,b) {
-        for (var prop in b) {
-          a[prop] = b[prop];
-        }
+      provide : function(){},
+      require : function(){},
+      inherits : function(a,b) {
+
       }
     };
-camp.module("test.module", ['bindings', 'bindings2'], function (exports) {
+
+camp.module("camp.test", ['InstanceContainer'], function (exports) {
+  /**
+   * @constructor
+   */
+  exports.BaseFactory = function() {};
 
   /**
-   * @returns {{item : string, item2 : string}}
+   * @extends {exports.BaseFactory}
+   * @constructor
+   * @template T, R
+   * @param {function(R):T} instance
    */
-  exports.bindings.items = function() {
-    return {
-      item : 'item',
-      item2 : 'item2'
-    };
+  exports.FactoryContainer = function(instance) {
+    /**
+     * @type {function(R):T}
+     */
+    this._instance = instance;
   };
+  goog.inherits(exports.FactoryContainer, exports.BaseFactory);
+
 
   /**
-   * @returns {{item3 : string}}
+   * @returns {T}
+   * @param {R} p
    */
-  exports.bindings2.items2 = function(bindings) {
-    return {
-      item3 : 'item3'
-    };
+  exports.FactoryContainer.prototype.getInstance = function(p) {
+    return this._instance(p);
   };
 
 
-  var x = {};
-  var m = exports.bindings.items();
-  var n = exports.bindings2.items2();
-  for (var prop in m) {
-    x[prop] = m[prop];
-  }
-  for (prop in n) {
-    x[prop] = n[prop];
+  /**
+   * @constructor
+   * @param {{a:string}} param
+   */
+  function Test(param) {
+    this.param = param;
   }
 
-  document.getElementById('aaaaa').innerHTML = x.item + x.item2 + x.item3;
+
+  /**
+   * @constructor
+   * @param {string} param
+   */
+  function Test2(param) {
+    this.param = param;
+  }
+
+
+
+  /**
+   * @type {exports.FactoryContainer.<!Test,{testParam:function():{a:string}}>}
+   */
+  var c = new exports.FactoryContainer(function(o) {
+        var param = o.testParam();
+        return new Test(param);
+      });
+
+  /**
+   * @type {exports.FactoryContainer.<!Test2,Object>}
+   */
+  var v = new exports.FactoryContainer(function(o) {
+        return new Test2('aaa');
+      });
+
+  /**
+   * @type {exports.FactoryContainer.<{a:string},Object>}
+   */
+  var o = new exports.FactoryContainer(function(o) {
+        return {
+          a: 'ok!'
+        };
+      });
+
+  /**
+   * @constructor
+   * @struct
+   */
+  function ComponentRegistry() {
+
+    this.test = function() {
+      return c.getInstance(this);
+    };
+
+
+    this.test2 = function () {
+      return v.getInstance(this);
+    };
+
+
+    this.testParam = function(){
+      return o.getInstance(this);
+    };
+  }
+
+  var s = new ComponentRegistry();
+
+  /**
+   * @type {Test}
+   */
+  var test = s.test();
+  /**
+   * @type {Test2}
+   */
+  var test2 = s.test2();
+  window.console.log(test.param);
+  window.console.log(test2.param);
 });

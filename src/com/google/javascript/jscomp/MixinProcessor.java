@@ -65,7 +65,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
       .error(
           "JSC_MESSAGE_REQUIRED_TRAIT_IS_NOT_EXISTS",
           "The trait {0} required from {1} is not exists.");
-  
+
   static final DiagnosticType MESSAGE_DETECT_UNRESOLVED_METHOD = DiagnosticType.error(
       "JSC_MESSAGE_DETECT_UNRESOLVED_METHOD",
       "The function {0} defined in {1} conflict with the function of {2}."
@@ -115,28 +115,34 @@ public class MixinProcessor implements HotSwapCompilerPass {
 
   private final class TraitRewriter {
 
-    public void rewrite(TraitInfo traitInfo) {
-      extendsTrait(traitInfo);
-    }
-
-
-    private void extendsTrait(TraitInfo traitInfo) {
-      List<String> requires = traitInfo.getRequires();
+    public void rewrite() {
       boolean isChanged = true;
       while (isChanged) {
         isChanged = false;
-        for (String requireName : requires) {
-          TraitInfo requireTrait = traitInfoMap.get(requireName);
-          if (requireTrait == null) {
-            report(traitInfo.getTopNode(), MESSAGE_REQUIRED_TRAIT_IS_NOT_EXISTS,
-                requireName, traitInfo.getRefName());
-            continue;
-          }
-          if (addProperties(traitInfo, requireTrait)) {
+        for (TraitInfo info : traitInfoMap.values()) {
+          if (extendsTrait(info)) {
             isChanged = true;
           }
         }
       }
+    }
+
+
+    private boolean extendsTrait(TraitInfo traitInfo) {
+      List<String> requires = traitInfo.getRequires();
+      boolean isChanged = false;
+      for (String requireName : requires) {
+        TraitInfo requireTrait = traitInfoMap.get(requireName);
+        if (requireTrait == null) {
+          report(traitInfo.getTopNode(), MESSAGE_REQUIRED_TRAIT_IS_NOT_EXISTS,
+              requireName, traitInfo.getRefName());
+          continue;
+        }
+        if (addProperties(traitInfo, requireTrait)) {
+          isChanged = true;
+        }
+      }
+      return isChanged;
     }
 
 
@@ -146,17 +152,22 @@ public class MixinProcessor implements HotSwapCompilerPass {
       boolean isChanged = false;
 
       for (TraitProperty srcProp : srcProps.values()) {
-        TraitProperty alreadyDefinedProp = dstProps.get(srcProp.getName()); 
+        TraitProperty alreadyDefinedProp = dstProps.get(srcProp.getName());
+
         if (srcProp.isProcessed()) {
           continue;
         }
-        if (alreadyDefinedProp != null && !alreadyDefinedProp.isImplicit()) {
-          report(srcProp.getValueNode(), MESSAGE_DETECT_UNRESOLVED_METHOD,
-              srcProp.getName(), srcProp.getRefName(), alreadyDefinedProp.getRefName());
+
+        if (alreadyDefinedProp != null) {
+          if (!alreadyDefinedProp.isImplicit()) {
+            report(srcProp.getValueNode(), MESSAGE_DETECT_UNRESOLVED_METHOD,
+                srcProp.getName(), srcProp.getRefName(), alreadyDefinedProp.getRefName());
+          }
+
           continue;
         }
         isChanged = true;
-        srcProp.setProcessed();
+        srcProp.setProcessed(true);
         Node key = IR.stringKey(srcProp.getName());
         Node srcKey = srcProp.getValueNode().getParent();
         Node qnameNode =
@@ -165,7 +176,8 @@ public class MixinProcessor implements HotSwapCompilerPass {
         key.copyInformationFrom(srcKey);
         key.addChildToBack(qnameNode);
         key.setJSDocInfo(srcKey.getJSDocInfo());
-        TraitProperty newProp = (TraitProperty)srcProp.clone();
+        TraitProperty newProp = (TraitProperty) srcProp.clone();
+        newProp.setProcessed(false);
         newProp.setImplicit(false);
         dst.addProperty(newProp, key);
       }
@@ -179,9 +191,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
 
   private void rewrite() {
 
-    for (TraitInfo traitInfo : traitInfoMap.values()) {
-      traitRewriter.rewrite(traitInfo);
-    }
+    traitRewriter.rewrite();
 
     for (MixinInfo info : mixinInfoList) {
       List<String> traits = info.getTraits();
@@ -244,7 +254,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
       if (excludesMap.containsKey(name)) {
         continue;
       }
-      
+
       String specializedName = createSpecializedName(qname, prop.getName());
       mutationTask.add(new PropertyMutator(minfo, prop, qname, specializedName));
     }
@@ -373,7 +383,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
   }
 
 
-  private final class TraitProperty implements Cloneable{
+  private final class TraitProperty implements Cloneable {
 
     private Node valueNode;
 
@@ -388,7 +398,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
     private boolean isProcessed = false;
 
     private boolean isSpecialized = false;
-    
+
     private boolean isImplicit = false;
 
     private TraitInfo holder;
@@ -433,8 +443,8 @@ public class MixinProcessor implements HotSwapCompilerPass {
     }
 
 
-    public void setProcessed() {
-      isProcessed = true;
+    public void setProcessed(boolean isProcessed) {
+      this.isProcessed = isProcessed;
     }
 
 
@@ -461,15 +471,18 @@ public class MixinProcessor implements HotSwapCompilerPass {
     public boolean isSpecialized() {
       return this.isSpecialized;
     }
-    
+
+
     public void setImplicit(boolean isImplicit) {
       this.isImplicit = isImplicit;
     }
-    
+
+
     public boolean isImplicit() {
       return this.isImplicit;
     }
-    
+
+
     @Override
     public Object clone() {
       try {
@@ -566,7 +579,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
       } else {
         JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
         builder.recordThisType(exp);
-        target.setJSDocInfo(builder.build(target)); 
+        target.setJSDocInfo(builder.build(target));
       }
     }
 
@@ -662,7 +675,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
         String qname = parent.getFirstChild().getQualifiedName();
         refName = qname;
         break;
-      case Token.STRING_KEY :
+      case Token.STRING_KEY:
         refName = NodeUtil.getBestLValueName(parent);
       }
 
@@ -721,7 +734,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
     }
   }
 
-  
+
   private final class TraitInfoCollector extends AbstractPostOrderCallback {
 
     private TraitMarkerProcessor traitMarkerProcessor = new TraitMarkerProcessor();
