@@ -16,13 +16,19 @@ camp.module("camp.test", ['InstanceContainer'], function (exports) {
    * @extends {exports.BaseFactory}
    * @constructor
    * @template T, R
-   * @param {function(R):T} instance
+   * @param {R} context
+   * @param {function(this:R):T} instance
    */
-  exports.FactoryContainer = function(instance) {
+  exports.FactoryContainer = function(context, instance) {
     /**
-     * @type {function(R):T}
+     * @type {function(this:R):T}
      */
     this._instance = instance;
+
+    /**
+     * @type {R}
+     */
+    this._context = context;
   };
   goog.inherits(exports.FactoryContainer, exports.BaseFactory);
 
@@ -32,7 +38,7 @@ camp.module("camp.test", ['InstanceContainer'], function (exports) {
    * @param {R} p
    */
   exports.FactoryContainer.prototype.getInstance = function(p) {
-    return this._instance(p);
+    return this._instance().call(this._context);
   };
 
 
@@ -56,48 +62,51 @@ camp.module("camp.test", ['InstanceContainer'], function (exports) {
 
 
   /**
-   * @type {exports.FactoryContainer.<!Test,{testParam:function():{a:string}}>}
+   * @template T
+   * @this {T}
    */
-  var c = new exports.FactoryContainer(function(o) {
-        var param = o.testParam();
-        return new Test(param);
-      });
+  function componentExtensions() {
+
+    /**
+     * @type {function():Test}
+     */
+    this.testA = function(){
+      return new Test(this.testParam());
+    };
+
+
+    /**
+     * @type {function():Test2}
+     */
+    this.test2 = function(o) {
+      return new Test2('aaa');
+    };
+  }
+
 
   /**
-   * @type {exports.FactoryContainer.<!Test2,Object>}
+   * @template T
+   * @this {T}
    */
-  var v = new exports.FactoryContainer(function(o) {
-        return new Test2('aaa');
-      });
+  function parameterExtensions() {
+    /**
+     * @type {function():{a:string}}
+     */
+    this.testParam = function(o) {
+      return {
+        a: 'ok!'
+      };
+    };
+  }
 
-  /**
-   * @type {exports.FactoryContainer.<{a:string},Object>}
-   */
-  var o = new exports.FactoryContainer(function(o) {
-        return {
-          a: 'ok!'
-        };
-      });
 
   /**
    * @constructor
    * @struct
    */
   function ComponentRegistry() {
-
-    this.test = function() {
-      return c.getInstance(this);
-    };
-
-
-    this.test2 = function () {
-      return v.getInstance(this);
-    };
-
-
-    this.testParam = function(){
-      return o.getInstance(this);
-    };
+    componentExtensions.call(this);
+    parameterExtensions.call(this);
   }
 
   var s = new ComponentRegistry();
@@ -105,7 +114,7 @@ camp.module("camp.test", ['InstanceContainer'], function (exports) {
   /**
    * @type {Test}
    */
-  var test = s.test();
+  var test = s.testA();
   /**
    * @type {Test2}
    */

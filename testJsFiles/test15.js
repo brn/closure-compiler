@@ -33,6 +33,11 @@ camp = {
 };
 
 
+camp.trait.require = function() {
+  throw new Error('required property is not implemented.');
+};
+
+
 /**
  * Inherit the prototype methods from one constructor into another.
  *
@@ -144,34 +149,37 @@ var trait = camp.trait({
           selectedOs : 'selectedOs',
           selectedDevice : 'selectedDevice'
         };
-      }
+      },
+
+      _setMessage : camp.trait.require
     });
 
 
 
-
-
-var trait2 = camp.trait({
+var trait2 = camp.trait([trait], {
       /**
        * @return {string}
        */
       hoge : function() {
         return '1000';
-      },
-
-      setMessage : function() {
-
       }
     });
 
-var trait3 = camp.trait([trait, trait2], {
-  foo : function() {
-    return 2000;
-  },
-  bar : function() {
-    return 3000;
-  }
-});
+var trait3 = camp.trait([trait2], {
+      foo : function() {
+        return 2000;
+      },
+      bar : function() {
+        return 3000;
+      },
+
+      /**
+       * @param {string} message
+       */
+      _setMessage : function(message) {
+        document.getElementById('aaa').innerHTML = message;
+      }
+    });
 
 /**
  * @constructor
@@ -179,14 +187,14 @@ var trait3 = camp.trait([trait, trait2], {
 function Test() {
   this._state = false;
 }
-camp.mixin(Test, [trait, trait2]);
-
-/**
- * @param {string} message
- */
-Test.prototype._setMessage = function(message) {
-  document.getElementById('aaa').innerHTML = message;
-};
+camp.mixin(Test, [trait3], {
+  /**
+   * @param {string} message
+   */
+  setMessage : function(message) {
+    this._setMessage(message);
+  }
+});
 
 
 var hoge = new Test();

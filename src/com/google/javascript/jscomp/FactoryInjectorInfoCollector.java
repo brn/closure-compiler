@@ -54,6 +54,8 @@ public class FactoryInjectorInfoCollector {
           name = parent.getFirstChild().getQualifiedName();
         } else if (NodeUtil.isVarDeclaration(parent)) {
           name = parent.getString();
+        } else if (parent.isStringKey()) {
+          name = NodeUtil.getBestLValueName(parent);
         }
       }
 

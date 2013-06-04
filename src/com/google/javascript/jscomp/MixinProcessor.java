@@ -4,6 +4,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -11,6 +12,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
@@ -28,6 +30,10 @@ import com.google.javascript.rhino.jstype.JSTypeRegistry;
  */
 public class MixinProcessor implements HotSwapCompilerPass {
   private static final String MIXIN_FN_NAME = "camp.mixin";
+
+  private static final String TRAIT_CALL = "camp.trait";
+
+  private static final String REQUIRE = "camp.trait.require";
 
   static final DiagnosticType MESSAGE_MIXIN_FIRST_ARGUMENT_IS_INVALID = DiagnosticType
       .error(
@@ -71,11 +77,31 @@ public class MixinProcessor implements HotSwapCompilerPass {
       "The function {0} defined in {1} conflict with the function of {2}."
       );
 
+  static final DiagnosticType MESSAGE_FUNCTION_MUST_BE_CALLED_IN_GLOBAL_SCOPE = DiagnosticType
+      .error(
+          "JSC_MESSAGE_FUNCTION_MUST_BE_CALLED_IN_GLOBAL_SCOPE",
+          "The function {0} must be called in the global scope."
+      );
+
+  static final DiagnosticType MESSAGE_REQUIRED_PROPERTY_IS_NOT_IMPLMENTED = DiagnosticType.error(
+      "JSC_MESSAGE_REUIRED_PROPERTY_IS_NOT_IMPLMENTED",
+      "The property {0} required by {1} is not implemented."
+      );
+
+  static final DiagnosticType MESSAGE_REQUIRE_IS_NOT_ALLOWED_HERE = DiagnosticType.error(
+      "JSC_MESSAGE_REQUIRE_IS_NOT_ALLOWED_HERE",
+      "The " + REQUIRE + " is not allowed here."
+      );
+
   private AbstractCompiler compiler;
 
   private CodingConvention convention;
 
   private final List<MixinInfo> mixinInfoList = Lists.newArrayList();
+
+  private final Set<String> typeInfoSet = Sets.newHashSet();
+
+  private final Map<String, TraitInfo> traitInfoMap = Maps.newHashMap();
 
 
   MixinProcessor(AbstractCompiler compiler) {
@@ -152,22 +178,28 @@ public class MixinProcessor implements HotSwapCompilerPass {
       boolean isChanged = false;
 
       for (TraitProperty srcProp : srcProps.values()) {
-        TraitProperty alreadyDefinedProp = dstProps.get(srcProp.getName());
-
-        if (srcProp.isProcessed()) {
+        
+        if (srcProp.isPropagated(dst)) {
           continue;
         }
 
+        TraitProperty alreadyDefinedProp = dstProps.get(srcProp.getName());
         if (alreadyDefinedProp != null) {
+          if (srcProp.isRequire() && !alreadyDefinedProp.isRequire()) {
+            continue;
+          }
+
           if (!alreadyDefinedProp.isImplicit()) {
-            report(srcProp.getValueNode(), MESSAGE_DETECT_UNRESOLVED_METHOD,
-                srcProp.getName(), srcProp.getRefName(), alreadyDefinedProp.getRefName());
+            report(dst.getTopNode(), MESSAGE_DETECT_UNRESOLVED_METHOD,
+                srcProp.getName(), srcProp.getCurrentHolderName(),
+                alreadyDefinedProp.getLastHolderName());
           }
 
           continue;
         }
+
         isChanged = true;
-        srcProp.setProcessed(true);
+        srcProp.markAsPropagated(dst);
         Node key = IR.stringKey(srcProp.getName());
         Node srcKey = srcProp.getValueNode().getParent();
         Node qnameNode =
@@ -177,7 +209,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
         key.addChildToBack(qnameNode);
         key.setJSDocInfo(srcKey.getJSDocInfo());
         TraitProperty newProp = (TraitProperty) srcProp.clone();
-        newProp.setProcessed(false);
+        newProp.setCurrentHolderName(dst.getRefName());
         newProp.setImplicit(false);
         dst.addProperty(newProp, key);
       }
@@ -189,11 +221,74 @@ public class MixinProcessor implements HotSwapCompilerPass {
   private TraitRewriter traitRewriter = new TraitRewriter();
 
 
+  private final class TraitImplementationInfo {
+    private final class ImplementationInfo {
+      public boolean isImplmented = false;
+
+      public TraitProperty prop;
+
+
+      public ImplementationInfo(TraitProperty prop) {
+        this.prop = prop;
+      }
+    }
+
+    private Map<String, ImplementationInfo> implementationMap = Maps.newHashMap();
+
+    private Map<String, TraitProperty> conflictionGuard = Maps.newHashMap();
+
+
+    public void addImplementationInfo(TraitProperty prop) {
+      String name = prop.getName();
+      implementationMap.put(name, new ImplementationInfo(prop));
+    }
+
+
+    public boolean checkConfliction(TraitProperty prop, Node errorNode) {
+      String name = prop.getName();
+      if (conflictionGuard.containsKey(name)) {
+        report(errorNode, MESSAGE_DETECT_UNRESOLVED_METHOD,
+            prop.getName(), prop.getCurrentHolderName(),
+            conflictionGuard.get(name).getCurrentHolderName());
+        return false;
+      }
+      conflictionGuard.put(name, prop);
+      return true;
+    }
+
+
+    public void markAsImplemented(TraitProperty prop) {
+      String name = prop.getName();
+      ImplementationInfo info = implementationMap.get(name);
+      if (info != null) {
+        info.isImplmented = true;
+      }
+    }
+
+
+    public void checkUnimplementedProperty(Node errorNode) {
+      for (String name : implementationMap.keySet()) {
+        ImplementationInfo iinfo = implementationMap.get(name);
+        if (!iinfo.isImplmented) {
+          report(errorNode, MESSAGE_REQUIRED_PROPERTY_IS_NOT_IMPLMENTED,
+              name, iinfo.prop.getCurrentHolderName());
+        }
+      }
+    }
+  }
+
+
   private void rewrite() {
 
     traitRewriter.rewrite();
 
     for (MixinInfo info : mixinInfoList) {
+      TraitImplementationInfo tiInfo = new TraitImplementationInfo();
+      if (!typeInfoSet.contains(info.getType())) {
+        report(info.getNode(), MESSAGE_MIXIN_FIRST_ARGUMENT_IS_INVALID);
+        continue;
+      }
+
       List<String> traits = info.getTraits();
       for (String trait : traits) {
         TraitInfo tinfo = traitInfoMap.get(trait);
@@ -202,10 +297,11 @@ public class MixinProcessor implements HotSwapCompilerPass {
               trait, info.getType());
           continue;
         }
-        assignPrototype(tinfo, info);
-        addOverrideAsPrototype(info, tinfo);
+        assignPrototype(tinfo, info, tiInfo);
       }
 
+      addOverrideAsPrototype(info);
+      tiInfo.checkUnimplementedProperty(info.getTopNode());
       info.getTopNode().detachFromParent();
       compiler.reportCodeChange();
     }
@@ -221,7 +317,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
   }
 
 
-  private void addOverrideAsPrototype(MixinInfo minfo, TraitInfo tinfo) {
+  private void addOverrideAsPrototype(MixinInfo minfo) {
     Map<String, Node> excludesMap = minfo.getExcludesMap();
     String qname = minfo.getType();
     Node top = minfo.getTopNode();
@@ -229,6 +325,12 @@ public class MixinProcessor implements HotSwapCompilerPass {
 
     for (String key : excludesMap.keySet()) {
       Node def = excludesMap.get(key);
+      if (def.isGetProp()) {
+        String valueName = def.getQualifiedName();
+        if (valueName != null && valueName.equals(REQUIRE)) {
+          report(def, MESSAGE_REQUIRE_IS_NOT_ALLOWED_HERE);
+        }
+      }
       Node keyNode = def.getParent();
       Node expr = createAssignment(qname, key, def);
       expr.copyInformationFromForTree(keyNode);
@@ -237,13 +339,18 @@ public class MixinProcessor implements HotSwapCompilerPass {
       parent.addChildAfter(expr, top);
       compiler.reportCodeChange();
     }
+
   }
 
 
-  private void assignPrototype(TraitInfo tinfo, MixinInfo minfo) {
+  private void assignPrototype(
+      TraitInfo tinfo,
+      MixinInfo minfo,
+      TraitImplementationInfo tiInfo) {
     Map<String, TraitProperty> properties = tinfo.getProperties();
-    String qname = minfo.getType();
 
+    String qname = minfo.getType();
+    Node top = minfo.getTopNode();
     Map<String, Node> excludesMap = minfo.getExcludesMap();
     List<PropertyMutator> mutationTask = Lists.newArrayList();
     for (TraitProperty prop : properties.values()) {
@@ -255,12 +362,21 @@ public class MixinProcessor implements HotSwapCompilerPass {
         continue;
       }
 
+      if (prop.isRequire()) {
+        tiInfo.addImplementationInfo(prop);
+        continue;
+      }
+
+      if (!tiInfo.checkConfliction(prop, top)) {
+        continue;
+      }
+
       String specializedName = createSpecializedName(qname, prop.getName());
       mutationTask.add(new PropertyMutator(minfo, prop, qname, specializedName));
     }
 
     for (PropertyMutator mutator : mutationTask) {
-      mutator.mutate();
+      mutator.mutate(tiInfo);
     }
   }
 
@@ -306,10 +422,11 @@ public class MixinProcessor implements HotSwapCompilerPass {
     }
 
 
-    public void mutate() {
+    public void mutate(TraitImplementationInfo tiInfo) {
       Node top = minfo.getTopNode();
       Node parent = top.getParent();
       TraitInfo holder = prop.getHolder();
+      tiInfo.markAsImplemented(prop);
       holder.addNewPropertyFrom(prop, specializedName, qname);
       Node expr = createAssignment(qname, prop.getName(), specializedName, prop.getRefName());
       expr.copyInformationFromForTree(prop.getValueNode().getParent());
@@ -390,16 +507,22 @@ public class MixinProcessor implements HotSwapCompilerPass {
     private String name;
 
     private String refName;
+    
+    private String lastHolderName;
 
     private Node definitionPosition;
 
     private String thisType = "Object";
 
-    private boolean isProcessed = false;
+    private String currentHolderName;    
 
+    private Set<TraitInfo> propagationInfo = Sets.newHashSet();
+    
     private boolean isSpecialized = false;
 
     private boolean isImplicit = false;
+
+    private boolean isRequire = false;
 
     private TraitInfo holder;
 
@@ -412,6 +535,8 @@ public class MixinProcessor implements HotSwapCompilerPass {
         TraitInfo holder) {
       this.name = name;
       this.refName = refName;
+      this.lastHolderName = refName;
+      this.currentHolderName = refName;
       this.valueNode = valueNode;
       this.definitionPosition = definitionPosition;
       this.holder = holder;
@@ -435,16 +560,6 @@ public class MixinProcessor implements HotSwapCompilerPass {
 
     public Node getDefinitionPosition() {
       return definitionPosition;
-    }
-
-
-    public boolean isProcessed() {
-      return isProcessed;
-    }
-
-
-    public void setProcessed(boolean isProcessed) {
-      this.isProcessed = isProcessed;
     }
 
 
@@ -483,10 +598,44 @@ public class MixinProcessor implements HotSwapCompilerPass {
     }
 
 
+    public boolean isRequire() {
+      return isRequire;
+    }
+
+
+    public void markAsRequire() {
+      this.isRequire = true;
+    }
+
+
+    public void setCurrentHolderName(String name) {
+      this.lastHolderName = this.currentHolderName;
+      this.currentHolderName = name;
+    }
+
+
+    public String getCurrentHolderName() {
+      return this.currentHolderName;
+    }
+    
+    public String getLastHolderName() {
+      return this.lastHolderName;
+    }
+
+    public boolean isPropagated(TraitInfo tinfo) {
+      return propagationInfo.contains(tinfo);
+    }
+    
+    public void markAsPropagated(TraitInfo tinfo) {
+      this.propagationInfo.add(tinfo);
+    }
+    
     @Override
     public Object clone() {
       try {
-        return super.clone();
+        TraitProperty ret = (TraitProperty)super.clone();
+        ret.propagationInfo = Sets.newHashSet();
+        return ret;
       } catch (CloneNotSupportedException e) {
         throw new InternalError(e.toString());
       }
@@ -524,6 +673,12 @@ public class MixinProcessor implements HotSwapCompilerPass {
         Node value = prop.getFirstChild();
         if (value.isFunction()) {
           attachThisType(property.getThisType(), value);
+        }
+        if (value.isGetProp()) {
+          String qname = value.getQualifiedName();
+          if (qname.equals(REQUIRE)) {
+            property.markAsRequire();
+          }
         }
         properties.put(name, property);
       }
@@ -629,10 +784,6 @@ public class MixinProcessor implements HotSwapCompilerPass {
     }
   }
 
-  private final Map<String, TraitInfo> traitInfoMap = Maps.newHashMap();
-
-  private static final String TRAIT_CALL = "camp.trait";
-
 
   private Node getStatementBeginningNode(Node n) {
     while (n != null) {
@@ -735,31 +886,8 @@ public class MixinProcessor implements HotSwapCompilerPass {
   }
 
 
-  private final class TraitInfoCollector extends AbstractPostOrderCallback {
-
-    private TraitMarkerProcessor traitMarkerProcessor = new TraitMarkerProcessor();
-
-
-    public void visit(NodeTraversal t, Node n, Node parent) {
-      if (n.isCall()) {
-        Node firstChild = n.getFirstChild();
-        if (firstChild.isGetProp()) {
-          String qname = firstChild.getQualifiedName();
-          if (qname == null) {
-            return;
-          }
-
-          if (qname.equals(TRAIT_CALL)) {
-            traitMarkerProcessor.process(t, n, parent, firstChild);
-          } else if (qname.equals(MIXIN_FN_NAME)) {
-            processMixin(t, n, parent, firstChild);
-          }
-        }
-      }
-    }
-
-
-    private void processMixin(NodeTraversal t, Node n, Node parent, Node firstChild) {
+  private final class MixinMarkerProcessor {
+    public void process(NodeTraversal t, Node n, Node parent, Node firstChild) {
       Node dst = firstChild.getNext();
 
       if (dst == null || (!dst.isName() && !NodeUtil.isGet(dst))) {
@@ -813,6 +941,71 @@ public class MixinProcessor implements HotSwapCompilerPass {
 
       MixinInfo mixinInfo = new MixinInfo(n, top, qname, traits, excludesMap);
       mixinInfoList.add(mixinInfo);
+    }
+  }
+
+
+  private final class TypeInfoMarkerProcessor {
+    public void process(NodeTraversal t, Node n, Node parent) {
+      String name = null;
+      if (NodeUtil.isFunctionDeclaration(n)) {
+        name = n.getFirstChild().getString();
+      } else {
+        if (parent.isAssign()) {
+          name = parent.getFirstChild().getQualifiedName();
+        } else if (NodeUtil.isVarDeclaration(parent)) {
+          name = parent.getString();
+        } else if (parent.isStringKey()) {
+          name = NodeUtil.getBestLValueName(parent);
+        }
+      }
+
+      if (name != null) {
+        typeInfoSet.add(name);
+      }
+    }
+  }
+
+
+  private final class TraitInfoCollector extends AbstractPostOrderCallback {
+
+    private TraitMarkerProcessor traitMarkerProcessor = new TraitMarkerProcessor();
+
+    private MixinMarkerProcessor mixinMarkerProcessor = new MixinMarkerProcessor();
+
+    private TypeInfoMarkerProcessor typeInfoMarkerProcessor = new TypeInfoMarkerProcessor();
+
+
+    public void visit(NodeTraversal t, Node n, Node parent) {
+      if (n.isCall()) {
+        Node firstChild = n.getFirstChild();
+        if (firstChild.isGetProp()) {
+          String qname = firstChild.getQualifiedName();
+          if (qname == null) {
+            return;
+          }
+
+          if (qname.equals(TRAIT_CALL) && checkScope(t, n, TRAIT_CALL)) {
+            traitMarkerProcessor.process(t, n, parent, firstChild);
+          } else if (qname.equals(MIXIN_FN_NAME) && checkScope(t, n, MIXIN_FN_NAME)) {
+            mixinMarkerProcessor.process(t, n, parent, firstChild);
+          }
+        }
+      } else if (n.isFunction() && t.getScopeDepth() == 1) {
+        JSDocInfo info = NodeUtil.getBestJSDocInfo(n);
+        if (info != null && info.isConstructor()) {
+          typeInfoMarkerProcessor.process(t, n, parent);
+        }
+      }
+    }
+
+
+    private boolean checkScope(NodeTraversal t, Node n, String name) {
+      if (t.getScopeDepth() != 1) {
+        t.report(n, MESSAGE_FUNCTION_MUST_BE_CALLED_IN_GLOBAL_SCOPE, name);
+        return false;
+      }
+      return true;
     }
   }
 }
