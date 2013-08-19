@@ -10,6 +10,7 @@ import javax.annotation.Nullable;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -60,7 +61,33 @@ public class MixinProcessor implements HotSwapCompilerPass {
   }
 
 
-  private final class TraitRewriter {
+  private interface Rewriter {
+    public void rewrite();
+  }
+
+
+  private final class RewritePassExecutor {
+    private final ImmutableList<Rewriter> rewritePass;
+
+
+    public RewritePassExecutor() {
+      rewritePass = ImmutableList.of(
+          new TraitPropagater(),
+          new PrototypeRewriter(mixinInfoCollector.getTraitInfoMap()),
+          new TraitRewriter(mixinInfoCollector.getTraitInfoMap())
+          );
+    }
+
+
+    public void execute() {
+      for (Rewriter rewriter : rewritePass) {
+        rewriter.rewrite();
+      }
+    }
+  }
+
+
+  private final class TraitPropagater implements Rewriter {
 
     public void rewrite() {
       boolean isChanged = true;
@@ -140,51 +167,211 @@ public class MixinProcessor implements HotSwapCompilerPass {
     }
   }
 
-  private TraitRewriter traitRewriter = new TraitRewriter();
 
-
-  private void rewrite() {
-
-    traitRewriter.rewrite();
-    Map<String, TraitInfo> traitInfoMap = mixinInfoCollector.getTraitInfoMap();
-
-    for (MixinInfo info : mixinInfoCollector.getMixinInfoList()) {
-      TraitImplementationInfo tiInfo = new TraitImplementationInfo();
-      if (!mixinInfoCollector.getTypeInfoSet().contains(info.getType())) {
-        CampUtil.report(info.getNode(), MixinInfoConst.MESSAGE_MIXIN_FIRST_ARGUMENT_IS_INVALID);
-        continue;
-      }
-
-      List<String> traits = info.getTraits();
-      for (String trait : traits) {
-        TraitInfo tinfo = traitInfoMap.get(trait);
-        if (tinfo == null) {
-          CampUtil.report(info.getNode(), MixinInfoConst.MESSAGE_REQUIRED_TRAIT_IS_NOT_EXISTS,
-              trait, info.getType());
-          continue;
-        }
-        assignPrototype(tinfo, info, tiInfo);
-      }
-
-      addOverrideAsPrototype(info);
-      tiInfo.checkUnimplementedProperty(info.getTopNode());
-      info.getTopNode().detachFromParent();
-      compiler.reportCodeChange();
+  private abstract class AbstractPropertyBuilder {
+    protected Node createAssignment(String qname, TraitProperty prop) {
+      Node getprop = NodeUtil
+          .newQualifiedNameNode(convention, qname + ".prototype." + prop.getName());
+      Node expr = NodeUtil.newExpr(createAssignment(prop, getprop));
+      return expr;
     }
 
-    for (TraitInfo tinfo : traitInfoMap.values()) {
-      Node body = tinfo.getBody();
-      String name = "JSC$tmp$" + tinfo.getRefName().replaceAll("\\.", "_");
-      Node constructor = IR.function(IR.name(name), IR.paramList(), IR.block());
-      JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
-      builder.recordConstructor();
-      JSDocInfo info = builder.build(constructor);
-      constructor.setJSDocInfo(info);
-      Node beginning = CampUtil.getStatementBeginningNode(body);
-      Node top = beginning.getParent();
-      top.addChildBefore(constructor, beginning);
-      Node target = constructor;
-      Map<String, TraitProperty> propMap = tinfo.getProperties();
+
+    protected Node createAssignment(String qname, String propName, Node def) {
+      Node getprop = NodeUtil.newQualifiedNameNode(convention, qname + ".prototype." + propName);
+      Node assign = IR.assign(getprop, def.cloneTree());
+      Node expr = NodeUtil.newExpr(assign);
+      return expr;
+    }
+
+
+    protected Node createAssignment(TraitProperty prop, Node lhs) {
+      Node parentNameNode = NodeUtil.newQualifiedNameNode(convention, prop.getRefName()
+          + "." + prop.getName());
+      if (prop.isFunction()) {
+        Node call;
+        if (prop.isThisAccess()) {
+          call = IR.call(IR.getprop(parentNameNode, IR.string("call")), IR.thisNode());
+        } else {
+          call = IR.call(parentNameNode);
+        }
+        Node valueNode = prop.getValueNode();
+        Node paramList = valueNode.getFirstChild().getNext();
+        Node newParamList = IR.paramList();
+        for (Node paramNode : paramList.children()) {
+          call.addChildToBack(paramNode.cloneNode());
+          newParamList.addChildToBack(paramNode.cloneNode());
+        }
+        Node function = IR.function(IR.name(""), newParamList,
+            IR.block(IR.returnNode(call)));
+        function.copyInformationFromForTree(valueNode);
+        function.setJSDocInfo(valueNode.getJSDocInfo());
+        return IR.assign(lhs, function);
+      }
+      return IR.assign(lhs, parentNameNode);
+
+    }
+  }
+
+
+  private final class PrototypeRewriter extends AbstractPropertyBuilder implements Rewriter {
+
+    private Map<String, TraitInfo> traitInfoMap;
+
+
+    public PrototypeRewriter(Map<String, TraitInfo> traitInfoMap) {
+      this.traitInfoMap = traitInfoMap;
+    }
+
+
+    public void rewrite() {
+      for (MixinInfo info : mixinInfoCollector.getMixinInfoList()) {
+        TraitImplementationInfo tiInfo = new TraitImplementationInfo();
+        if (!mixinInfoCollector.getTypeInfoSet().contains(info.getType())) {
+          CampUtil.report(info.getNode(), MixinInfoConst.MESSAGE_MIXIN_FIRST_ARGUMENT_IS_INVALID);
+          continue;
+        }
+
+        List<String> traits = info.getTraits();
+        for (String trait : traits) {
+          TraitInfo tinfo = traitInfoMap.get(trait);
+          if (tinfo == null) {
+            CampUtil.report(info.getNode(), MixinInfoConst.MESSAGE_REQUIRED_TRAIT_IS_NOT_EXISTS,
+                trait, info.getType());
+            continue;
+          }
+          assignPrototype(tinfo, info, tiInfo);
+        }
+
+        addOverrideAsPrototype(info);
+        tiInfo.checkUnimplementedProperty(info.getTopNode());
+        info.getTopNode().detachFromParent();
+        compiler.reportCodeChange();
+      }
+    }
+
+
+    private void addOverrideAsPrototype(MixinInfo minfo) {
+      Map<String, Node> excludesMap = minfo.getExcludesMap();
+      String qname = minfo.getType();
+      Node top = minfo.getTopNode();
+      Node parent = top.getParent();
+
+      for (String key : excludesMap.keySet()) {
+        Node def = excludesMap.get(key);
+        if (def.isGetProp()) {
+          String valueName = def.getQualifiedName();
+          if (valueName != null && valueName.equals(MixinInfoConst.REQUIRE)) {
+            CampUtil.report(def, MixinInfoConst.MESSAGE_REQUIRE_IS_NOT_ALLOWED_HERE);
+          }
+        }
+        Node keyNode = def.getParent();
+        Node expr = createAssignment(qname, key, def);
+        expr.copyInformationFromForTree(keyNode);
+        Node assignmentNode = expr.getFirstChild();
+        assignmentNode.setJSDocInfo(keyNode.getJSDocInfo());
+        parent.addChildAfter(expr, top);
+        compiler.reportCodeChange();
+      }
+
+    }
+
+
+    private void assignPrototype(
+        TraitInfo tinfo,
+        MixinInfo minfo,
+        TraitImplementationInfo tiInfo) {
+      Map<String, TraitProperty> properties = tinfo.getProperties();
+
+      String qname = minfo.getType();
+      Node top = minfo.getTopNode();
+      Map<String, Node> excludesMap = minfo.getExcludesMap();
+      List<PropertyMutator> mutationTask = Lists.newArrayList();
+      for (TraitProperty prop : properties.values()) {
+        String name = prop.getName();
+        if (excludesMap.containsKey(name)) {
+          continue;
+        }
+
+        if (prop.isRequire()) {
+          tiInfo.addImplementationInfo(prop);
+          continue;
+        }
+
+        if (!tiInfo.checkConfliction(prop, top)) {
+          continue;
+        }
+
+        mutationTask.add(new PropertyMutator(minfo, prop, qname));
+      }
+
+      for (PropertyMutator mutator : mutationTask) {
+        mutator.mutate(tiInfo);
+      }
+    }
+
+
+    private final class PropertyMutator {
+      private MixinInfo minfo;
+
+      private TraitProperty prop;
+
+      private String qname;
+
+
+      public PropertyMutator(
+          MixinInfo minfo,
+          TraitProperty prop,
+          String qname) {
+        this.minfo = minfo;
+        this.prop = prop;
+        this.qname = qname;
+      }
+
+
+      public void mutate(TraitImplementationInfo tiInfo) {
+        Node top = minfo.getTopNode();
+        Node parent = top.getParent();
+        tiInfo.markAsImplemented(prop);
+        Node expr = createAssignment(qname, prop);
+        expr.copyInformationFromForTree(prop.getValueNode().getParent());
+        parent.addChildAfter(expr, top);
+        compiler.reportCodeChange();
+      }
+    }
+  }
+
+
+  private final class TraitRewriter extends AbstractPropertyBuilder implements Rewriter {
+
+    private Map<String, TraitInfo> traitInfoMap;
+
+
+    public TraitRewriter(Map<String, TraitInfo> traitInfoMap) {
+      this.traitInfoMap = traitInfoMap;
+    }
+
+
+    public void rewrite() {
+      for (TraitInfo tinfo : traitInfoMap.values()) {
+        Node body = tinfo.getBody();
+        String name = createTmpConstructorName(tinfo);
+        Node constructor = buildConstructor(name);
+        Node beginning = CampUtil.getStatementBeginningNode(body);
+        Node top = beginning.getParent();
+        top.addChildBefore(constructor, beginning);
+        Node target = constructor;
+        Map<String, TraitProperty> propMap = tinfo.getProperties();
+        createSingletonTrait(name, top, target, propMap);
+        Node call = body.getParent();
+        call.getParent().replaceChild(call, IR.newNode(IR.name(name)));
+        compiler.reportCodeChange();
+      }
+    }
+
+
+    private void createSingletonTrait(String name, Node top, Node target,
+        Map<String, TraitProperty> propMap) {
       for (String key : propMap.keySet()) {
         TraitProperty prop = propMap.get(key);
         Node node = prop.getValueNode().getParent();
@@ -192,16 +379,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
             name + ".prototype." + node.getString());
         Node assignment;
         if (prop.isRequire()) {
-          Node paramList = IR.paramList();
-          JSDocInfo jsDocInfo = node.getJSDocInfo();
-          if (jsDocInfo != null && jsDocInfo.getParameterCount() > 0) {
-            for (String paramName : jsDocInfo.getParameterNames()) {
-              paramList.addChildToBack(IR.name(paramName));
-            }
-          }
-          Node assignmentValue = IR.function(IR.name(""), paramList, IR.block());
-          assignment = IR.assign(prototype, assignmentValue);
-          assignment.setJSDocInfo(node.getJSDocInfo());
+          assignment = processRequiredMethod(node, prototype);
         } else {
           if (prop.isImplicit()) {
             assignment = IR.assign(prototype, prop.getValueNode().cloneTree());
@@ -215,142 +393,42 @@ public class MixinProcessor implements HotSwapCompilerPass {
         top.addChildAfter(exprResult, target);
         target = exprResult;
       }
-      Node call = body.getParent();
-      call.getParent().replaceChild(call, IR.newNode(IR.name(name)));
-      compiler.reportCodeChange();
     }
-  }
 
 
-  private void addOverrideAsPrototype(MixinInfo minfo) {
-    Map<String, Node> excludesMap = minfo.getExcludesMap();
-    String qname = minfo.getType();
-    Node top = minfo.getTopNode();
-    Node parent = top.getParent();
-
-    for (String key : excludesMap.keySet()) {
-      Node def = excludesMap.get(key);
-      if (def.isGetProp()) {
-        String valueName = def.getQualifiedName();
-        if (valueName != null && valueName.equals(MixinInfoConst.REQUIRE)) {
-          CampUtil.report(def, MixinInfoConst.MESSAGE_REQUIRE_IS_NOT_ALLOWED_HERE);
+    private Node processRequiredMethod(Node node, Node prototype) {
+      Node assignment;
+      Node paramList = IR.paramList();
+      JSDocInfo jsDocInfo = node.getJSDocInfo();
+      if (jsDocInfo != null && jsDocInfo.getParameterCount() > 0) {
+        for (String paramName : jsDocInfo.getParameterNames()) {
+          paramList.addChildToBack(IR.name(paramName));
         }
       }
-      Node keyNode = def.getParent();
-      Node expr = createAssignment(qname, key, def);
-      expr.copyInformationFromForTree(keyNode);
-      Node assignmentNode = expr.getFirstChild();
-      assignmentNode.setJSDocInfo(keyNode.getJSDocInfo());
-      parent.addChildAfter(expr, top);
-      compiler.reportCodeChange();
+      Node assignmentValue = IR.function(IR.name(""), paramList, IR.block());
+      assignment = IR.assign(prototype, assignmentValue);
+      assignment.setJSDocInfo(node.getJSDocInfo());
+      return assignment;
     }
 
-  }
 
-
-  private void assignPrototype(
-      TraitInfo tinfo,
-      MixinInfo minfo,
-      TraitImplementationInfo tiInfo) {
-    Map<String, TraitProperty> properties = tinfo.getProperties();
-
-    String qname = minfo.getType();
-    Node top = minfo.getTopNode();
-    Map<String, Node> excludesMap = minfo.getExcludesMap();
-    List<PropertyMutator> mutationTask = Lists.newArrayList();
-    for (TraitProperty prop : properties.values()) {
-      String name = prop.getName();
-      if (excludesMap.containsKey(name)) {
-        continue;
-      }
-
-      if (prop.isRequire()) {
-        tiInfo.addImplementationInfo(prop);
-        continue;
-      }
-
-      if (!tiInfo.checkConfliction(prop, top)) {
-        continue;
-      }
-
-      mutationTask.add(new PropertyMutator(minfo, prop, qname));
+    private Node buildConstructor(String name) {
+      Node constructor = IR.function(IR.name(name), IR.paramList(), IR.block());
+      JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
+      builder.recordConstructor();
+      JSDocInfo info = builder.build(constructor);
+      constructor.setJSDocInfo(info);
+      return constructor;
     }
 
-    for (PropertyMutator mutator : mutationTask) {
-      mutator.mutate(tiInfo);
+
+    private String createTmpConstructorName(TraitInfo tinfo) {
+      return "JSC$tmp$" + tinfo.getRefName().replaceAll("\\.", "_");
     }
   }
 
 
-  private Node createAssignment(String qname, TraitProperty prop) {
-    Node getprop = NodeUtil.newQualifiedNameNode(convention, qname + ".prototype." + prop.getName());
-    Node expr = NodeUtil.newExpr(createAssignment(prop, getprop));
-    return expr;
-  }
-
-
-  private Node createAssignment(String qname, String propName, Node def) {
-    Node getprop = NodeUtil.newQualifiedNameNode(convention, qname + ".prototype." + propName);
-    Node assign = IR.assign(getprop, def.cloneTree());
-    Node expr = NodeUtil.newExpr(assign);
-    return expr;
-  }
-
-
-  private Node createAssignment(TraitProperty prop, Node lhs) {
-    Node parentNameNode = NodeUtil.newQualifiedNameNode(convention, prop.getRefName()
-        + "." + prop.getName());
-    if (prop.isFunction()) {
-      Node call;
-      if (prop.isThisAccess()) {
-        call = IR.call(IR.getprop(parentNameNode, IR.string("call")), IR.thisNode());
-      } else {
-        call = IR.call(parentNameNode);
-      }
-      Node valueNode = prop.getValueNode();
-      Node paramList = valueNode.getFirstChild().getNext();
-      Node newParamList = IR.paramList();
-      for (Node paramNode : paramList.children()) {
-        call.addChildToBack(paramNode.cloneNode());
-        newParamList.addChildToBack(paramNode.cloneNode());
-      }
-      Node function = IR.function(IR.name(""), newParamList,
-          IR.block(IR.returnNode(call)));
-      function.copyInformationFromForTree(valueNode);
-      function.setJSDocInfo(valueNode.getJSDocInfo());
-      return IR.assign(lhs, function);
-    }
-    return IR.assign(lhs, parentNameNode);
-
-  }
-
-
-  private final class PropertyMutator {
-    private MixinInfo minfo;
-
-    private TraitProperty prop;
-
-    private String qname;
-
-
-    public PropertyMutator(
-        MixinInfo minfo,
-        TraitProperty prop,
-        String qname) {
-      this.minfo = minfo;
-      this.prop = prop;
-      this.qname = qname;
-    }
-
-
-    public void mutate(TraitImplementationInfo tiInfo) {
-      Node top = minfo.getTopNode();
-      Node parent = top.getParent();
-      tiInfo.markAsImplemented(prop);
-      Node expr = createAssignment(qname, prop);
-      expr.copyInformationFromForTree(prop.getValueNode().getParent());
-      parent.addChildAfter(expr, top);
-      compiler.reportCodeChange();
-    }
+  private void rewrite() {
+    new RewritePassExecutor().execute();
   }
 }

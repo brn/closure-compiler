@@ -124,7 +124,7 @@ final class MixinInfo {
         ImplementationInfo iinfo = implementationMap.get(name);
         if (!iinfo.isImplmented) {
           CampUtil.report(errorNode, MixinInfoConst.MESSAGE_REQUIRED_PROPERTY_IS_NOT_IMPLMENTED,
-              name, iinfo.prop.getCurrentHolderName());
+              name, iinfo.prop.getCurrentHolderName(), iinfo.prop.getRefName());
         }
       }
     }

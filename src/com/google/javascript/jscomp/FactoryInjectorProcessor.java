@@ -12,7 +12,6 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
 
 public class FactoryInjectorProcessor implements HotSwapCompilerPass {
 
@@ -50,27 +49,6 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
   public void process(Node externsRoot, Node root) {
     new FactoryInjectorInfoCollector(compiler, this.factoryInjectorInfo).process(externsRoot, root);
     new Rewriter().rewrite();
-  }
-
-
-  static Node getStatementBeginningNode(Node n) {
-    while (n != null) {
-      switch (n.getType()) {
-      case Token.EXPR_RESULT:
-      case Token.VAR:
-      case Token.CONST:
-      case Token.THROW:
-        return n;
-
-      default:
-        if (NodeUtil.isFunctionDeclaration(n)) {
-          return n;
-        }
-        n = n.getParent();
-      }
-    }
-
-    return null;
   }
 
 
@@ -125,7 +103,7 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
      * Insert a factory method to the node trees.
      */
     private void insertFactory(Node constructorNode) {
-      Node stmtBeginning = getStatementBeginningNode(constructorNode);
+      Node stmtBeginning = CampUtil.getStatementBeginningNode(constructorNode);
       Preconditions.checkNotNull(stmtBeginning);
 
       if (stmtBeginning.getNext() != null) {

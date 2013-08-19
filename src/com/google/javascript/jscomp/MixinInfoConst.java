@@ -57,7 +57,7 @@ public class MixinInfoConst {
 
   static final DiagnosticType MESSAGE_REQUIRED_PROPERTY_IS_NOT_IMPLMENTED = DiagnosticType.error(
       "JSC_MESSAGE_REUIRED_PROPERTY_IS_NOT_IMPLMENTED",
-      "The property {0} required by {1} is not implemented."
+      "The property {0} required by {1} (first defined in {2}) is not implemented."
       );
 
   static final DiagnosticType MESSAGE_REQUIRE_IS_NOT_ALLOWED_HERE = DiagnosticType.error(
