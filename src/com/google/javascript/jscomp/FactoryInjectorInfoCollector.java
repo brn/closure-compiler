@@ -2,7 +2,6 @@ package com.google.javascript.jscomp;
 
 import java.util.List;
 
-import com.google.common.base.Preconditions;
 import com.google.javascript.jscomp.FactoryInjectorInfo.InjectInfo;
 import com.google.javascript.jscomp.FactoryInjectorInfo.TypeInfo;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;

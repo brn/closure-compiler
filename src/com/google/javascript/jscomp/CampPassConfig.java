@@ -9,8 +9,7 @@ public class CampPassConfig extends DefaultPassConfig {
 
   private boolean inserted = false;
 
-  private boolean mixinInserted = false;
-
+  @SuppressWarnings("unused")
   private CompilerOptions options;
 
   ImmutableList<HotSwapPassFactory> SPECIAL_PASSES = new ImmutableList.Builder<HotSwapPassFactory>()

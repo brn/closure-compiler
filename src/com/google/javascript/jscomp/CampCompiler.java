@@ -6,6 +6,7 @@ public class CampCompiler extends Compiler {
 
   public CampCompiler(PrintStream printStream) {
     super(printStream);
+    CampUtil.setCompiler(this);
   }
   
   @Override

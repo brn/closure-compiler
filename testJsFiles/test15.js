@@ -33,7 +33,11 @@ camp = {
 };
 
 
-camp.trait.require = function() {
+/**
+ * @param {...} var_args
+ * @throws {Error}
+ */
+camp.trait.require = function(var_args) {
   throw new Error('required property is not implemented.');
 };
 
@@ -151,6 +155,9 @@ var trait = camp.trait({
         };
       },
 
+      /**
+       * @param {string} message
+       */
       _setMessage : camp.trait.require
     });
 
