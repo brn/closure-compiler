@@ -12,7 +12,7 @@ import com.google.javascript.rhino.Token;
 public class FactoryInjectorInfoCollector {
 
   private static final String INJECT = "camp.utils.dependencies.inject";
-  
+
   private static final String INJECT_ONCE = "camp.utils.dependencies.inject.once";
 
   static final DiagnosticType MESSAGE_INJECT_FIRST_ARGUMENT_IS_INVALID =
@@ -67,15 +67,15 @@ public class FactoryInjectorInfoCollector {
   }
 
 
-  private final class NewWtihMarkerProcessor {
+  private final class InjectMarkerProcessor {
     public void process(NodeTraversal t, Node n, Node parent, boolean isInjectOnce) {
-      if (isValidNewWithCall(t, n)) {
+      if (isValidInjectCall(t, n)) {
         factoryInjectorInfo.addInjectInfo(new InjectInfo(n, isInjectOnce));
       }
     }
 
 
-    private boolean isValidNewWithCall(NodeTraversal t, Node n) {
+    private boolean isValidInjectCall(NodeTraversal t, Node n) {
       Node firstChild = n.getFirstChild().getNext();
       if (firstChild == null || (!firstChild.isName() && !NodeUtil.isGet(firstChild))) {
         t.report(n, MESSAGE_INJECT_FIRST_ARGUMENT_IS_INVALID);
@@ -91,14 +91,13 @@ public class FactoryInjectorInfoCollector {
       return true;
     }
   }
-  
 
 
   private final class MarkerProcessCallback extends AbstractPostOrderCallback {
 
     private TypeMarkerProcessor typeMarkerProcessor = new TypeMarkerProcessor();
 
-    private NewWtihMarkerProcessor newWithMarkerProcessor = new NewWtihMarkerProcessor();
+    private InjectMarkerProcessor injectMarkerProcessor = new InjectMarkerProcessor();
 
 
     public void visit(NodeTraversal t, Node n, Node parent) {
@@ -110,7 +109,7 @@ public class FactoryInjectorInfoCollector {
             boolean isInject = qname.equals(INJECT);
             boolean isInjectOnce = qname.equals(INJECT_ONCE);
             if (isInject || isInjectOnce) {
-              newWithMarkerProcessor.process(t, n, parent, isInjectOnce);
+              injectMarkerProcessor.process(t, n, parent, isInjectOnce);
             }
           }
         }

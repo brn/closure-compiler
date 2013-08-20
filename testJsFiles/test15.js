@@ -126,7 +126,7 @@ function Test2() {
 
 }
 goog.inherits(Test2, TestBase);
-
+goog.provide('Trait3');
 
 var trait = camp.trait({
       /**
@@ -172,13 +172,18 @@ var trait2 = camp.trait([trait], {
       }
     });
 
-var trait3 = camp.trait([trait2], {
+var Trait3 = camp.trait([trait2], {
       foo : function() {
-        return 2000;
+        return this.getFoo();
       },
       bar : function() {
         return 3000;
       },
+
+      /**
+       * @return {number}
+       */
+      getFoo : camp.trait.require,
 
       /**
        * @param {string} message
@@ -194,15 +199,20 @@ var trait3 = camp.trait([trait2], {
 function Test() {
   this._state = false;
 }
-camp.mixin(Test, [trait3], {
+camp.mixin(Test, [Trait3], {
   /**
    * @param {string} message
    */
   setMessage : function(message) {
     this._setMessage(message);
+  },
+
+  getFoo : function() {
+    return 2000;
   }
 });
 
 
 var hoge = new Test();
 hoge.setMessage(hoge.getItems().mstDeviceList);
+window.console.log(hoge.foo())

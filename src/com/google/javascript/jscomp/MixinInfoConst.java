@@ -64,4 +64,8 @@ public class MixinInfoConst {
       "JSC_MESSAGE_REQUIRE_IS_NOT_ALLOWED_HERE",
       "The " + REQUIRE + " is not allowed here."
       );
+  
+  static final String TEMP_VAR_ANME = "JSComp_tmpTrait$";
+  
+  static final String THIS_TYPE_TEMPLATE_TYPE = "JSComp_$TraitThisType";
 }

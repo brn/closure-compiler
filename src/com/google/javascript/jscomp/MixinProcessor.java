@@ -1,31 +1,18 @@
 package com.google.javascript.jscomp;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import javax.annotation.Nullable;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.MixinInfo.TraitImplementationInfo;
 import com.google.javascript.jscomp.MixinInfo.TraitInfo;
 import com.google.javascript.jscomp.MixinInfo.TraitProperty;
-import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
-import com.google.javascript.rhino.jstype.FunctionType;
-import com.google.javascript.rhino.jstype.JSTypeRegistry;
 
 /**
  * 
@@ -157,6 +144,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
         key.copyInformationFrom(srcKey);
         key.addChildToBack(qnameNode);
         key.setJSDocInfo(srcKey.getJSDocInfo());
+        key.getFirstChild().setJSDocInfo(srcKey.getFirstChild().getJSDocInfo());
         TraitProperty newProp = (TraitProperty) srcProp.clone();
         newProp.setCurrentHolderName(dst.getRefName());
         newProp.setImplicit(false);
@@ -355,7 +343,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
     public void rewrite() {
       for (TraitInfo tinfo : traitInfoMap.values()) {
         Node body = tinfo.getBody();
-        String name = createTmpConstructorName(tinfo);
+        String name = createTmpConstructorName(tinfo.getRefName());
         Node constructor = buildConstructor(name);
         Node beginning = CampUtil.getStatementBeginningNode(body);
         Node top = beginning.getParent();
@@ -420,11 +408,11 @@ public class MixinProcessor implements HotSwapCompilerPass {
       constructor.setJSDocInfo(info);
       return constructor;
     }
+  }
 
 
-    private String createTmpConstructorName(TraitInfo tinfo) {
-      return "JSC$tmp$" + tinfo.getRefName().replaceAll("\\.", "_");
-    }
+  private String createTmpConstructorName(String refName) {
+    return MixinInfoConst.TEMP_VAR_ANME + refName.replaceAll("\\.", "_");
   }
 
 

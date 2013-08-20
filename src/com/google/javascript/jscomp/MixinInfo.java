@@ -4,10 +4,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.rhino.IR;
+import com.google.javascript.rhino.JSDocInfo;
+import com.google.javascript.rhino.JSDocInfoBuilder;
+import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 
 final class MixinInfo {
@@ -335,6 +340,9 @@ final class MixinInfo {
         }
         TraitProperty property = new TraitProperty(name, refName, valueNode, topNode, this,
             accessedToThis);
+        if (accessedToThis) {
+          this.setThisType(prop);
+        }
         property.setImplicit(true);
         Node value = prop.getFirstChild();
         if (value.isGetProp()) {
@@ -345,6 +353,36 @@ final class MixinInfo {
         }
         properties.put(name, property);
       }
+    }
+
+
+    private void setThisType(Node keyNode) {
+      JSDocInfo info = NodeUtil.getBestJSDocInfo(keyNode);
+      JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
+      List<String> templateTypes = Lists.newArrayList();
+      if (info != null) {
+        for (String param : info.getParameterNames()) {
+          builder.recordParameter(param, info.getParameterType(param));
+        }
+        builder.recordType(info.getReturnType());
+        for (JSTypeExpression exp : info.getThrownTypes()) {
+          builder.recordThrowType(exp);
+        }
+        if (info.isExport())
+          builder.recordExport();
+        if (info.isExpose())
+          builder.recordExpose();
+        ImmutableList<String> types = info.getTemplateTypeNames();
+        for (String type : types) {
+          templateTypes.add(type);
+        }
+      }
+      templateTypes.add(MixinInfoConst.THIS_TYPE_TEMPLATE_TYPE);
+      builder.recordTemplateTypeNames(templateTypes);
+      builder.recordThisType(new JSTypeExpression(IR
+          .string(MixinInfoConst.THIS_TYPE_TEMPLATE_TYPE), keyNode.getSourceFileName()));
+      JSDocInfo newJSDocInfo = builder.build(keyNode.getFirstChild());
+      keyNode.getFirstChild().setJSDocInfo(newJSDocInfo);
     }
 
 

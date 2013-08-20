@@ -1,9 +1,11 @@
 package com.google.javascript.jscomp;
 
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 
@@ -14,6 +16,7 @@ public class FactoryInjectorInfo {
 
   private List<InjectInfo> InjectInfoList = Lists.newArrayList();
 
+  private Map<String, Node> providerCallMap = Maps.newHashMap();
 
   public void putTypeInfo(TypeInfo typeInfo) {
     this.typeInfoMap.put(typeInfo.getName(), typeInfo);
@@ -34,6 +37,13 @@ public class FactoryInjectorInfo {
     return this.InjectInfoList;
   }
 
+  public void putProviderCall(String s, Node n) {
+    providerCallMap.put(s, n);
+  }
+  
+  public Map<String, Node> getProviderCallMap() {
+    return this.providerCallMap;
+  }
 
   public static final class InjectInfo {
     private Node node;
@@ -127,6 +137,7 @@ public class FactoryInjectorInfo {
 
     public String getAliasName() {
       return this.aliasName;
-    }
+    }    
+    
   }
 }
