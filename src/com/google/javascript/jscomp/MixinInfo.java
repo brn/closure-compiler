@@ -342,6 +342,7 @@ final class MixinInfo {
             accessedToThis);
         if (accessedToThis) {
           this.setThisType(prop);
+          this.setThisType(prop.getFirstChild());
         }
         property.setImplicit(true);
         Node value = prop.getFirstChild();
@@ -364,7 +365,7 @@ final class MixinInfo {
         for (String param : info.getParameterNames()) {
           builder.recordParameter(param, info.getParameterType(param));
         }
-        builder.recordType(info.getReturnType());
+        builder.recordReturnType(info.getReturnType());
         for (JSTypeExpression exp : info.getThrownTypes()) {
           builder.recordThrowType(exp);
         }

@@ -1,124 +1,132 @@
+/**
+ * @fileoverview
+ * @author
+ */
 var goog = {
-      provide : function(){},
-      require : function(){},
       inherits : function(a,b) {
 
       }
     };
 
-camp.module("camp.test", ['InstanceContainer'], function (exports) {
+camp.module('camp.viewModel.common.loginAfterInformation', ['LoginAfterInformationViewModel'], function(exports) {
+
   /**
    * @constructor
    */
-  exports.BaseFactory = function() {};
+  exports.MethodCollection1 = function() {
 
-  /**
-   * @extends {exports.BaseFactory}
-   * @constructor
-   * @template T, R
-   * @param {R} context
-   * @param {function(this:R):T} instance
-   */
-  exports.FactoryContainer = function(context, instance) {
-    /**
-     * @type {function(this:R):T}
-     */
-    this._instance = instance;
-
-    /**
-     * @type {R}
-     */
-    this._context = context;
   };
-  goog.inherits(exports.FactoryContainer, exports.BaseFactory);
 
+  exports.MethodCollection1.prototype.foo1 = function() {
 
-  /**
-   * @returns {T}
-   * @param {R} p
-   */
-  exports.FactoryContainer.prototype.getInstance = function(p) {
-    return this._instance().call(this._context);
+  };
+
+  exports.MethodCollection1.prototype.foo2 = function() {
+
   };
 
 
   /**
    * @constructor
-   * @param {{a:string}} param
+   * @extends {exports.MethodCollection1}
    */
-  function Test(param) {
-    this.param = param;
-  }
+  exports.MethodCollection2 = function() {
+
+  };
+  goog.inherits(exports.MethodCollection2, exports.MethodCollection1);
+  exports.MethodCollection2.prototype.bar1 = function() {
+
+  };
+  exports.MethodCollection2.prototype.bar2 = function() {
+
+  };
+
 
 
   /**
    * @constructor
-   * @param {string} param
+   * @extends {exports.MethodCollection2}
    */
-  function Test2(param) {
-    this.param = param;
-  }
+  exports.LoginAfterInformationViewModel = function() {
+  };
+  goog.inherits(exports.LoginAfterInformationViewModel, exports.MethodCollection2);
 
+
+  exports.LoginAfterInformationViewModel.prototype.hideInformationAction = function() {
+  };
 
 
   /**
-   * @template T
-   * @this {T}
+   * @constructor
    */
-  function componentExtensions() {
-
-    /**
-     * @type {function():Test}
-     */
-    this.testA = function(){
-      return new Test(this.testParam());
-    };
-
-
-    /**
-     * @type {function():Test2}
-     */
-    this.test2 = function(o) {
-      return new Test2('aaa');
-    };
-  }
+  exports.TooltipViewModel = function() {
+  };
 
 
   /**
-   * @template T
-   * @this {T}
+   * @param {Event} e
+   * @param {Object} attr
    */
-  function parameterExtensions() {
-    /**
-     * @type {function():{a:string}}
-     */
-    this.testParam = function(o) {
-      return {
-        a: 'ok!'
+  exports.TooltipViewModel.prototype.showAction = function(e, attr) {
+  };
+
+
+  /**
+   * @param {Event} e
+   */
+  exports.TooltipViewModel.prototype.hideAction = function(e) {
+  };
+
+
+  /**
+   * @private
+   * @param {boolean} visibility
+   */
+  exports.TooltipViewModel.prototype._toggleSelectElements = function(visibility) {
+  };
+
+
+  /**
+   * @constructor
+   */
+  function TestClass() {
+
+  }
+
+  TestClass.prototype.foo = function() {
+
+  };
+
+
+  function NotClass() {}
+
+
+  /**
+   * @constructor
+   * @template T
+   */
+  var Hoge = function() {
+
       };
-    };
-  }
+
+  Hoge.prototype.hoge = function() {
+    alert(1);
+  };
 
 
   /**
    * @constructor
-   * @struct
    */
-  function ComponentRegistry() {
-    componentExtensions.call(this);
-    parameterExtensions.call(this);
-  }
+  exports.TestMixin = camp.mixin({
+    /**
+     * @type {Hoge.<string>}
+     */
+    hoge : Hoge
+  }, function() {
+    this._hoge = 'hoge';
+  });
 
-  var s = new ComponentRegistry();
+  var m = new exports.TestMixin();
 
-  /**
-   * @type {Test}
-   */
-  var test = s.testA();
-  /**
-   * @type {Test2}
-   */
-  var test2 = s.test2();
-  window.console.log(test.param);
-  window.console.log(test2.param);
+  m.hoge();
 });

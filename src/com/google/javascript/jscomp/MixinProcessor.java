@@ -25,13 +25,16 @@ public class MixinProcessor implements HotSwapCompilerPass {
 
   private CodingConvention convention;
 
+  private CampTypeInfo campTypeInfo;
+  
   private final MixinInfoCollector mixinInfoCollector;
 
 
-  MixinProcessor(AbstractCompiler compiler) {
+  MixinProcessor(AbstractCompiler compiler, CampTypeInfo campTypeInfo) {
     this.compiler = compiler;
     this.convention = compiler.getCodingConvention();
     this.mixinInfoCollector = new MixinInfoCollector();
+    this.campTypeInfo = campTypeInfo;
   }
 
 
@@ -143,8 +146,9 @@ public class MixinProcessor implements HotSwapCompilerPass {
         qnameNode.copyInformationFromForTree(srcProp.getValueNode());
         key.copyInformationFrom(srcKey);
         key.addChildToBack(qnameNode);
-        key.setJSDocInfo(srcKey.getJSDocInfo());
-        key.getFirstChild().setJSDocInfo(srcKey.getFirstChild().getJSDocInfo());
+        JSDocInfo info = NodeUtil.getBestJSDocInfo(srcKey.getFirstChild());
+        key.setJSDocInfo(info);
+        key.getFirstChild().setJSDocInfo(info);
         TraitProperty newProp = (TraitProperty) srcProp.clone();
         newProp.setCurrentHolderName(dst.getRefName());
         newProp.setImplicit(false);
@@ -193,7 +197,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
         Node function = IR.function(IR.name(""), newParamList,
             IR.block(IR.returnNode(call)));
         function.copyInformationFromForTree(valueNode);
-        function.setJSDocInfo(valueNode.getJSDocInfo());
+        function.setJSDocInfo(NodeUtil.getBestJSDocInfo(valueNode));
         return IR.assign(lhs, function);
       }
       return IR.assign(lhs, parentNameNode);
@@ -257,7 +261,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
         Node expr = createAssignment(qname, key, def);
         expr.copyInformationFromForTree(keyNode);
         Node assignmentNode = expr.getFirstChild();
-        assignmentNode.setJSDocInfo(keyNode.getJSDocInfo());
+        assignmentNode.setJSDocInfo(NodeUtil.getBestJSDocInfo(keyNode.getFirstChild()));
         parent.addChildAfter(expr, top);
         compiler.reportCodeChange();
       }
@@ -387,7 +391,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
     private Node processRequiredMethod(Node node, Node prototype) {
       Node assignment;
       Node paramList = IR.paramList();
-      JSDocInfo jsDocInfo = node.getJSDocInfo();
+      JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(node);
       if (jsDocInfo != null && jsDocInfo.getParameterCount() > 0) {
         for (String paramName : jsDocInfo.getParameterNames()) {
           paramList.addChildToBack(IR.name(paramName));
@@ -395,7 +399,7 @@ public class MixinProcessor implements HotSwapCompilerPass {
       }
       Node assignmentValue = IR.function(IR.name(""), paramList, IR.block());
       assignment = IR.assign(prototype, assignmentValue);
-      assignment.setJSDocInfo(node.getJSDocInfo());
+      assignment.setJSDocInfo(jsDocInfo);
       return assignment;
     }
 
