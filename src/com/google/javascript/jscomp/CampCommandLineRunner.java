@@ -5,8 +5,6 @@ import com.google.javascript.jscomp.CompilerOptions;
 
 public class CampCommandLineRunner extends CommandLineRunner {
 
-  private CampTypeInfo campTypeInfo = new CampTypeInfo();
-  
   protected CampCommandLineRunner(String[] args) {
     // The superclass is responsible for parsing the command-line arguments.
     super(args);
@@ -24,7 +22,7 @@ public class CampCommandLineRunner extends CommandLineRunner {
 
   @Override
   protected Compiler createCompiler() {
-    return new CampCompiler(getErrorPrintStream(), campTypeInfo);
+    return new CampCompiler(getErrorPrintStream());
   }
   
   /** Runs the Compiler */

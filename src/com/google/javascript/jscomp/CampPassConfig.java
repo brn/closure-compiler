@@ -21,29 +21,12 @@ public class CampPassConfig extends DefaultPassConfig {
             }
           })
       .add(
-          new HotSwapPassFactory("preTypeProcessor", true) {
-            @Override
-            protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-              CampCompiler c = (CampCompiler)compiler;
-              return new TypeInfoCollectPass(compiler, c.getCampTypeInfo());
-            }
-          }
-      )
-      .add(
           new HotSwapPassFactory("campFactoryInjector", true) {
             @Override
             protected HotSwapCompilerPass create(AbstractCompiler compiler) {
               return new FactoryInjectorProcessor(compiler);
             }
-          })/*
-      .add(
-          new HotSwapPassFactory("mixinProcessor", true) {
-            @Override
-            protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-              return new MixinProcessor(compiler, campTypeInfo);
-            }
-          }
-      )*/
+          })
       .build();
 
 
