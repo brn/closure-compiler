@@ -10,47 +10,19 @@ var goog = {
 
 camp.module('camp.viewModel.common.loginAfterInformation', ['LoginAfterInformationViewModel'], function(exports) {
 
-  /**
-   * @constructor
-   */
-  exports.MethodCollection1 = function() {
-
-  };
-
-  exports.MethodCollection1.prototype.foo1 = function() {
-
-  };
-
-  exports.MethodCollection1.prototype.foo2 = function() {
-
-  };
-
 
   /**
    * @constructor
-   * @extends {exports.MethodCollection1}
-   */
-  exports.MethodCollection2 = function() {
-
-  };
-  goog.inherits(exports.MethodCollection2, exports.MethodCollection1);
-  exports.MethodCollection2.prototype.bar1 = function() {
-
-  };
-  exports.MethodCollection2.prototype.bar2 = function() {
-
-  };
-
-
-
-  /**
-   * @constructor
-   * @extends {exports.MethodCollection2}
    */
   exports.LoginAfterInformationViewModel = function() {
   };
-  goog.inherits(exports.LoginAfterInformationViewModel, exports.MethodCollection2);
+  exports.LoginAfterInformationViewModel.createInstance = function() {
+    return new exports.LoginAfterInformationViewModel();
+  };
 
+  exports.LoginAfterInformationViewModel.prototype.foo = function() {
+    return 'foo';
+  };
 
   exports.LoginAfterInformationViewModel.prototype.hideInformationAction = function() {
   };
@@ -61,20 +33,16 @@ camp.module('camp.viewModel.common.loginAfterInformation', ['LoginAfterInformati
    */
   exports.TooltipViewModel = function() {
   };
-
-
-  /**
-   * @param {Event} e
-   * @param {Object} attr
-   */
-  exports.TooltipViewModel.prototype.showAction = function(e, attr) {
+  exports.TooltipViewModel.createInstance = function() {
+    return new exports.TooltipViewModel;
   };
 
 
-  /**
-   * @param {Event} e
-   */
-  exports.TooltipViewModel.prototype.hideAction = function(e) {
+  exports.TooltipViewModel.prototype.showAction = function() {
+  };
+
+
+  exports.TooltipViewModel.prototype.hideAction = function() {
   };
 
 
@@ -89,44 +57,19 @@ camp.module('camp.viewModel.common.loginAfterInformation', ['LoginAfterInformati
   /**
    * @constructor
    */
-  function TestClass() {
-
-  }
-
-  TestClass.prototype.foo = function() {
-
-  };
-
-
-  function NotClass() {}
-
+  function ComponentRegistry() {}
 
   /**
-   * @constructor
+   * @param {function(new:T,...):?} c
    * @template T
+   * @return {T}
    */
-  var Hoge = function() {
-
-      };
-
-  Hoge.prototype.hoge = function() {
-    alert(1);
+  ComponentRegistry.prototype.resolve = function(c) {
+    return c.createInstance();
   };
 
-
-  /**
-   * @constructor
-   */
-  exports.TestMixin = camp.mixin({
-    /**
-     * @type {Hoge.<string>}
-     */
-    hoge : Hoge
-  }, function() {
-    this._hoge = 'hoge';
-  });
-
-  var m = new exports.TestMixin();
-
-  m.hoge();
+  exports.main = function() {
+    var c = new ComponentRegistry();
+    document.getElementById('aaa').innerHTML = c.resolve(exports.LoginAfterInformationViewModel).foo();
+  };
 });
