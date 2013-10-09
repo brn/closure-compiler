@@ -9,6 +9,8 @@ import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
+import org.kohsuke.args4j.spi.StringArrayOptionHandler;
+import org.kohsuke.args4j.spi.StringOptionHandler;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
@@ -28,8 +30,6 @@ public class CampCommandLineRunner extends CommandLineRunner {
     // Let the superclass create the CompilerOptions using the values parsed
     // from the command-line arguments.
     CompilerOptions options = super.createOptions();
-    options.exportLocalPropertyDefinitions = true;
-    options.removeUnusedPrototypePropertiesInExterns = false;
     return options;
   }
 
@@ -93,7 +93,7 @@ public class CampCommandLineRunner extends CommandLineRunner {
 
 
   private static final class CommandLineOptions {
-    @Option(name = "--flagfile", usage = "pass the google closure compiler flag file location.")
+    @Option(name = "--multi_compile_config", usage = "pass the google closure compiler flag file location.", handler = StringOptionHandler.class)
     private List<String> flagFiles = Lists.newArrayList();
 
     @Argument
@@ -106,17 +106,15 @@ public class CampCommandLineRunner extends CommandLineRunner {
     CommandLineOptions options = new CommandLineOptions();
     CmdLineParser parser = new CmdLineParser(options);
     int result = 0;
+    boolean isSuccess = true;
     try {
       parser.parseArgument(args);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
-      parser.printUsage(System.err);
-      System.exit(-1);
+      isSuccess = false;
+      result = runCompiler(args);
     }
 
-    if (options.flagFiles.size() == 0) {
-      result = runCompiler(args);
-    } else {
+    if (isSuccess) {
       for (String flagFile : options.flagFiles) {
         List<String> clone = Lists.newArrayList(options.arguments);
         clone.add("--flagfile");
@@ -126,7 +124,6 @@ public class CampCommandLineRunner extends CommandLineRunner {
         if (result != 0) {
           break;
         }
-        System.gc();
       }
     }
     CampCommandLineRunner.closeAll();
