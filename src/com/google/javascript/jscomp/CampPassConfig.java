@@ -11,7 +11,7 @@ public class CampPassConfig extends DefaultPassConfig {
 
   @SuppressWarnings("unused")
   private CompilerOptions options;
-  
+
   ImmutableList<HotSwapPassFactory> SPECIAL_PASSES = new ImmutableList.Builder<HotSwapPassFactory>()
       .add(
           new HotSwapPassFactory("campModuleProcessor", true) {
@@ -39,6 +39,7 @@ public class CampPassConfig extends DefaultPassConfig {
   @Override
   protected List<PassFactory> getChecks() {
     List<PassFactory> ret = super.getChecks();
+
     List<PassFactory> specialPass = Lists.newArrayList();
 
     for (PassFactory passFactory : ret) {

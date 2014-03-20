@@ -1,100 +1,87 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <project name="closure-compiler" default="all">
 
-		<property name="compiler.dir" value="${basedir}/lib/google-closure-compiler" />
-		<property name="compiler.build.dir" value="${basedir}/lib/google-closure-compiler/build" />
-		<property name="compiler.classes.dir" value="${compiler.dir}/build/classes" />
-		<property name="compiler.test.classes.dir" value="${compiler.dir}/build/test" />
-		<property name="src.dir" value="${basedir}/src" />
-		<property name="test.dir" value="${basedir}/test" />
-		<property name="build.dir" value="${basedir}/build" />
-		<property name="classes.dir" value="${build.dir}/classes" />
-		<property name="testClasses.dir" value="${build.dir}/testClasses" />
-		<property name="closure-compiler.jar" value="${compiler.dir}/build/compiler.jar" />
-    <property name="test.fork" value="true" />
-    <property name="test.class" value="*Test"/>
+	<property name="compiler.dir" value="${basedir}/lib/google-closure-compiler" />
+	<property name="compiler.build.dir" value="${basedir}/lib/google-closure-compiler/build" />
+	<property name="compiler.classes.dir" value="${compiler.dir}/build/classes" />
+	<property name="compiler.test.classes.dir" value="${compiler.dir}/build/test" />
+	<property name="src.dir" value="${basedir}/src" />
+	<property name="test.dir" value="${basedir}/test" />
+	<property name="build.dir" value="${basedir}/build" />
+	<property name="classes.dir" value="${build.dir}/classes" />
+	<property name="testClasses.dir" value="${build.dir}/testClasses" />
+	<property name="closure-compiler.jar" value="${compiler.dir}/build/compiler.jar" />
+	<property name="test.fork" value="true" />
+	<property name="test.class" value="*Test" />
 
-		<path id="test.classpath.path">
-				<pathelement location="${classes.dir}" />
-				<pathelement location="${compiler.test.classes.dir}" />
-				<fileset dir="${compiler.dir}/lib">
-						<include name="*.jar"/>
+	<!-- Force java 7 -->
+	<property name="ant.build.javac.source" value="1.7" />
+	<property name="ant.build.javac.target" value="1.7" />
+
+	<path id="test.classpath.path">
+		<pathelement location="${classes.dir}" />
+		<pathelement location="${compiler.test.classes.dir}" />
+		<fileset dir="${compiler.dir}/lib">
+			<include name="*.jar" />
+		</fileset>
+		<fileset dir="${compiler.dir}/build">
+			<include name="compiler.jar" />
+		</fileset>
+	</path>
+
+	<target name="compiler">
+		<ant antfile="build.xml" dir="${compiler.dir}" inheritAll="false" />
+		<ant antfile="build.xml" target="compile-tests" dir="${compiler.dir}" inheritAll="false" />
+		<copy todir="${build.dir}">
+			<fileset dir="${compiler.build.dir}" includes="**/*" />
+		</copy>
+	</target>
+
+	<target name="compile" depends="compiler">
+		<mkdir dir="${classes.dir}" />
+		<javac srcdir="${src.dir}" debug="true" classpath="${closure-compiler.jar}" destdir="${classes.dir}" />
+	</target>
+
+
+	<target name="compile-tests" depends="compile" description="compile the JUnit tests">
+		<mkdir dir="${testClasses.dir}" />
+		<javac srcdir="${src.dir};${test.dir}" destdir="${testClasses.dir}" debug="on">
+			<classpath refid="test.classpath.path" />
+		</javac>
+	</target>
+
+	<target name="test" depends="compile-tests" description="Compile and execute the JUnit tests.">
+		<junit printsummary="on" fork="${test.fork}" forkmode="once" showoutput="true" failureproperty="junit.failure">
+			<classpath refid="test.classpath.path" />
+			<classpath>
+				<pathelement location="${testClasses.dir}" />
+			</classpath>
+			<batchtest todir="build/testoutput">
+				<formatter type="brief" usefile="false" />
+				<fileset dir="${testClasses.dir}">
+					<include name="**/${test.class}.class" />
 				</fileset>
-				<fileset dir="${compiler.dir}/build">
-						<include name="compiler.jar"/>
-				</fileset>
-		</path>
+			</batchtest>
+		</junit>
+	</target>
 
-    <target name="compiler">
-				<ant antfile="build.xml"
-						 dir="${compiler.dir}"
-						 inheritAll="false"/>
-    		<ant antfile="build.xml"
-    				 target="compile-tests"
-						 dir="${compiler.dir}"
-						 inheritAll="false"/>
-				<copy todir="${build.dir}">
-						<fileset dir="${compiler.build.dir}" includes="**/*"/>
-				</copy>
-    </target>
+	<target name="camp-command-line-runner" depends="test">
+		<jar destfile="${build.dir}/compiler.jar">
+			<!-- mycompiler.jar will produce its own META-INF directory -->
+			<zipfileset src="${closure-compiler.jar}" excludes="META-INF/**" />
+			<fileset dir="${classes.dir}" />
+			<manifest>
+				<attribute name="Main-Class" value="com.google.javascript.jscomp.CampCommandLineRunner" />
+			</manifest>
+		</jar>
+	</target>
 
-		<target name="compile" depends="compiler">
-				<mkdir dir="${classes.dir}" />
-				<javac srcdir="${src.dir}"
-							 debug="true"
-							 classpath="${closure-compiler.jar}"
-							 destdir="${classes.dir}"/>
-		</target>
+	<target name="clean">
+		<delete dir="${build.dir}" />
+		<delete dir="${classes.dir}" />
+		<delete dir="${compiler.build.dir}" />
+	</target>
 
-
-		<target name="compile-tests"
-						depends="compile"
-						description="compile the JUnit tests">
-				<mkdir dir="${testClasses.dir}" />
-				<javac srcdir="${src.dir};${test.dir}"
-							 destdir="${testClasses.dir}"
-							 debug="on">
-						<classpath refid="test.classpath.path" />
-				</javac>
-		</target>
-
-		<target name="test"
-						depends="compile-tests"
-						description="Compile and execute the JUnit tests.">
-				<junit printsummary="on" fork="${test.fork}"
-							 forkmode="once" showoutput="true"
-							 failureproperty="junit.failure">
-						<classpath refid="test.classpath.path" />
-						<classpath>
-								<pathelement location="${testClasses.dir}" />
-						</classpath>
-						<batchtest todir="build/testoutput">
-								<formatter type="brief" usefile="false" />
-								<fileset dir="${testClasses.dir}">
-										<include name="**/${test.class}.class" />
-								</fileset>
-						</batchtest>
-				</junit>
-		</target>
-
-		<target name="camp-command-line-runner" depends="test">
-				<jar destfile="${build.dir}/compiler.jar">
-						<!-- mycompiler.jar will produce its own META-INF directory -->
-						<zipfileset src="${closure-compiler.jar}" excludes="META-INF/**" />
-						<fileset dir="${classes.dir}" />
-						<manifest>
-								<attribute name="Main-Class"
-													 value="com.google.javascript.jscomp.CampCommandLineRunner" />
-						</manifest>
-				</jar>
-		</target>
-
-		<target name="clean">
-				<delete dir="${build.dir}" />
-				<delete dir="${classes.dir}" />
-				<delete dir="${compiler.build.dir}" />
-		</target>
-		
-		<target name="build" depends="camp-command-line-runner" />
-		<target name="all" depends="build" />
+	<target name="build" depends="camp-command-line-runner" />
+	<target name="all" depends="build" />
 </project>

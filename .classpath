@@ -5,7 +5,7 @@
 	<classpathentry including="**/*.java" kind="src" path="lib/google-closure-compiler/src"/>
 	<classpathentry including="**/*.java|**/*.zip" kind="src" path="src"/>
 	<classpathentry including="**/*.java" kind="src" path="test"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/ant-launcher.jar"/>
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/ant.jar"/>
 	<classpathentry kind="lib" path="lib/google-closure-compiler/lib/args4j.jar"/>
