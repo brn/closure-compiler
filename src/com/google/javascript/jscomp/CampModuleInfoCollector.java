@@ -32,7 +32,7 @@ final class CampModuleInfoCollector {
   static final DiagnosticType MESSAGE_MODULE_SECOND_ARGUMENT_NOT_VALID = DiagnosticType
       .error(
           "JSC_MSG_MODULE_SECOND_ARGUMENT_NOT_VALID.",
-          "The second argument of the camp.module must be a function which has an argument named <exports> only"
+          "The second argument of the camp.module must be a function"
               +
               " or array literal which contains exported name.");
 
@@ -56,7 +56,7 @@ final class CampModuleInfoCollector {
   static final DiagnosticType MESSAGE_INVALID_ACCESS_TO_ENTITY = DiagnosticType
       .error(
           "JSC_MSG_INVALID_ACCESS_TO_ENTITY.",
-          "The {0} can not use as a object and can not access to itself because that inlined by compiler.");
+          "The {0} can not use as an object and can not access to itself because that inlined by compiler.");
 
   static final DiagnosticType MESSAGE_INVALID_USE_OF_USING = DiagnosticType
       .error(
@@ -70,7 +70,7 @@ final class CampModuleInfoCollector {
 
   static final DiagnosticType MESSAGE_MAIN_NOT_FUNCTION = DiagnosticType.error(
       "JSC_MSG_MODULE_EXPORTS_Main must be a function.",
-      "exported main must be a function, variable or property.");
+      "exported main must be a function, a variable or a property.");
 
   static final DiagnosticType MESSAGE_MAIN_ALREADY_FOUNDED = DiagnosticType.error(
       "JSC_MSG_MAIN_ALREADY_FOUNDED.",
@@ -635,12 +635,12 @@ final class CampModuleInfoCollector {
       String lendsName = jsDocInfo.getLendsName();
       if (!Strings.isNullOrEmpty(lendsName)) {
         Scope scope = t.getScope();
-        if (isAliasType(t, scope, lendsName)) {
+        if (isExportedType(lendsName, scope)) {
+          moduleInfo.addExportedType(new JSDocLendsInfoMutator(n, lendsName));
+        } else if (isAliasType(t, scope, lendsName)) {
           moduleInfo.addAliasType(new JSDocLendsInfoMutator(n, lendsName));
         } else if (isLocalType(scope, lendsName)) {
           moduleInfo.addLocalType(new JSDocLendsInfoMutator(n, lendsName));
-        } else if (isExportedType(lendsName, scope)) {
-          moduleInfo.addExportedType(new JSDocLendsInfoMutator(n, lendsName));
         }
       } else {
         for (Node typeNode : jsDocInfo.getTypeNodes()) {

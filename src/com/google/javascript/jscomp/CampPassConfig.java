@@ -5,6 +5,12 @@ import java.util.List;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
+/**
+ * Special passes for the camp style module and the dependency injection.
+ * 
+ * @author aono_taketoshi
+ * 
+ */
 public class CampPassConfig extends DefaultPassConfig {
 
   private boolean inserted = false;
@@ -44,7 +50,7 @@ public class CampPassConfig extends DefaultPassConfig {
 
     for (PassFactory passFactory : ret) {
       specialPass.add(passFactory);
-      if (passFactory.equals(closureRewriteGoogClass) && !inserted) {
+      if (passFactory.equals(closureRewriteClass) && !inserted) {
         inserted = true;
         specialPass.addAll(SPECIAL_PASSES);
       } else if (passFactory.equals(checkSideEffects) && !inserted) {

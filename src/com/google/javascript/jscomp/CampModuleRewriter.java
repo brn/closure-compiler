@@ -18,6 +18,88 @@ import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
+/**
+ * This class rewrite all camp style module codes to google closure style codes.
+ * 
+ * Rewrite below code
+ * 
+ * <pre>
+ * <code>camp.module('foo.bar.baz.module', ['Point2D', 'Point3D'], function(exports) {
+ *   var PValue = camp.using('foo.bar.baz.module.PointValue');
+ *   \/**
+ *   * \@constructor
+ *   * \@param {PValue} x
+ *   * \@param {PValue} y
+ *   *\/
+ *   exports.Point2D = function(x, y) {
+ *     this.x = x;
+ *     this.y = y;
+ *   }
+ *   
+ *   \/**
+ *   * \@constructor
+ *   * \@param {PValue} x
+ *   * \@param {PValue} y
+ *   * \@param {Pvalue} z
+ *   * \@extends {exports.Point2D}
+ *   *\/
+ *   exports.Point3D = function(x, y, z) {
+ *     exports.Point3D.base(this, 'constructor', x, y);
+ *     this._z = z;
+ *   }   
+ *   
+ *   // module local variable.
+ *   var LocalClass = function() {}
+ *   
+ *   // module type alias.
+ *   exports.AliasPoint3D = exports.Point3D;
+ * });
+ * </code>
+ * </pre>
+ * 
+ * as
+ * 
+ * <pre>
+ * <code>goog.provide('foo.bar.baz.module.Point2D');
+ * goog.provide('foo.bar.baz.module.Point3D');
+ * 
+ * goog.require('foo.bar.baz.module.PointValue');
+ * \/**
+ * * \@constructor
+ * * \@param {foo.bar.baz.module.PointValue} x
+ * * \@param {foo.bar.baz.module.PointValue} y
+ * *\/
+ * foo.bar.baz.module.Point2D = function(x, y) {
+ *  this.x = x;
+ *   this.y = y;
+ * }
+ * 
+ * \/**
+ * * \@constructor
+ * * \@param {foo.bar.baz.module.PointValue} x
+ * * \@param {foo.bar.baz.module.PointValue} y
+ * * \@param {foo.bar.baz.module.PointValue} z
+ * * \@extends {foo.bar.baz.module.Point2D}
+ * *\/
+ * foo.bar.baz.module.Point3D = function(x, y, z) {
+ *   exports.Point3D.base(this, 'constructor', x, y);
+ *   this._z = z;
+ * }
+ * 
+ * // module local variables.
+ * var foo_bar_baz_module_0_LocalClass = function() {}
+ * 
+ * // module type alias.
+ * \/*
+ * * \@type {foo.bar.baz.module.Point3D} 
+ * \/*
+ * exports.AliasPoint3D = exports.Point3D;
+ * </pre>
+ * 
+ * <code>
+ * 
+ * @author aono_taketoshi
+ */
 public class CampModuleRewriter {
 
   private final AbstractCompiler compiler;
@@ -29,6 +111,14 @@ public class CampModuleRewriter {
   private final RewritePassExecutor rewritePassExecutor = new RewritePassExecutor();
 
 
+  /**
+   * Constructor.
+   * 
+   * @param compiler
+   *          The compiler class.
+   * @param campModuleTransformInfo
+   *          The module information holder.
+   */
   public CampModuleRewriter(AbstractCompiler compiler,
       CampModuleTransformInfo campModuleTransformInfo) {
     this.compiler = compiler;
@@ -37,6 +127,9 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * Rewrite all camp style modules to google closure library style module.
+   */
   public void process() {
     for (ModuleInfo moduleInfo : campModuleTransformInfo.getModuleInfoMap().values()) {
       this.rewritePassExecutor.execute(moduleInfo);
@@ -44,16 +137,29 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * Rewrite all codes using Rewriter.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class RewritePassExecutor {
-    private final ImmutableList<Rewriter> rewritePass = new ImmutableList.Builder<Rewriter>()
-        .add(new UsingCallRewriter())
-        .add(new ExportsRewriter())
-        .add(new VariableRewriter())
-        .add(new JSDocRewriter())
-        .add(new ModuleRewriter())
-        .build();
+    /**
+     * Code rewrite pass.
+     */
+    private final ImmutableList<Rewriter> rewritePass = ImmutableList.of(
+        new UsingCallRewriter(),
+        new ExportsRewriter(),
+        new VariableRewriter(),
+        new JSDocRewriter(),
+        new ModuleRewriter());
 
 
+    /**
+     * Call rewrite method of the Rewriters.
+     * 
+     * @param moduleInfo
+     */
     public void execute(ModuleInfo moduleInfo) {
       for (Rewriter rewriter : rewritePass) {
         rewriter.rewrite(moduleInfo);
@@ -62,11 +168,23 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * The interface of the Code and JSDoc rewriter.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private interface Rewriter {
     public void rewrite(ModuleInfo moduleInfo);
   }
 
 
+  /**
+   * Rewrite 'camp.using' call to 'goog.require' code.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class UsingCallRewriter implements Rewriter {
     private Set<Node> replacedSet = Sets.newHashSet();
 
@@ -80,6 +198,14 @@ public class CampModuleRewriter {
     }
 
 
+    /**
+     * Rewrite 'camp.using' call to 'goog.requrie' call.
+     * 
+     * @param moduleInfo
+     *          Current module information.
+     * @param usingCall
+     *          The 'camp.using' call node.
+     */
     private void rewriteUsing(ModuleInfo moduleInfo, Node usingCall) {
       Node parent = usingCall.getParent();
       while (parent != null && (!parent.isExprResult() && !parent.isVar())) {
@@ -93,7 +219,7 @@ public class CampModuleRewriter {
       if (parent.isVar()) {
         String varName = parent.getFirstChild().getString();
         if (moduleInfo.getAliasName(varName) == null) {
-          moduleInfo.putAliasMap(varName, qualifiedName);
+          moduleInfo.putAliasName(varName, qualifiedName);
         }
       }
 
@@ -104,6 +230,15 @@ public class CampModuleRewriter {
     }
 
 
+    /**
+     * Append 'goog.require' call to the file head.
+     * 
+     * @param usingCall
+     *          The 'camp.using' call node.
+     * @param parent
+     *          The parent node of the 'camp.using' node.
+     * @return The full qualified name of the required module.
+     */
     private Node addGoogRequire(Node usingCall, Node parent) {
       Node nameNode = Node.newString(usingCall.getFirstChild().getNext().getString());
       Node requireCall = NodeUtil.newQualifiedNameNode(convention, CampModuleConsts.GOOG_REQUIRE);
@@ -117,6 +252,19 @@ public class CampModuleRewriter {
     }
 
 
+    /**
+     * Rewrite all 'camp.using' aliased variables to the full qualified module
+     * name.
+     * 
+     * @param moduleInfo
+     *          Current module information.
+     * @param usingCall
+     *          The 'camp.using' call node.
+     * @param nameNode
+     *          Full qualified name.
+     * @param parent
+     *          The parent node of the 'camp.using' call node.
+     */
     private void rewriteVars(ModuleInfo moduleInfo, Node usingCall, Node nameNode, Node parent) {
       usingCall.getParent().replaceChild(usingCall, nameNode);
       if (parent != null && parent.isVar()) {
@@ -135,6 +283,20 @@ public class CampModuleRewriter {
     }
 
 
+    /**
+     * Replace all aliased variables to full qualified module name.
+     * 
+     * @param moduleInfo
+     *          Current module information.
+     * @param nameNode
+     *          Full qualified name node.
+     * @param varNameNode
+     *          The variable name node.
+     * @param varName
+     *          The variable name.
+     * @param target
+     *          The variable node.
+     */
     private void replaceAlias(
         ModuleInfo moduleInfo,
         Node nameNode,
@@ -151,15 +313,38 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * Rewrite namespace referenced argument to the current module full qualified
+   * name.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class ExportsRewriter implements Rewriter {
 
+    /**
+     * Resolver for all local alias variables.
+     */
     private final LocalAliasResolver localAliasResolver = new LocalAliasResolver();
 
 
+    /**
+     * Attach type annotations to the alias declarations node to more
+     * efficiently optimize code.
+     * 
+     * @author aono_taketoshi
+     * 
+     */
     private final class LocalAliasResolver {
       private Map<String, TypeInfo> inferedTypeInfoMap = Maps.newHashMap();
 
 
+      /**
+       * Attach type annotations to the alias declarations node.
+       * 
+       * @param moduleInfo
+       *          Current module information.
+       */
       public void resolve(ModuleInfo moduleInfo) {
         List<LocalAliasInfo> list = moduleInfo.getLocalAliasInfoList();
         for (LocalAliasInfo localAliasInfo : list) {
@@ -177,6 +362,18 @@ public class CampModuleRewriter {
       }
 
 
+      /**
+       * Attach JSDoc to the alias declaration node.
+       * 
+       * @param localAliasInfo
+       *          Alias information of current module.
+       * @param rvalueName
+       *          Right hand side value of the assignment node.
+       * @param typeInfo
+       *          The right hand side value type.
+       * @param moduleInfo
+       *          Current module information.
+       */
       private void attachJSDocInfo(
           LocalAliasInfo localAliasInfo,
           String rvalueName,
@@ -198,6 +395,15 @@ public class CampModuleRewriter {
       }
 
 
+      /**
+       * Build type node of the JSDoc annotation.
+       * 
+       * @param rvalueName
+       *          The right hand side value of the assigment.
+       * @param typeInfo
+       *          Aliased type information.
+       * @return The constructor type node.
+       */
       private Node buildJSDocTypeNode(String rvalueName, TypeInfo typeInfo) {
         Node paramTypeList = new Node(Token.PARAM_LIST);
         Node functionType = new Node(Token.FUNCTION, new Node(Token.NEW,
@@ -241,6 +447,16 @@ public class CampModuleRewriter {
     }
 
 
+    /**
+     * Rewrite namespace referenced node to the full qualified module name.
+     * 
+     * @param moduleInfo
+     *          Current module information.
+     * @param moduleName
+     *          Current module name.
+     * @param exports
+     *          The namespace referenced node.
+     */
     private void rewriteExports(ModuleInfo moduleInfo, String moduleName, Node exports) {
       Node tmp = exports;
 
@@ -260,6 +476,12 @@ public class CampModuleRewriter {
     }
 
 
+    /**
+     * Rewrite module main method.
+     * 
+     * @param moduleInfo
+     *          Current module information.
+     */
     private void rewriteMain(ModuleInfo moduleInfo) {
       Node main = moduleInfo.getMain();
 
@@ -277,6 +499,12 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * Rewrite module local variables to the global unique variable.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class VariableRewriter implements Rewriter {
 
     @Override
@@ -290,6 +518,13 @@ public class CampModuleRewriter {
     }
 
 
+    /**
+     * Rewrite variable name to global unique variable name.
+     * 
+     * @param moduleInfo
+     * @param declaration
+     * @param target
+     */
     private void rewriteVarName(ModuleInfo moduleInfo, Node declaration, Node target) {
       if (moduleInfo.isRenameVarBaseDeclaration(declaration)) {
         String after = moduleInfo.getRenamedVar(target.getString());
@@ -302,12 +537,20 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * Rewrite type of the JSDoc annotations.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class JSDocRewriter implements Rewriter {
-    private final ImmutableList<Rewriter> jsDocRewritePass = new ImmutableList.Builder<Rewriter>()
-        .add(new AliasTypeRewriter())
-        .add(new ExportedTypeRewriter())
-        .add(new LocalTypeRewriter())
-        .build();
+    /**
+     * The rewriter list.
+     */
+    private final ImmutableList<Rewriter> jsDocRewritePass = ImmutableList.<Rewriter> of(
+        new AliasTypeRewriter(),
+        new ExportedTypeRewriter(),
+        new LocalTypeRewriter());
 
 
     @Override
@@ -319,6 +562,12 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * The base class of the JSDoc rewriters.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private abstract class AbstractJSDocRewriter implements Rewriter {
 
     @Override
@@ -331,6 +580,16 @@ public class CampModuleRewriter {
     }
 
 
+    /**
+     * Rewrite the types of the JSDoc annotaions.
+     * 
+     * @param type
+     *          The raw type.
+     * @param mutator
+     *          The JSDoc rewriter.
+     * @param moduleInfo
+     *          Current module information.
+     */
     protected abstract void rewriteType(String type, JSDocMutator mutator, ModuleInfo moduleInfo);
 
 
@@ -368,6 +627,13 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * Rewrite namespace referenced argument to current module full qualified name
+   * in JSDoc annotations.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class ExportedTypeRewriter extends AbstractJSDocRewriter {
 
     @Override
@@ -388,6 +654,12 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * Rewrite the module local variable types to the global unique type name.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class LocalTypeRewriter extends AbstractJSDocRewriter {
 
     @Override
@@ -418,6 +690,12 @@ public class CampModuleRewriter {
   }
 
 
+  /**
+   * Rewrite 'camp.module' call to 'goog.provide' call.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class ModuleRewriter implements Rewriter {
 
     @Override
@@ -432,6 +710,11 @@ public class CampModuleRewriter {
     }
 
 
+    /**
+     * Append 'goog.provide' call to the head of the file.
+     * 
+     * @param moduleInfo
+     */
     private void addGoogProvide(ModuleInfo moduleInfo) {
       for (String name : moduleInfo.getExportedList()) {
         Node provideName = NodeUtil.newQualifiedNameNode(convention, CampModuleConsts.GOOG_PROVIDE);

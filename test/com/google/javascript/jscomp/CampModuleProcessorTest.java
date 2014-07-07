@@ -285,12 +285,14 @@ public class CampModuleProcessorTest extends CompilerTestCase {
     String[] expected = {
         code(
             "goog.provide('using.provide.Test');",
+            "/**@constructor*/",
             "using.provide.Test = function(){};",
             "using.provide.Test.prototype.test = function(){};"
         ),
         code(
             "goog.provide('using.require.Test')",
             "goog.require('using.provide.Test');",
+            "/**@constructor*/",
             "using.require.Test = function(){this._test = new using.provide.Test();}"
         )
     };
@@ -404,7 +406,9 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         code(
             "goog.provide('test.foo.bar.baz.Test');",
             "test.foo.bar.baz.Test = function(){};",
+            String.format("/**@%s {%s} actual*/", tag, expected),
             "var test_foo_bar_baz_0_a = 0;",
+            String.format("/**@%s {%s} expected*/", tag, expected),
             "var test_foo_bar_baz_0_b = 0;"
         ));
   }
@@ -431,7 +435,9 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         ),
         code(
             "goog.require('test.foo.bar.baz.Test');",
+            String.format("/**@%s {%s} actual*/", tag, expected),
             "var test_foo_bar_baz_0_a = 0;",
+            String.format("/**@%s {%s} expected*/", tag, expected),
             "var test_foo_bar_baz_0_b = 0;"
         ));
   }
@@ -458,7 +464,9 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         ),
         code(
             "var test_foo_bar_baz_0_Test = function(){};",
+            String.format("/**@%s {%s} actual*/", tag, expected),
             "var test_foo_bar_baz_0_a = 0;",
+            String.format("/**@%s {%s} expected*/", tag, expected),
             "var test_foo_bar_baz_0_b = 0;"
         ));
   }
@@ -774,8 +782,11 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         ),
         code(
             "goog.provide('test.foo.bar.baz.Type');",
+            "/**@constructor*/",
             "function test_foo_bar_baz_0_Type1() {}",
+            "/**@type {function(new:test_foo_bar_baz_0_Type1):?}*/",
             "var test_foo_bar_baz_0_expected;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type1):?}*/",
             "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type1;"
         ));
   }
@@ -796,10 +807,15 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         ),
         code(
             "goog.provide('test.foo.bar.baz.Type');",
+            "/**@constructor*/",
             "function test_foo_bar_baz_0_Type1() {}",
+            "/**@type {function(new:test_foo_bar_baz_0_Type1):?}*/",
             "var test_foo_bar_baz_0_expected;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type1):?}*/",
             "var test_foo_bar_baz_0_Type2 = test_foo_bar_baz_0_Type1;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type2):?}*/",
             "var test_foo_bar_baz_0_expected2;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type2):?}*/",
             "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type2;"
         ));
   }
@@ -824,10 +840,19 @@ public class CampModuleProcessorTest extends CompilerTestCase {
         ),
         code(
             "goog.provide('test.foo.bar.baz.Type');",
+            "/**",
+            " * @constructor",
+            " * @param {string} a",
+            " * @param {number} b",
+            "*/",
             "function test_foo_bar_baz_0_Type1(a,b) {}",
+            "/**@type {function(new:test_foo_bar_baz_0_Type1,string,number):?}*/",
             "var test_foo_bar_baz_0_expected;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type1,string,number):?}*/",
             "var test_foo_bar_baz_0_Type2 = test_foo_bar_baz_0_Type1;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type2,string,number):?}*/",
             "var test_foo_bar_baz_0_expected2;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type2,string,number):?}*/",
             "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type2;"
         ));
   }
@@ -856,10 +881,19 @@ public class CampModuleProcessorTest extends CompilerTestCase {
             "goog.provide('test.foo.bar.baz.Type');",
             "goog.require('a.Xa')",
             "var test_foo_bar_baz_0_Ma = a.Xa;",
+            "/**",
+            " * @constructor",
+            " * @param {string} a",
+            " * @param {number} b",
+            "*/",
             "function test_foo_bar_baz_0_Type1(a,b) {}",
+            "/**@type {function(new:test_foo_bar_baz_0_Type1,string,number):?}*/",
             "var test_foo_bar_baz_0_expected;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type1,string,number):?}*/",
             "var test_foo_bar_baz_0_Type2 = test_foo_bar_baz_0_Type1;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type2,string,number):?}*/",
             "var test_foo_bar_baz_0_expected2;",
+            "/**@type {function(new:test_foo_bar_baz_0_Type2,string,number):?}*/",
             "test.foo.bar.baz.Type = test_foo_bar_baz_0_Type2;"
         ));
   }
