@@ -13,14 +13,44 @@ import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 
+/**
+ * Transform dependency injection call to the inlined simple new call.
+ * 
+ * Example.
+ * 
+ * Rewrite below code
+ * 
+ * <pre><code>
+ * function Test(foo, bar, baz) {}
+ * 
+ * camp.utils.dependencies.inject(Test, {foo: 1, bar:2, baz:3});
+ * </code></pre>
+ * 
+ * 
+ * as
+ * 
+ * 
+ * <pre><code>
+ * function Test(foo, bar, baz) {}
+ * Test.jscomp$newInstance = function(binding) {
+ *   return new Test(binding.foo, binding.bar, binding.baz);
+ * }
+ * 
+ * Test.jscomp$newInstance({foo: 1, bar:2, baz:3});
+ * </code></pre>
+ * 
+ * 
+ * @author aono_taketoshi
+ * 
+ */
 public class FactoryInjectorProcessor implements HotSwapCompilerPass {
 
   private static String FACTORY_NAME = "jscomp$newInstance";
 
   private static String INSTANCE_VAR = "jscomp$instanceVar";
-  
+
   private static String BINDINGS = "bindings";
-  
+
   private long instanceId = 0;
 
   private AbstractCompiler compiler;
@@ -73,6 +103,9 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
     }
 
 
+    /**
+     * Insert a static factory method to the constructors.
+     */
     public void process() {
       if (insertedTypeInfoSet.contains(constructorInfo)) {
         return;
@@ -101,6 +134,9 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
 
     /**
      * Insert a factory method to the node trees.
+     * 
+     * @param constructorNode
+     *          The constructor declared node.
      */
     private void insertFactory(Node constructorNode) {
       Node stmtBeginning = CampUtil.getStatementBeginningNode(constructorNode);
@@ -137,9 +173,9 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
             .children()) {
           paramList.add(paramNode.getString());
         }
-        
+
         block.addChildToBack(IR.returnNode(newCall));
-        
+
         addParameters(newCall, paramList);
         addJSDocInfo(paramList, assign);
 
@@ -237,19 +273,28 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
   }
 
 
+  /**
+   * Rewrite dependency injection call to the simple new call.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class Rewriter {
+    /**
+     * Do rewrite.
+     */
     public void rewrite() {
-      rewriteResolveCalls();
-    }
-
-
-    private void rewriteResolveCalls() {
       for (InjectInfo injectInfo : factoryInjectorInfo.getInjectInfoList()) {
         createInlineBindingInjector(injectInfo);
       }
     }
 
 
+    /**
+     * Inject a static factory method to the constructors.
+     * 
+     * @param typeInfoList
+     */
     private void injectFactory(List<TypeInfo> typeInfoList) {
       for (TypeInfo typeInfo : typeInfoList) {
         new FactoryInjector(typeInfo).process();
@@ -257,6 +302,12 @@ public class FactoryInjectorProcessor implements HotSwapCompilerPass {
     }
 
 
+    /**
+     * Insert the inlined property accessors.
+     * 
+     * @param injectInfo
+     *          Current dependency injection information.
+     */
     private void createInlineBindingInjector(InjectInfo injectInfo) {
       Node injectCall = injectInfo.getNode();
       Node target = injectCall.getFirstChild().getNext();

@@ -18,7 +18,12 @@ import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
-
+/**
+ * Collect information of the camp modules.
+ * 
+ * @author aono_taketoshi
+ * 
+ */
 final class CampModuleInfoCollector {
 
   static final DiagnosticType MESSAGE_MODULE_NOT_ALLOWED_IN_CLOSURE = DiagnosticType.error(
@@ -80,10 +85,9 @@ final class CampModuleInfoCollector {
       "JSC_MSG_MAIN_ONLY_ALLOWED_IN_ASSIGNMENT.",
       "The function main only allowed to be left hand side of assignment.");
 
-  private static final ImmutableSet<String> MARKER_SET = new ImmutableSet.Builder<String>()
-      .add(CampModuleConsts.USING_CALL)
-      .add(CampModuleConsts.CAMP_MODULE_CALL)
-      .build();
+  private static final ImmutableSet<String> MARKER_SET = ImmutableSet.of(
+      CampModuleConsts.USING_CALL,
+      CampModuleConsts.CAMP_MODULE_CALL);
 
   private final CampModuleTransformInfo campModuleTransformInfo;
 
@@ -102,6 +106,19 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * Check property access of 'camp.module' and 'camp.using', because these
+   * methods are inlining by transformer, so we can't treat property access for
+   * these methods.
+   * 
+   * @param t
+   *          Current NodeTraversal
+   * @param n
+   *          The target node.
+   * @param parent
+   *          The parent node of the target node.
+   * @return true if property is accessed, otherwise false.
+   */
   private boolean isAccessToMethod(NodeTraversal t, Node n, Node parent) {
     if (n.isGetProp() && !parent.isCall()) {
       if (parent.isAssign() && parent.getFirstChild().equals(n)) {
@@ -117,6 +134,22 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * Check whether a variable is alias of an external module or not. 'Alias'
+   * means following form.
+   * 
+   * <pre>
+   * <code>"var Alias = camp.using('foo.bar.baz.Alias');"</code>
+   * </pre>
+   * 
+   * @param moduleInfo
+   *          Current module information.
+   * @param t
+   *          Current NodeTraversal
+   * @param varName
+   *          A target variable name.
+   * @return true if varName is alias of an external module, false otherwise.
+   */
   private boolean isAliasVar(ModuleInfo moduleInfo, NodeTraversal t, String varName) {
     Scope scope = t.getScope();
     Var var = scope.getVar(varName);
@@ -153,11 +186,33 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * The interface of camp style modules processor.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private interface MarkerProcessor {
+    /**
+     * Collect information of the camp style modules specific methods calls.
+     * 
+     * @param t
+     *          Current NodeTraversal
+     * @param n
+     *          The target node.
+     * @param parent
+     *          The parent node of the target node.
+     */
     public void processMarker(NodeTraversal t, Node n, Node parent);
   }
 
 
+  /**
+   * The factory of the MarkerProcessors.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class MarkerProcessorFactory {
     private ModuleInfo moduleInfo;
 
@@ -182,6 +237,17 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Choose specific MarkerProcessor instance by current node type.
+     * 
+     * @param t
+     *          Current NodeTraversal
+     * @param n
+     *          The target node.
+     * @param parent
+     *          The parent node of the target node.
+     * @return The MarkerProcessor instance that is able to process target node.
+     */
     public MarkerProcessor getProperMarkerProcessor(NodeTraversal t, Node n, Node parent) {
       if (n.isCall()) {
         Node firstChild = n.getFirstChild();
@@ -230,6 +296,12 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * The 'camp.using' call processor.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class UsingMarkerProcessor implements MarkerProcessor {
     private final ModuleInfo moduleInfo;
 
@@ -283,6 +355,13 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * The namespace reference argument(like argument x of following code
+   * 'camp.module(..., function(x){...})') property processor.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class ExportsMarkerProcessor implements MarkerProcessor {
     private final ModuleInfo moduleInfo;
 
@@ -318,6 +397,12 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * The local type alias processor.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class LocalAliasProcessor implements MarkerProcessor {
     private ModuleInfo moduleInfo;
 
@@ -349,6 +434,18 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Add local variable assignments to ModuleInfo.
+     * 
+     * @param scope
+     *          Current scope.
+     * @param n
+     *          The target node.
+     * @param lvalue
+     *          The assignment left hand side value.
+     * @param rvalue
+     *          The assignment right hand side value.
+     */
     private void addLocalAliasInfo(Scope scope, Node n, Node lvalue, Node rvalue) {
       String rvalueName = rvalue.getQualifiedName();
 
@@ -369,6 +466,12 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * The processor for JSDoc types.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class TypeInfoProcessor implements MarkerProcessor {
     private ModuleInfo moduleInfo;
 
@@ -403,6 +506,12 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * The processor for module local variables.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class VariableProcessor implements MarkerProcessor {
     private ModuleInfo moduleInfo;
 
@@ -451,6 +560,14 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Check whether variable is alias of the module local type or not.
+     * 
+     * @param rvalue
+     *          The variable left hand side value node.
+     * @return true if variable is alias of the module local type, otherwise
+     *         false.
+     */
     private boolean isAliasDecl(Node rvalue) {
       if (rvalue == null) {
         return false;
@@ -476,6 +593,12 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * Find 'camp.module' call and process call.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class ModuleCallFinder extends AbstractPostOrderCallback {
 
     @Override
@@ -502,6 +625,14 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Check whether 'camp.using' used outside of 'camp.module' or not.
+     * 
+     * @param t
+     *          Current NodeTraversal.
+     * @param n
+     *          The target node.
+     */
     private void checkUsingCall(NodeTraversal t, Node n) {
       Node tmp = n;
       while (true) {
@@ -524,6 +655,18 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Create ModuleInfo from 'camp.module' call node.
+     * 
+     * @param sourceName
+     *          Current processed filename.
+     * @param t
+     *          Current NodeTraversal
+     * @param n
+     *          The target node.
+     * @param parent
+     *          The parent node of the target node.
+     */
     private void processModule(String sourceName, NodeTraversal t, Node n, Node parent) {
       String moduleName = n.getNext().getString();
       if (!Strings.isNullOrEmpty(moduleName)) {
@@ -547,6 +690,22 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Get list of the exported modules list. The exported module list is like
+     * following code.
+     * 
+     * <pre>
+     * <code>
+     * camp.module('test.foo.bar.baz', ['Foo', 'Bar', 'Baz'], ...)
+     * </code>
+     * </pre>
+     * 
+     * The module 'Foo', 'Bar', 'Baz' is exported.
+     * 
+     * @param moduleName
+     * @param maybeArray
+     * @return
+     */
     private List<String> getExportedList(String moduleName, Node maybeArray) {
       List<String> ret = Lists.newArrayList();
       if (maybeArray.isArrayLit()) {
@@ -560,16 +719,41 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Create module id from full qualified module name.
+     * 
+     * @param moduleName
+     *          Current module fullqualified name.
+     * @return The module id.
+     */
     private String createModuleIdFrom(String moduleName) {
       return moduleName.replaceAll("\\.", "_");
     }
 
 
+    /**
+     * Check whether 'camp.module' call is valid or not.
+     * 
+     * @param t
+     *          Current NodeTraversal.
+     * @param n
+     *          The target node.
+     * @return true if 'camp.module' call is valid, otherwise false.
+     */
     private boolean isValidModuleUsage(NodeTraversal t, Node n) {
       return checkModuleIsCalledInGlobalScope(t, n) && checkModuleUsageIsValid(t, n);
     }
 
 
+    /**
+     * Check whether 'camp.module' call's arguments is valid or not.
+     * 
+     * @param t
+     *          Current NodeTraversal.
+     * @param n
+     *          The target node.
+     * @return true if 'camp.module' call's arguments is valid, otherwise false.
+     */
     private boolean checkModuleUsageIsValid(NodeTraversal t, Node n) {
       Node firstArg = n.getFirstChild().getNext();
       if (firstArg != null && firstArg.isString()) {
@@ -594,6 +778,15 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Check whether 'camp.module' is called in global scopes.
+     * 
+     * @param t
+     *          Current NodeTraversal.
+     * @param n
+     *          The 'camp.module' call node.
+     * @return true if 'camp.module' is called in global scope, otherwise false.
+     */
     private boolean checkModuleIsCalledInGlobalScope(NodeTraversal t, Node n) {
       if (!n.getParent().isExprResult()) {
         t.report(n, MESSAGE_MODULE_NOT_ALLOWED_IN_CLOSURE);
@@ -614,6 +807,12 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * Collector of JSDocInfo nodes.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class JSDocInfoCollector {
     private ModuleInfo moduleInfo;
 
@@ -623,6 +822,14 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Process JSDocInfo types.
+     * 
+     * @param t
+     *          Current NodeTraversal.
+     * @param n
+     *          Target node.
+     */
     public void processJSDocInfo(NodeTraversal t, Node n) {
       JSDocInfo jsDocInfo = n.getJSDocInfo();
       if (jsDocInfo != null) {
@@ -631,6 +838,16 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Get JSDocInfo types and set to ModuleInfo.
+     * 
+     * @param jsDocInfo
+     *          JSDocInfo attached to target node.
+     * @param t
+     *          Current NodeTraversal.
+     * @param n
+     *          The target node.
+     */
     private void checkJSDocType(JSDocInfo jsDocInfo, NodeTraversal t, Node n) {
       String lendsName = jsDocInfo.getLendsName();
       if (!Strings.isNullOrEmpty(lendsName)) {
@@ -650,10 +867,18 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Get types from JSDocInfo recursively and add to the ModuleInfo.
+     * 
+     * @param typeNode
+     *          Current type expression node.
+     * @param t
+     *          Current NodeTraversal.
+     */
     private void checkTypeNodeRecursive(Node typeNode, NodeTraversal t) {
       Node parent = typeNode.getParent();
       boolean isRecordKey = false;
-      
+
       if (parent != null) {
         if (parent.getType() == Token.COLON) {
           if (parent.getFirstChild().equals(typeNode)) {
@@ -664,7 +889,7 @@ final class CampModuleInfoCollector {
           }
         }
       }
-      
+
       if (typeNode.isString() && !isRecordKey) {
         String type = typeNode.getString();
         Scope scope = t.getScope();
@@ -684,6 +909,19 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Check whether a type expression is alias of the 'camp.using' result or
+     * not.
+     * 
+     * @param t
+     *          Current NodeTraversal.
+     * @param scope
+     *          Current scope.
+     * @param typeName
+     *          Target type expression.
+     * @return true if a type expression is alias of 'camp.using' call result,
+     *         otherwise false.
+     */
     private boolean isAliasType(NodeTraversal t, Scope scope, String typeName) {
       String type = getTopLevelName(typeName);
 
@@ -695,9 +933,19 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Check whether a type expression is the module local type or not.
+     * 
+     * @param scope
+     *          Current scope.
+     * @param typeName
+     *          Target type expression.
+     * @return true if a type expression is the module local type, otherwise
+     *         false.
+     */
     private boolean isLocalType(Scope scope, String typeName) {
       String type = getTopLevelName(typeName);
-      
+
       Var var = scope.getVar(type);
       Scope global = scope;
       while (global.getDepth() > 1) {
@@ -713,12 +961,30 @@ final class CampModuleInfoCollector {
     }
 
 
+    /**
+     * Get a root property name of the type expressions like 'Foo.Bar.Baz' =>
+     * 'Foo'.
+     * 
+     * @param type
+     *          Type expression.
+     * @return A root property name of the type property.
+     */
     private String getTopLevelName(String type) {
       String[] types = type.split("\\.");
       return types[0];
     }
 
 
+    /**
+     * Check whether type expression includes namespace reference argument.
+     * 
+     * @param type
+     *          Type expression.
+     * @param scope
+     *          Current scope.
+     * @return true if type expression includes namespace reference argument,
+     *         otherwise false.
+     */
     private boolean isExportedType(String type, Scope scope) {
       String[] splited = type.split("\\.");
       if (splited.length > 1) {
@@ -735,6 +1001,12 @@ final class CampModuleInfoCollector {
   }
 
 
+  /**
+   * The visitor implementation for 'camp.module'.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class ModuleVisitor extends AbstractPostOrderCallback {
     private MarkerProcessorFactory markerProcessorFactory;
 

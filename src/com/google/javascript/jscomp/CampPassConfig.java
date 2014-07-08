@@ -18,22 +18,20 @@ public class CampPassConfig extends DefaultPassConfig {
   @SuppressWarnings("unused")
   private CompilerOptions options;
 
-  ImmutableList<HotSwapPassFactory> SPECIAL_PASSES = new ImmutableList.Builder<HotSwapPassFactory>()
-      .add(
-          new HotSwapPassFactory("campModuleProcessor", true) {
-            @Override
-            protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-              return new CampModuleProcessor(compiler);
-            }
-          })
-      .add(
-          new HotSwapPassFactory("campFactoryInjector", true) {
-            @Override
-            protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-              return new FactoryInjectorProcessor(compiler);
-            }
-          })
-      .build();
+  ImmutableList<HotSwapPassFactory> SPECIAL_PASSES = ImmutableList.of(
+      new HotSwapPassFactory("campModuleProcessor", true) {
+        @Override
+        protected HotSwapCompilerPass create(AbstractCompiler compiler) {
+          return new CampModuleProcessor(compiler);
+        }
+      },
+
+      new HotSwapPassFactory("campFactoryInjector", true) {
+        @Override
+        protected HotSwapCompilerPass create(AbstractCompiler compiler) {
+          return new FactoryInjectorProcessor(compiler);
+        }
+      });
 
 
   public CampPassConfig(CompilerOptions option) {

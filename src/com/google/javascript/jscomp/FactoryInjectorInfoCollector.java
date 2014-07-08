@@ -9,6 +9,12 @@ import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
+/**
+ * Collect constructors informations for the factory method injection.
+ * 
+ * @author aono_taketoshi
+ * 
+ */
 public class FactoryInjectorInfoCollector {
 
   private static final String INJECT = "camp.utils.dependencies.inject";
@@ -36,13 +42,37 @@ public class FactoryInjectorInfoCollector {
   }
 
 
+  /**
+   * Collect informations of constructors.
+   * 
+   * @param externRoot
+   *          The extern file root node.
+   * @param root
+   *          The root node of main codes.
+   */
   public void process(Node externRoot, Node root) {
     NodeTraversal.traverse(compiler, root, new MarkerProcessCallback());
     NodeTraversal.traverse(compiler, root, new InjectionAliasFinder());
   }
 
 
+  /**
+   * The processor of the constructors.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class TypeMarkerProcessor {
+    /**
+     * Collect constructor informations to inject factory method.
+     * 
+     * @param t
+     *          Current NodeTraversal
+     * @param n
+     *          The target node.
+     * @param parent
+     *          The parent node of a target node.
+     */
     public void process(NodeTraversal t, Node n, Node parent) {
       TypeInfo typeInfo = null;
       String name = null;
@@ -67,6 +97,12 @@ public class FactoryInjectorInfoCollector {
   }
 
 
+  /**
+   * Collect 'camp.utils.dependencies.inject' call informations.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class InjectMarkerProcessor {
     public void process(NodeTraversal t, Node n, Node parent, boolean isInjectOnce) {
       if (isValidInjectCall(t, n)) {
@@ -75,6 +111,17 @@ public class FactoryInjectorInfoCollector {
     }
 
 
+    /**
+     * Check whether 'camp.utils.dependencies.inject' call arguments are valid
+     * or not.
+     * 
+     * @param t
+     *          Current NodeTraversal.
+     * @param n
+     *          A target node.
+     * @return true if 'camp.utils.dependencies.inject' call arguments are
+     *         valid, otherwise false.
+     */
     private boolean isValidInjectCall(NodeTraversal t, Node n) {
       Node firstChild = n.getFirstChild().getNext();
       if (firstChild == null || (!firstChild.isName() && !NodeUtil.isGet(firstChild))) {
@@ -93,6 +140,12 @@ public class FactoryInjectorInfoCollector {
   }
 
 
+  /**
+   * Visitor implementation for the processors.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class MarkerProcessCallback extends AbstractPostOrderCallback {
 
     private TypeMarkerProcessor typeMarkerProcessor = new TypeMarkerProcessor();
@@ -100,6 +153,7 @@ public class FactoryInjectorInfoCollector {
     private InjectMarkerProcessor injectMarkerProcessor = new InjectMarkerProcessor();
 
 
+    @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
       if (n.isCall()) {
         Node getprop = n.getFirstChild();
@@ -123,6 +177,12 @@ public class FactoryInjectorInfoCollector {
   }
 
 
+  /**
+   * Visitor implementations to find aliased types.
+   * 
+   * @author aono_taketoshi
+   * 
+   */
   private final class InjectionAliasFinder extends AbstractPostOrderCallback {
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
@@ -139,6 +199,14 @@ public class FactoryInjectorInfoCollector {
     }
 
 
+    /**
+     * Inspect assignment expression to check whether type is aliased or not.
+     * 
+     * @param t
+     *          Current NodeTraversal.
+     * @param n
+     *          A target node.
+     */
     private void checkAssignment(NodeTraversal t, Node n) {
       if (t.getScopeDepth() == 1) {
         Node child = n.getFirstChild();
@@ -159,15 +227,14 @@ public class FactoryInjectorInfoCollector {
     }
 
 
-    private void createAliasTypeInfoFrom(Node aliasPoint, List<TypeInfo> info, String aliasName,
-        String name) {
-      TypeInfo aliasInfo = new TypeInfo(name, aliasPoint, null);
-      factoryInjectorInfo.putTypeInfo(aliasInfo);
-      aliasInfo.setAlias();
-      aliasInfo.setAliasName(aliasName);
-    }
-
-
+    /**
+     * Inspect variable statement to check whether type is aliased or not.
+     * 
+     * @param t
+     *          Current NodeTraversal.
+     * @param n
+     *          A target node.
+     */
     private void checkVar(NodeTraversal t, Node n) {
       if (t.getScopeDepth() == 1) {
         Node nameNode = n.getFirstChild();
@@ -180,6 +247,23 @@ public class FactoryInjectorInfoCollector {
           }
         }
       }
+    }
+
+
+    /**
+     * Create the type information for the aliased type.
+     * 
+     * @param aliasPoint
+     * @param info
+     * @param aliasName
+     * @param name
+     */
+    private void createAliasTypeInfoFrom(Node aliasPoint, List<TypeInfo> info, String aliasName,
+        String name) {
+      TypeInfo aliasInfo = new TypeInfo(name, aliasPoint, null);
+      factoryInjectorInfo.putTypeInfo(aliasInfo);
+      aliasInfo.setAlias();
+      aliasInfo.setAliasName(aliasName);
     }
   }
 }
